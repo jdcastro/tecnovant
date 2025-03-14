@@ -97,6 +97,7 @@ def create_app():
         return dict(DEBUG=app.config["DEBUG"])
     
     app.jinja_env.filters['merge'] = merge_dicts
+    app.jinja_env.filters['merge_dicts'] = merge_dicts
     
     @app.context_processor
     def inject_context():

@@ -68,23 +68,21 @@ class NutrientCategory(Enum):
 
 
 class Farm(db.Model):
-    """Model representing a farm"""
-
+    """Modelo que representa una granja"""
     __tablename__ = "farms"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    user_id = db.Column(db.String(8), db.ForeignKey("users.id"), nullable=False)
-    # user = db.relationship("User", back_populates="farms")
+    org_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=False)
+    organization = db.relationship("Organization", backref="farms")
     lots = db.relationship("Lot", back_populates="farm", lazy="dynamic")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
     __table_args__ = (
-        db.Index("ix_farms_user_id", "user_id"),
-        db.Index("ix_farms_user_id_name", "user_id", "name"),
+        db.Index("ix_farms_org_id", "org_id"),
+        db.Index("ix_farms_org_id_name", "org_id", "name"),
     )
-
     def __repr__(self):
         return f"<Farm {self.name}>"
 
@@ -124,7 +122,7 @@ class Lot(db.Model):
 
 class Crop(db.Model):
     """Model representing a crop"""
-
+    # cultivos 
     __tablename__ = "crops"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -303,6 +301,9 @@ class Objective(db.Model):
     __tablename__ = "objectives"
     id = db.Column(db.Integer, primary_key=True)
     crop_id = db.Column(db.Integer, db.ForeignKey("crops.id"), nullable=False)
+    target_value = db.Column(db.Float, nullable=False)
+    protein = db.Column(db.Float)
+    rest = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

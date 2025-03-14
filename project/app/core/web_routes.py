@@ -7,10 +7,8 @@ from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_requ
 
 # Local application imports
 from . import core as web
-from .controller import InstallationView, login_required
-from .models import User, get_clients_for_user
-
-# from .models import User, get_clients_for_user
+from .controller import UserView, OrgView, InstallationView, login_required
+from .models import User, get_clients_for_user, RoleEnum
 
 __doc__ = """
 paginas de bienvenida y contenido general
@@ -138,12 +136,6 @@ def not_authorized():
     Página de error para usuarios no autorizados
     """
     return render_template("dashboard/not_authorized.j2")
-
-
-from .controller import UserView, OrgView
-from .models import get_clients_for_user, RoleEnum
-
-import logging
 
 @web.route("/dashboard/users")
 @jwt_required()
