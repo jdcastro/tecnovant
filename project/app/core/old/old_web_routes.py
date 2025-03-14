@@ -14,6 +14,7 @@ __doc__ = """
 paginas de bienvenida y contenido general
 """
 
+
 def get_dashboard_menu():
     return {
         "menu": [
@@ -22,6 +23,7 @@ def get_dashboard_menu():
             {"name": "Profile", "url": url_for("core.profile")},
         ]
     }
+
 
 @web.route("/")
 def index():
@@ -146,9 +148,9 @@ def not_authorized():
 @jwt_required()
 def amd_users():
     user_id = get_jwt_identity()
-    user_view = UserView() # instanciar la vista de usuarios
+    user_view = UserView()  # instanciar la vista de usuarios
     # obtener el listado de clientes asignados a este usuario
-    
+
     assigned_org = get_clients_for_user(user_id)
     context = {
         "dashboard": True,
@@ -159,7 +161,7 @@ def amd_users():
         "data_menu": get_dashboard_menu(),
     }
     org_dict = {org.name: org.id for org in assigned_org}
-    
+
     if isinstance(user_view._get_user_list(), tuple):
         response, status_code = user_view._get_user_list()
         items = response.get_json()

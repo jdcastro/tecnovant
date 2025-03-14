@@ -1,6 +1,7 @@
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from app.core.models import User
 
+
 def merge_dicts(original, new_values):
     """Merge two dictionaries in Jinja2."""
     if not isinstance(original, dict) or not isinstance(new_values, dict):
@@ -8,6 +9,7 @@ def merge_dicts(original, new_values):
     merged = original.copy()  # Hacemos una copia para evitar modificar el original
     merged.update(new_values)
     return merged
+
 
 def inject_user():
     user_id = None
@@ -26,9 +28,4 @@ def inject_user():
     except Exception:
         pass  # Si no hay token o hay un error, simplemente pasa
 
-    return {
-        "user_id": user_id,
-        "username": username,
-        "rol": rol
-    }
-    
+    return {"user_id": user_id, "username": username, "rol": rol}

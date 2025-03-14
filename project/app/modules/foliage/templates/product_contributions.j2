@@ -1,0 +1,16 @@
+{% extends "layouts/crud_base.j2" %}
+{# identificadores de entidad #}
+{% set entity_name = "Contribuciones" %}
+{% set entity_name_lower = "cont_producto" %}
+{% set show_select_box = True %}
+{# Mostrar la grid de ítems #}
+{% set table_headers = ["ID", "ID del producto", "Fecha de creación", "Fecha de actualización"] %}
+{% set item_fields = ["id", "product_id", "created_at", "updated_at"] %}
+
+{# formulario de editar y add #}
+{% set form_fields = {
+    'product_id': {'type': 'text', 'label': 'ID del producto', 'required': True},
+} %}
+{# entregado desde el endpoint #}
+{# api de consumo #}
+{% set api_url = url_for('foliage_api.product_contributions') %}

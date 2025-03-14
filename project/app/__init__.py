@@ -14,6 +14,7 @@ from .helpers.error_handler import setup_logging, error_handler
 from .helpers.mail import mail
 from .helpers.helpers_functions import merge_dicts, inject_user
 
+
 def init_extensions(app):
     """
     Initialize Flask extensions.
@@ -95,19 +96,16 @@ def create_app():
     @app.context_processor
     def inject_debug():
         return dict(DEBUG=app.config["DEBUG"])
-    
-    app.jinja_env.filters['merge'] = merge_dicts
-    app.jinja_env.filters['merge_dicts'] = merge_dicts
-    
+
+    app.jinja_env.filters["merge"] = merge_dicts
+    app.jinja_env.filters["merge_dicts"] = merge_dicts
+
     @app.context_processor
     def inject_context():
         """Agrega múltiples funciones al contexto de Jinja2."""
         context = {}
         context.update(inject_user())
         return context
-    
-    
-    
 
     ###############################################################
     """
@@ -133,7 +131,7 @@ def create_app():
         }
 
         return render_template("router_lister.j2", **context)
+
     ###############################################################
-    
-    
+
     return app

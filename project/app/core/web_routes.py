@@ -2,7 +2,13 @@
 
 # Third party imports
 from flask import render_template, redirect, url_for, request
-from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_required, get_jwt
+from flask_jwt_extended import (
+    verify_jwt_in_request,
+    get_jwt_identity,
+    jwt_required,
+    get_jwt,
+)
+
 # from sqlalchemy.orm import joinedload
 
 # Local application imports
@@ -14,6 +20,7 @@ __doc__ = """
 paginas de bienvenida y contenido general
 """
 
+
 def get_dashboard_menu():
     return {
         "menu": [
@@ -22,6 +29,7 @@ def get_dashboard_menu():
             {"name": "Profile", "url": url_for("core.profile")},
         ]
     }
+
 
 @web.route("/")
 def index():
@@ -93,7 +101,6 @@ def login():
     )
 
 
-
 @web.route("/logout")
 def logout():
     """Página de cierre de sesión. Implementa core_api.logout"""
@@ -137,6 +144,7 @@ def not_authorized():
     """
     return render_template("dashboard/not_authorized.j2")
 
+
 @web.route("/dashboard/users")
 @jwt_required()
 def amd_users():
@@ -157,20 +165,21 @@ def amd_users():
     items = response.get_json()
     assigned_org = get_clients_for_user(user_id)
     org_dict = {org.name: org.id for org in assigned_org}
-    # logging.error("Items obtenidos: %s, org_dict: %s", items, org_dict) 
+    # logging.error("Items obtenidos: %s, org_dict: %s", items, org_dict)
 
     if status_code != 200:
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "dashboard/users.j2", 
-            items=items, 
+            "dashboard/users.j2",
+            items=items,
             org_dict=org_dict,
-            **context, 
+            **context,
             request=request,
         ),
         200,
     )
+
 
 @web.route("/dashboard/clients")
 @jwt_required()
@@ -194,25 +203,27 @@ def amd_clients():
     if status_code != 200:
         return render_template("error.j2"), status_code
     items = response.get_json()
-    if user_role == 'administrator':
-    # Obtener todos los usuarios con rol reseller
+    if user_role == "administrator":
+        # Obtener todos los usuarios con rol reseller
         resellers = User.query.filter_by(role=RoleEnum.RESELLER).all()
-        reseller_dict = {
-            "Sin Reseller": None
-        }
+        reseller_dict = {"Sin Reseller": None}
         for user in resellers:
             reseller_dict[user.full_name] = user.id
-    elif user_role == 'reseller':
+    elif user_role == "reseller":
         # Obtener el usuario actual
         user = User.query.get(user_id)
-        reseller_dict = {
-            user.full_name: user.username
-        }
+        reseller_dict = {user.full_name: user.username}
     return (
         render_template(
-            "dashboard/clients.j2", items=items, reseller_dict=reseller_dict, **context,  request=request
-        ),200,
+            "dashboard/clients.j2",
+            items=items,
+            reseller_dict=reseller_dict,
+            **context,
+            request=request,
+        ),
+        200,
     )
+
 
 @web.route("/dashboard/profile")
 @jwt_required()
@@ -223,4 +234,5 @@ def profile():
     context = {}
     return render_template("dashboard/profile.j2", **context)
 
-web.add_url_rule('/install', view_func=InstallationView.as_view('install'))
+
+web.add_url_rule("/install", view_func=InstallationView.as_view("install"))

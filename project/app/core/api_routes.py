@@ -6,7 +6,7 @@ from flask_jwt_extended import unset_jwt_cookies
 from . import core_api as api
 from .controller import (
     login_required,
-    LoginView, 
+    LoginView,
     RefreshView,
     UserView,
     OrgView,
@@ -19,7 +19,8 @@ from .controller import (
 ####################################
 # Login, logout and refresh routes #
 ####################################
-api.add_url_rule('/login', view_func=LoginView.as_view('login'), methods=['POST'])
+api.add_url_rule("/login", view_func=LoginView.as_view("login"), methods=["POST"])
+
 
 @api.route("/logout")
 @login_required
@@ -31,25 +32,28 @@ def logout():
     unset_jwt_cookies(response)
     return response, 200
 
-api.add_url_rule('/refresh', view_func=RefreshView.as_view('refresh'), methods=['POST'])
+
+api.add_url_rule("/refresh", view_func=RefreshView.as_view("refresh"), methods=["POST"])
 
 ################################
 # Endpoints for the User model #
 ################################
 user_view = UserView.as_view("user_view")
 
-api.add_url_rule('/users/', view_func=user_view, methods=["GET", "POST", "DELETE"])
-api.add_url_rule('/users/<string:user_id>', view_func=user_view, methods=["GET", "PUT", "DELETE"])
+api.add_url_rule("/users/", view_func=user_view, methods=["GET", "POST", "DELETE"])
+api.add_url_rule(
+    "/users/<string:user_id>", view_func=user_view, methods=["GET", "PUT", "DELETE"]
+)
 
 ########################################
 # Endpoints for the Organization model #
 ########################################
 
 org_view = OrgView.as_view("org_view")
-api.add_url_rule('/org/', view_func=org_view, methods=["GET", "POST", "DELETE"])
-api.add_url_rule('/org/<int:org_id>', view_func=org_view, methods=["GET", "PUT", "DELETE"])
-
-
+api.add_url_rule("/org/", view_func=org_view, methods=["GET", "POST", "DELETE"])
+api.add_url_rule(
+    "/org/<int:org_id>", view_func=org_view, methods=["GET", "PUT", "DELETE"]
+)
 
 
 # # Registro de rutas
@@ -67,7 +71,6 @@ api.add_url_rule('/org/<int:org_id>', view_func=org_view, methods=["GET", "PUT",
 #         view_func=org_view,
 #         methods=["GET", "PUT", "DELETE"],
 #     )
-
 
 
 # # def get_user(user_id):

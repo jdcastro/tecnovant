@@ -125,8 +125,10 @@ user_organization = db.Table(
     # "Tabla de relación entre usuarios y organizaciones.",
 )
 
+
 def short_uuid():
     return hex(uuid.uuid4().int & 0xFFFFFFFF)[2:].upper()  # 8 caracteres hexadecimales
+
 
 # Clases
 class User(db.Model):
@@ -350,19 +352,16 @@ class User(db.Model):
             self.organizations.remove(organization)
             db.session.commit()
 
+
 class Organization(db.Model):
     """Modelo que representa a los clientes u organizaciones en el sistema."""
 
     __tablename__ = "organizations"
     id = db.Column(
-        db.Integer, 
-        primary_key=True, 
-        doc="Clave primaria única del cliente."
+        db.Integer, primary_key=True, doc="Clave primaria única del cliente."
     )
     name = db.Column(
-        db.String(100), 
-        nullable=False, 
-        doc="Nombre del cliente (String, no nulo)."
+        db.String(100), nullable=False, doc="Nombre del cliente (String, no nulo)."
     )
     description = db.Column(
         db.String(255),
@@ -375,10 +374,10 @@ class Organization(db.Model):
     )
     reseller_id = db.Column(
         db.Integer,
-        db.ForeignKey("reseller_packages.id", ondelete="SET NULL"),  
-        nullable=True,  
+        db.ForeignKey("reseller_packages.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
-        doc="Relación opcional con el paquete de reseller"
+        doc="Relación opcional con el paquete de reseller",
     )
     created_at = db.Column(
         db.DateTime, default=datetime.utcnow, doc="Fecha de creación del cliente."
@@ -610,7 +609,6 @@ def verify_user_in_organization(user_id: str, org_id: int) -> bool:
     return any(org.id == org_id for org in user.organizations)
 
 
-
 def get_clients_for_user(user_id: str):
     """
     Obtiene el listado de clientes asignados a un usuario específico.
@@ -628,13 +626,17 @@ def get_clients_for_user(user_id: str):
         return Organization.query.all()
     # Si el usuario es reseller, obtener las organizaciones asignadas a su paquete
     if user.is_reseller():
-        reseller_package = (ResellerPackage.query
-                             .options(joinedload(ResellerPackage.organizations))
-                             .filter_by(reseller_id=user_id).first())
+        reseller_package = (
+            ResellerPackage.query.options(joinedload(ResellerPackage.organizations))
+            .filter_by(reseller_id=user_id)
+            .first()
+        )
         if reseller_package:
             return reseller_package.organizations
     # Si el usuario no es administrador ni reseller, obtener las organizaciones a las que está directamente asignado
-    return (User.query
-            .filter_by(id=user_id)
-            .options(joinedload(User.organizations))
-            .first().organizations)
+    return (
+        User.query.filter_by(id=user_id)
+        .options(joinedload(User.organizations))
+        .first()
+        .organizations
+    )

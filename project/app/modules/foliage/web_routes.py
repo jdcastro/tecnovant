@@ -4,11 +4,13 @@ from flask import render_template, url_for, request
 
 # Local application imports
 from . import foliage as web
-from .controller import NutrientView, FarmView, LotView, CropView, ObjectiveView
+from .controller import NutrientView, FarmView, LotView, CropView, ObjectiveView, ProductView, ProductContributionView
 from .models import Farm, Crop, Nutrient
 from app.core.models import get_clients_for_user
 
+
 def get_dashboard_menu():
+    """Define el menu superior en los templates"""
     return {
         "menu": [
             {"name": "Home", "url": url_for("core.index")},
@@ -16,6 +18,7 @@ def get_dashboard_menu():
             {"name": "Profile", "url": url_for("core.profile")},
         ]
     }
+
 
 @web.route("/nutrientes")
 @jwt_required()
@@ -42,15 +45,16 @@ def nutrientes():
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "nutrients.j2", 
-            items=items, 
+            "nutrients.j2",
+            items=items,
             org_dict=org_dict,
-            **context, 
+            **context,
             request=request,
         ),
         200,
     )
-    
+
+
 @web.route("/dashboard/farms")
 @jwt_required()
 def amd_farms():
@@ -76,10 +80,10 @@ def amd_farms():
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "farms.j2", 
-            items=items, 
+            "farms.j2",
+            items=items,
             org_dict=org_dict,
-            **context, 
+            **context,
             request=request,
         ),
         200,
@@ -102,35 +106,37 @@ def amd_lots(filter_value=None):
         "data_menu": get_dashboard_menu(),
     }
     lot_view = LotView()
-    filter_value = request.args.get('filter_value')
+    filter_value = request.args.get("filter_value")
     if filter_value:
-        filter_value = int(filter_value)  
+        filter_value = int(filter_value)
         response = lot_view._get_lot_list(filter_by=filter_value)
     else:
         response = lot_view._get_lot_list()
 
     items = response.get_json()
     status_code = response.status_code
-    filter_field = 'farm_id'
-    farms = Farm.query.all() 
+    filter_field = "farm_id"
+    farms = Farm.query.all()
     filter_options = farms
-    select_url = url_for('foliage.amd_lots')
+    select_url = url_for("foliage.amd_lots")
     farms_dic = {farm.name: farm.id for farm in farms}
     if status_code != 200:
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "lots.j2", 
-            items=items, 
+            "lots.j2",
+            items=items,
             farms_dic=farms_dic,
-            **context, 
+            **context,
             request=request,
-            filter_field=filter_field, filter_options=filter_options,
-            filter_value=filter_value, select_url=select_url
+            filter_field=filter_field,
+            filter_options=filter_options,
+            filter_value=filter_value,
+            select_url=select_url,
         ),
         200,
     )
-    
+
 
 @web.route("/dashboard/crops")
 @jwt_required()
@@ -151,18 +157,19 @@ def amd_crops():
     response = crop_view._get_crop_list()
     items = response.get_json()
     status_code = response.status_code
-    
+
     if status_code != 200:
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "crops.j2", 
-            items=items, 
-            **context, 
+            "crops.j2",
+            items=items,
+            **context,
             request=request,
         ),
         200,
     )
+
 
 @web.route("/dashboard/objectives")
 @jwt_required()
@@ -230,14 +237,13 @@ def amd_objectives():
             "placeholder": f"Ej: 10.5 ({nutrient.unit})",
         }
 
-
     # base_headers = ["ID", "Cultivo", "Valor Objetivo", "Proteína", "Descanso", "Fecha de Creación", "Fecha de Actualización"]
     # nutrient_headers = [f"{nutrient.name} ({nutrient.symbol})" for nutrient in nutrient_ids]
     # table_headers = base_headers + nutrient_headers
     # base_fields = ["id", "crop_name", "target_value", "protein", "rest", "created_at", "updated_at"]
     # nutrient_fields = [f"nutrient_{nutrient.id}" for nutrient in nutrient_ids]
     # item_fields = base_fields + nutrient_fields
-    
+
     if status_code != 200:
         return render_template("error.j2"), status_code
 
@@ -251,6 +257,70 @@ def amd_objectives():
             form_fields=form_fields,
             request=request,
             **context,
+        ),
+        200,
+    )
+
+
+@web.route("/dashboard/products")
+@jwt_required()
+def amd_products():
+    """
+    Página: Renderiza la vista de productos
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de productos",
+        "description": "Administración de productos.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    product_view = ProductView()
+    response = product_view._get_product_list()
+    items = response.get_json()
+    status_code = response.status_code
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "products.j2", 
+            items=items, 
+            **context, 
+            request=request,
+        ),
+        200,
+    )
+    
+
+@web.route("/dashboard/product_contributions")
+@jwt_required()
+def amd_product_contributions():
+    """
+    Página: Renderiza la vista de contribuciones de productos
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de contribuciones de productos",
+        "description": "Administración de contribuciones de productos.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    product_contribution_view = ProductContributionView()
+    response = product_contribution_view._get_product_contribution_list()
+    items = response.get_json()
+    status_code = response.status_code
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "product_contributions.j2", 
+            items=items, 
+            **context, 
+            request=request,
         ),
         200,
     )

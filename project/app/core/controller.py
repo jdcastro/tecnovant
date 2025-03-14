@@ -2,7 +2,16 @@
 from functools import wraps
 
 # Third party imports
-from flask import request, jsonify, redirect, url_for, render_template, current_app, Response, stream_with_context
+from flask import (
+    request,
+    jsonify,
+    redirect,
+    url_for,
+    render_template,
+    current_app,
+    Response,
+    stream_with_context,
+)
 from flask.views import MethodView
 from flask_jwt_extended import (
     jwt_required,
@@ -14,7 +23,7 @@ from flask_jwt_extended import (
     get_csrf_token,
     set_access_cookies,
     set_refresh_cookies,
-    unset_jwt_cookies
+    unset_jwt_cookies,
 )
 from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized
 from sqlalchemy import inspect
@@ -33,9 +42,9 @@ from .models import (
 )
 
 
-
 def login_required(fn):
     """Decorador para revisar si el usuario está autenticado."""
+
     @wraps(fn)
     def wrapper(*args, **kwargs):
         try:
@@ -97,7 +106,7 @@ def check_permission(required_roles=None, resource_owner_check=False):
 
 class LoginView(MethodView):
     """Handle user authentication"""
-    
+
     def post(self):
         """User login endpoint
         :param str username: Registered username
@@ -111,8 +120,8 @@ class LoginView(MethodView):
             if not data:
                 return jsonify({"msg": "Missing request data"}), 400
 
-            username = data.get('username', '').strip()
-            password = data.get('password', '').strip()
+            username = data.get("username", "").strip()
+            password = data.get("password", "").strip()
 
             if not username or not password:
                 return jsonify({"msg": "Credentials required"}), 400
@@ -124,7 +133,7 @@ class LoginView(MethodView):
             claims = self._build_claims(user)
             tokens = self._generate_tokens(str(user.id), claims)
             response = self._build_response(tokens, claims)
-            
+
             return response
 
         except Exception as e:
@@ -142,10 +151,9 @@ class LoginView(MethodView):
             "username": user.username,
             "email": user.email,
             "organizations": [
-                {"id": org.id, "name": org.name}
-                for org in user.organizations
+                {"id": org.id, "name": org.name} for org in user.organizations
             ],
-            "rol": user.role.value
+            "rol": user.role.value,
         }
 
         if user.role == RoleEnum.RESELLER:
@@ -161,18 +169,20 @@ class LoginView(MethodView):
         """Generate JWT tokens"""
         return (
             create_access_token(identity=identity, additional_claims=claims),
-            create_refresh_token(identity=identity, additional_claims=claims)
+            create_refresh_token(identity=identity, additional_claims=claims),
         )
 
     def _build_response(self, tokens, claims):
         """Build final response with cookies"""
         access_token, refresh_token = tokens
-        response = jsonify({
-            "access_csrf": get_csrf_token(access_token),
-            "refresh_csrf": get_csrf_token(refresh_token),
-            "additional_claims": claims,
-            "msg": "Authentication successful"
-        })
+        response = jsonify(
+            {
+                "access_csrf": get_csrf_token(access_token),
+                "refresh_csrf": get_csrf_token(refresh_token),
+                "additional_claims": claims,
+                "msg": "Authentication successful",
+            }
+        )
         set_access_cookies(response, access_token)
         set_refresh_cookies(response, refresh_token)
         return response
@@ -180,7 +190,7 @@ class LoginView(MethodView):
 
 class RefreshView(MethodView):
     """Handle token refresh operations"""
-    
+
     @jwt_required(refresh=True)
     def post(self):
         """Refresh access token endpoint
@@ -190,24 +200,27 @@ class RefreshView(MethodView):
         try:
             current_user = get_jwt_identity()
             jwt_data = get_jwt()
-            
+
             user = User.query.get(current_user)
             if not user or not user.active:
                 return jsonify({"msg": "Invalid token"}), 401
 
-            new_claims = self._update_claims(jwt_data.get("additional_claims", {}), user)
-            new_access_token = create_access_token(
-                identity=current_user, 
-                additional_claims=new_claims
+            new_claims = self._update_claims(
+                jwt_data.get("additional_claims", {}), user
             )
-            
-            response = jsonify({
-                "access_csrf": get_csrf_token(new_access_token),
-                "additional_claims": new_claims,
-                "msg": "Token refreshed"
-            })
+            new_access_token = create_access_token(
+                identity=current_user, additional_claims=new_claims
+            )
+
+            response = jsonify(
+                {
+                    "access_csrf": get_csrf_token(new_access_token),
+                    "additional_claims": new_claims,
+                    "msg": "Token refreshed",
+                }
+            )
             set_access_cookies(response, new_access_token)
-            
+
             return response
 
         except Exception as e:
@@ -217,17 +230,18 @@ class RefreshView(MethodView):
     def _update_claims(self, existing_claims, user):
         """Update JWT claims with fresh user data"""
         updated_claims = existing_claims.copy()
-        
+
         # Actualizar datos sensibles a cambios
-        updated_claims.update({
-            "username": user.username,
-            "email": user.email,
-            "rol": user.role.value,
-            "organizations": [
-                {"id": org.id, "name": org.name}
-                for org in user.organizations
-            ]
-        })
+        updated_claims.update(
+            {
+                "username": user.username,
+                "email": user.email,
+                "rol": user.role.value,
+                "organizations": [
+                    {"id": org.id, "name": org.name} for org in user.organizations
+                ],
+            }
+        )
 
         # Actualizar organizaciones de reseller si corresponde
         if user.role == RoleEnum.RESELLER:
@@ -237,8 +251,9 @@ class RefreshView(MethodView):
                     {"id": org.id, "name": org.name}
                     for org in reseller_package.organizations
                 ]
-        
+
         return updated_claims
+
 
 # Vista para usuarios
 class UserView(MethodView):
@@ -311,7 +326,6 @@ class UserView(MethodView):
         if user_id:
             return self._delete_user(user_id=user_id)
         raise BadRequest("Missing user_id.")
-    
 
     # Métodos auxiliares
     def _get_user_list(self):
@@ -351,11 +365,11 @@ class UserView(MethodView):
         if User.query.filter_by(email=data["email"]).first():
             raise BadRequest("Email already exists.")
         ROLE_MAP = {
-            'reseller': RoleEnum.RESELLER,
-            'administrator': RoleEnum.ADMINISTRATOR,
-            'org_admin': RoleEnum.ORG_ADMIN,
-            'org_editor': RoleEnum.ORG_EDITOR,
-            'org_viewer': RoleEnum.ORG_VIEWER,
+            "reseller": RoleEnum.RESELLER,
+            "administrator": RoleEnum.ADMINISTRATOR,
+            "org_admin": RoleEnum.ORG_ADMIN,
+            "org_editor": RoleEnum.ORG_EDITOR,
+            "org_viewer": RoleEnum.ORG_VIEWER,
         }
         role = ROLE_MAP.get(data["role"].lower())
         if role is None:
@@ -390,11 +404,11 @@ class UserView(MethodView):
         if "password" in data:
             user.set_password(data["password"])
         ROLE_MAP = {
-            'reseller': RoleEnum.RESELLER,
-            'administrator': RoleEnum.ADMINISTRATOR,
-            'org_admin': RoleEnum.ORG_ADMIN,
-            'org_editor': RoleEnum.ORG_EDITOR,
-            'org_viewer': RoleEnum.ORG_VIEWER,
+            "reseller": RoleEnum.RESELLER,
+            "administrator": RoleEnum.ADMINISTRATOR,
+            "org_admin": RoleEnum.ORG_ADMIN,
+            "org_editor": RoleEnum.ORG_EDITOR,
+            "org_viewer": RoleEnum.ORG_VIEWER,
         }
         if "role" in data:
             claims = get_jwt()
@@ -415,7 +429,7 @@ class UserView(MethodView):
                         user.unassign_organization(org.id)
                 # Asignar nueva organización
                 user.assign_organization(organization_id)
-        
+
         db.session.commit()
         return jsonify(self._serialize_user(user)), 200
 
@@ -425,13 +439,13 @@ class UserView(MethodView):
 
         if user_id and user_ids:
             raise BadRequest("Solo se puede especificar user_id o user_ids, no ambos.")
-        
+
         if user_id:
             user = User.query.get_or_404(user_id)
-            user.active = False # no se borra al usuario, solo se inactiva. 
+            user.active = False  # no se borra al usuario, solo se inactiva.
             db.session.commit()
             return jsonify({"message": "User deleted successfully"}), 200
-        
+
         if user_ids:
             deleted_users = []
             for user_id in user_ids:
@@ -442,11 +456,18 @@ class UserView(MethodView):
                 deleted_users.append(user.username)
                 db.session.commit()
                 deleted_users_str = ", ".join(deleted_users)
-            return jsonify({"message": f"Users {deleted_users_str} deleted successfully"}), 200
-        
+            return (
+                jsonify({"message": f"Users {deleted_users_str} deleted successfully"}),
+                200,
+            )
+
         if not deleted_users:
-            return jsonify({"error": "No users were deleted due to permission restrictions"}), 403
-        
+            return (
+                jsonify(
+                    {"error": "No users were deleted due to permission restrictions"}
+                ),
+                403,
+            )
 
     def _has_access(self, user, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
@@ -536,10 +557,10 @@ class OrgView(MethodView):
     def delete(self, org_id=None):
         """
         Elimina una o varias organizaciones existentes.
-        
+
         Args:
             org_id (int, optional): ID de la organización a eliminar.
-        
+
         Returns:
             JSON: Mensaje de confirmación.
         """
@@ -591,18 +612,26 @@ class OrgView(MethodView):
             if claims.get("rol") == RoleEnum.ADMINISTRATOR.value:
                 reseller_user = User.query.get(data["reseller_id"])
                 if reseller_user:
-                    reseller_package = ResellerPackage.query.filter_by(reseller_id=reseller_user.id).first()
+                    reseller_package = ResellerPackage.query.filter_by(
+                        reseller_id=reseller_user.id
+                    ).first()
                     if reseller_package:
                         if reseller_package.add_client():
                             if org.reseller_id:
-                                old_reseller_package = ResellerPackage.query.get(org.reseller_id)
+                                old_reseller_package = ResellerPackage.query.get(
+                                    org.reseller_id
+                                )
                                 old_reseller_package.decrease_client()
                             org.reseller_id = reseller_package.id
                             reseller_package.increase_client()
                         else:
-                            raise BadRequest("Reseller has reached the maximum number of clients.")
+                            raise BadRequest(
+                                "Reseller has reached the maximum number of clients."
+                            )
                     else:
-                        raise BadRequest("The reseller does not have a reseller package.")
+                        raise BadRequest(
+                            "The reseller does not have a reseller package."
+                        )
                 else:
                     pass
             else:
@@ -623,18 +652,26 @@ class OrgView(MethodView):
             if claims.get("rol") == RoleEnum.ADMINISTRATOR.value:
                 reseller_user = User.query.get(data["reseller_id"])
                 if reseller_user:
-                    reseller_package = ResellerPackage.query.filter_by(reseller_id=reseller_user.id).first()
+                    reseller_package = ResellerPackage.query.filter_by(
+                        reseller_id=reseller_user.id
+                    ).first()
                     if reseller_package:
                         if reseller_package.add_client():
                             if org.reseller_id:
-                                old_reseller_package = ResellerPackage.query.get(org.reseller_id)
+                                old_reseller_package = ResellerPackage.query.get(
+                                    org.reseller_id
+                                )
                                 old_reseller_package.decrease_client()
                             org.reseller_id = reseller_package.id
                             reseller_package.increase_client()
                         else:
-                            raise BadRequest("Reseller has reached the maximum number of clients.")
+                            raise BadRequest(
+                                "Reseller has reached the maximum number of clients."
+                            )
                     else:
-                        raise BadRequest("The reseller does not have a reseller package.")
+                        raise BadRequest(
+                            "The reseller does not have a reseller package."
+                        )
                 else:
                     pass
             else:
@@ -645,21 +682,21 @@ class OrgView(MethodView):
     def _delete_organization(self, org_id=None, org_ids=None):
         """
         Elimina una o varias organizaciones marcándolas como inactivas.
-        
+
         Args:
             org_id (int, optional): ID de la organización a eliminar.
             org_ids (list, optional): Lista de IDs de organizaciones a eliminar.
-        
+
         Returns:
             JSON: Mensaje de confirmación.
         """
         if org_id and org_ids:
             raise BadRequest("Solo se puede especificar org_id o org_ids, no ambos.")
-        
+
         claims = get_jwt()
         user_role = claims.get("rol")
         user_id = claims.get("id")
-        
+
         if org_id:
             org = Organization.query.get_or_404(org_id)
             if not self._has_access(org, claims):
@@ -671,7 +708,7 @@ class OrgView(MethodView):
                     reseller_package.decrease_client()
             db.session.commit()
             return jsonify({"message": "Organization deleted successfully"}), 200
-        
+
         if org_ids:
             deleted_orgs = []
             for org_id in org_ids:
@@ -686,14 +723,28 @@ class OrgView(MethodView):
                     if reseller_package:
                         reseller_package.decrease_client()
                 deleted_orgs.append(org.name)
-            
+
             if not deleted_orgs:
-                return jsonify({"error": "No organizations were deleted due to permission restrictions"}), 403
-            
+                return (
+                    jsonify(
+                        {
+                            "error": "No organizations were deleted due to permission restrictions"
+                        }
+                    ),
+                    403,
+                )
+
             db.session.commit()
             deleted_orgs_str = ", ".join(deleted_orgs)
-            return jsonify({"message": f"Organizations {deleted_orgs_str} deleted successfully"}), 200
-        
+            return (
+                jsonify(
+                    {
+                        "message": f"Organizations {deleted_orgs_str} deleted successfully"
+                    }
+                ),
+                200,
+            )
+
         raise BadRequest("Missing org_id or org_ids.")
 
     def _has_access(self, org, claims):
@@ -722,132 +773,145 @@ class OrgView(MethodView):
             "created_at": org.created_at.isoformat(),
             "updated_at": org.updated_at.isoformat(),
         }
-        
+
 
 class InstallationView(MethodView):
     """Application installation system with improved error handling and transaction management."""
-    
+
     def __init__(self):
         self.status = {
-            'current_step': 0,
-            'steps': [
-                {'name': 'Verificando pre-instalación', 'status': 'pending', 'error': None},
-                {'name': 'Creando tablas', 'status': 'pending', 'error': None},
-                {'name': 'Creando usuario administrador', 'status': 'pending', 'error': None},
-                {'name': 'Creando organizaciones base', 'status': 'pending', 'error': None},
-                {'name': 'Generando datos demo', 'status': 'pending', 'error': None}
+            "current_step": 0,
+            "steps": [
+                {
+                    "name": "Verificando pre-instalación",
+                    "status": "pending",
+                    "error": None,
+                },
+                {"name": "Creando tablas", "status": "pending", "error": None},
+                {
+                    "name": "Creando usuario administrador",
+                    "status": "pending",
+                    "error": None,
+                },
+                {
+                    "name": "Creando organizaciones base",
+                    "status": "pending",
+                    "error": None,
+                },
+                {"name": "Generando datos demo", "status": "pending", "error": None},
             ],
-            'completed': False
+            "completed": False,
         }
 
     def get(self):
         """Render installation progress page."""
-        
-        return render_template('installer.j2', status=self.status)
+
+        return render_template("installer.j2", status=self.status)
 
     def _execute_step(self, step_index, func, *args):
         """Execute a single installation step with status tracking."""
-        self._update_step(step_index, 'in_progress')
+        self._update_step(step_index, "in_progress")
         try:
             func(*args)
-            self._update_step(step_index, 'completed')
+            self._update_step(step_index, "completed")
         except Exception as e:
-            self._update_step(step_index, 'failed', str(e))
+            self._update_step(step_index, "failed", str(e))
             raise
 
     def _update_step(self, step_index, status, error=None):
         """Update installation progress status."""
-        self.status['steps'][step_index]['status'] = status
-        self.status['steps'][step_index]['error'] = error
-        self.status['current_step'] = step_index
+        self.status["steps"][step_index]["status"] = status
+        self.status["steps"][step_index]["error"] = error
+        self.status["current_step"] = step_index
 
     def _check_pre_installation(self):
         """Verify system is already installed."""
         inspector = inspect(db.engine)
-        if inspector.has_table('users') and User.query.filter_by(role=RoleEnum.ADMINISTRATOR).first():
-            raise Exception('El sistema ya está instalado')            
+        if (
+            inspector.has_table("users")
+            and User.query.filter_by(role=RoleEnum.ADMINISTRATOR).first()
+        ):
+            raise Exception("El sistema ya está instalado")
         return True
-
 
     def _create_tables(self):
         """Create database schema."""
         try:
             db.create_all()
         except Exception as e:
-            raise Exception('Error creando tablas: Verifica la conexión a BD') from e
+            raise Exception("Error creando tablas: Verifica la conexión a BD") from e
 
     def _create_admin_user(self, form_data):
         """Create initial administrator account with validated credentials."""
         credentials = {
-            'username': form_data.get('admin_username', 'admin').strip(),
-            'password': form_data.get('admin_password', 'admin123').strip(),
-            'use_custom': 'use_custom_creds' in form_data
+            "username": form_data.get("admin_username", "admin").strip(),
+            "password": form_data.get("admin_password", "admin123").strip(),
+            "use_custom": "use_custom_creds" in form_data,
         }
 
-        if credentials['use_custom']:
-            if not credentials['username']:
-                raise ValueError('Nombre de usuario requerido')
-            if len(credentials['password']) < 8:
-                raise ValueError('La contraseña debe tener mínimo 8 caracteres')
+        if credentials["use_custom"]:
+            if not credentials["username"]:
+                raise ValueError("Nombre de usuario requerido")
+            if len(credentials["password"]) < 8:
+                raise ValueError("La contraseña debe tener mínimo 8 caracteres")
 
-        if User.get_by_username(credentials['username']):
+        if User.get_by_username(credentials["username"]):
             raise ValueError(f'Usuario {credentials["username"]} ya existe')
 
         email = f"{credentials['username']}@system.local"
         if User.get_by_email(email):
-            raise ValueError(f'Email {email} ya registrado')
+            raise ValueError(f"Email {email} ya registrado")
 
         admin = User(
-            username=credentials['username'],
+            username=credentials["username"],
             email=email,
             full_name=f"Admin ({credentials['username']})",
             role=RoleEnum.ADMINISTRATOR,
-            active=True
+            active=True,
         )
-        admin.set_password(credentials['password'])
+        admin.set_password(credentials["password"])
         db.session.add(admin)
         db.session.flush()
 
     def _create_base_organizations(self):
         """Create default system organizations."""
         default_org = {
-            'name': 'Organización Principal',
-            'description': 'Organización principal',
-            'reseller_id': None
+            "name": "Organización Principal",
+            "description": "Organización principal",
+            "reseller_id": None,
         }
 
-        if Organization.query.filter_by(name=default_org['name']).first():
+        if Organization.query.filter_by(name=default_org["name"]).first():
             raise ValueError(f'Organización {default_org["name"]} ya existe')
 
         db.session.add(Organization(**default_org))
         db.session.flush()
 
-    
     def _create_demo_data(self):
         """Generate sample data with reseller and organization users."""
         try:
             # Crear usuario reseller
             reseller_data = {
-                'username': 'demo_reseller',
-                'email': 'reseller@demo.local',
-                'full_name': 'Reseller Demo',
-                'role': RoleEnum.RESELLER,
-                'password': 'SecureResellerPass123!'
+                "username": "demo_reseller",
+                "email": "reseller@demo.local",
+                "full_name": "Reseller Demo",
+                "role": RoleEnum.RESELLER,
+                "password": "SecureResellerPass123!",
             }
-            
-            if User.get_by_username(reseller_data['username']):
+
+            if User.get_by_username(reseller_data["username"]):
                 raise ValueError(f"User {reseller_data['username']} already exists")
-            
-            reseller = User(**{k: v for k, v in reseller_data.items() if k != 'password'})
-            reseller.set_password(reseller_data['password'])
+
+            reseller = User(
+                **{k: v for k, v in reseller_data.items() if k != "password"}
+            )
+            reseller.set_password(reseller_data["password"])
             db.session.add(reseller)
             db.session.flush()
 
             # Crear paquete de reseller
             reseller_package = ResellerPackage(
-                reseller_id=reseller.id,
-                max_clients=15,
-                current_clients=0
+                reseller_id=reseller.id, max_clients=15, current_clients=0
             )
             db.session.add(reseller_package)
             db.session.flush()
@@ -856,7 +920,7 @@ class InstallationView(MethodView):
             demo_org = Organization(
                 name="Organización Demo",
                 description="Cliente de demostración",
-                profile_data={"demo": True}
+                profile_data={"demo": True},
             )
             db.session.add(demo_org)
             db.session.flush()
@@ -867,72 +931,77 @@ class InstallationView(MethodView):
             # Crear usuarios de organización
             org_users = [
                 {
-                    'username': 'org_admin',
-                    'email': 'admin@org.demo',
-                    'role': RoleEnum.ORG_ADMIN,
-                    'password': 'OrgAdminSecure123!'
+                    "username": "org_admin",
+                    "email": "admin@org.demo",
+                    "role": RoleEnum.ORG_ADMIN,
+                    "password": "OrgAdminSecure123!",
                 },
                 {
-                    'username': 'org_editor',
-                    'email': 'editor@org.demo',
-                    'role': RoleEnum.ORG_EDITOR,
-                    'password': 'EditorSecure123!'
+                    "username": "org_editor",
+                    "email": "editor@org.demo",
+                    "role": RoleEnum.ORG_EDITOR,
+                    "password": "EditorSecure123!",
                 },
                 {
-                    'username': 'demo_viewer',
-                    'email': 'viewer@org.demo',
-                    'role': RoleEnum.ORG_VIEWER,
-                    'password': 'ViewerSecure123!'
-                }
+                    "username": "demo_viewer",
+                    "email": "viewer@org.demo",
+                    "role": RoleEnum.ORG_VIEWER,
+                    "password": "ViewerSecure123!",
+                },
             ]
 
             for user_data in org_users:
-                if User.get_by_username(user_data['username']):
+                if User.get_by_username(user_data["username"]):
                     raise ValueError(f"User {user_data['username']} already exists")
-                
+
                 user = User(
-                    username=user_data['username'],
-                    email=user_data['email'],
+                    username=user_data["username"],
+                    email=user_data["email"],
                     full_name=f"{user_data['role'].description} Demo",
-                    role=user_data['role'],
-                    active=True
+                    role=user_data["role"],
+                    active=True,
                 )
-                user.set_password(user_data['password'])
+                user.set_password(user_data["password"])
                 user.organizations.append(demo_org)
                 db.session.add(user)
 
             db.session.flush()
 
         except IntegrityError as e:
-            current_app.logger.error(f'Demo data integrity error: {str(e)}')
-            raise RuntimeError('Duplicate demo data detected') from e
+            current_app.logger.error(f"Demo data integrity error: {str(e)}")
+            raise RuntimeError("Duplicate demo data detected") from e
 
     def post(self):
         """Handle installation process with transactional integrity."""
         try:
             db.session.begin_nested()
-            
+
             self._execute_step(0, self._check_pre_installation)
             self._execute_step(1, self._create_tables)
             self._execute_step(2, self._create_admin_user, request.form)
             self._execute_step(3, self._create_base_organizations)
-            
-            if request.form.get('create_demo') == 'true':
+
+            if request.form.get("create_demo") == "true":
                 self._execute_step(4, self._create_demo_data)
-            
+
             from app.modules.foliage.helpers import initialize_nutrients
+
             initialize_nutrients()
-            
+
             db.session.commit()
-            self.status['completed'] = True
-            return jsonify({
-                'success': True,
-                'redirect': url_for('core.login'),
-                'status': self.status
-            })
-            
+            self.status["completed"] = True
+            return jsonify(
+                {
+                    "success": True,
+                    "redirect": url_for("core.login"),
+                    "status": self.status,
+                }
+            )
+
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f'Installation failed: {str(e)}', exc_info=True)
-            return jsonify({'success': False, 'error': str(e), 'status': self.status}), 500
-        
+            current_app.logger.error(f"Installation failed: {str(e)}", exc_info=True)
+            return (
+                jsonify({"success": False, "error": str(e), "status": self.status}),
+                500,
+            )

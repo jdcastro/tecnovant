@@ -69,6 +69,7 @@ class NutrientCategory(Enum):
 
 class Farm(db.Model):
     """Modelo que representa una granja"""
+
     __tablename__ = "farms"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -83,6 +84,7 @@ class Farm(db.Model):
         db.Index("ix_farms_org_id", "org_id"),
         db.Index("ix_farms_org_id_name", "org_id", "name"),
     )
+
     def __repr__(self):
         return f"<Farm {self.name}>"
 
@@ -122,7 +124,8 @@ class Lot(db.Model):
 
 class Crop(db.Model):
     """Model representing a crop"""
-    # cultivos 
+
+    # cultivos
     __tablename__ = "crops"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
