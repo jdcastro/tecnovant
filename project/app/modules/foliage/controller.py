@@ -1,17 +1,19 @@
 # Python standard library imports
 import json
+from datetime import date, datetime
 
 # Third party imports
 from flask_jwt_extended import jwt_required, get_jwt
 from flask import request, jsonify, Response
 from flask.views import MethodView
-from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized
+from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized, Conflict
 from sqlalchemy.orm import joinedload
+
 
 # Local application imports
 from app.extensions import db
 from app.core.controller import check_permission
-from app.core.models import RoleEnum, ResellerPackage
+from app.core.models import RoleEnum, ResellerPackage, Organization
 from .models import (
     Farm,
     Lot,
@@ -23,6 +25,9 @@ from .models import (
     LeafAnalysis,
     Objective,
     objective_nutrients,
+    product_contribution_nutrients,
+    leaf_analysis_nutrients,
+    nutrient_application_nutrients,
     SoilAnalysis,
     Production,
     Product,
@@ -31,9 +36,17 @@ from .models import (
     Recommendation,
 )
 
+# helper
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return super().default(obj)
+
 # Vista para granjas (farms)
-
-
+# 👌
 class FarmView(MethodView):
     """Clase para gestionar operaciones CRUD sobre granjas."""
 
@@ -239,8 +252,7 @@ class FarmView(MethodView):
 
 
 # Vista para lotes (lots)
-
-
+# 👌
 class LotView(MethodView):
     """Clase para gestionar operaciones CRUD sobre lotes."""
 
@@ -455,8 +467,7 @@ class LotView(MethodView):
 
 
 # Vista para cultivos (crops)
-
-
+# 👌
 class CropView(MethodView):
     """Clase para gestionar operaciones CRUD sobre cultivos."""
 
@@ -652,438 +663,8 @@ class CropView(MethodView):
         }
 
 
-# Vista para lotes de cultivos (lot_crops)
-class LotCropView(MethodView):
-    """Clase para gestionar operaciones CRUD sobre lotes de cultivos."""
-
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, lot_crop_id=None):
-        """
-        Obtiene una lista de lotes de cultivos o un lote de cultivo específico.
-        Args:
-            lot_crop_id (str, optional): ID del lote de cultivo a consultar.
-        Returns:
-            JSON: Lista de lotes de cultivos o detalles de un lote de cultivo específico.
-        """
-        if lot_crop_id:
-            return self._get_lot_crop(lot_crop_id)
-        return self._get_lot_crop_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Crea un nuevo lote de cultivo.
-        Returns:
-            JSON: Detalles del lote de cultivo creado.
-        """
-        data = request.get_json()
-        if not data or not all(k in data for k in ("lot_id", "crop_id", "start_date")):
-            raise BadRequest("Missing required fields.")
-        return self._create_lot_crop(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, lot_crop_id):
-        """
-        Actualiza un lote de cultivo existente.
-        Args:
-            lot_crop_id (str): ID del lote de cultivo a actualizar.
-        Returns:
-            JSON: Detalles del lote de cultivo actualizado.
-        """
-        data = request.get_json()
-        if not data or not lot_crop_id:
-            raise BadRequest("Missing lot_crop_id or data.")
-        return self._update_lot_crop(lot_crop_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, lot_crop_id=None):
-        """
-        Elimina un lote de cultivo existente.
-        Args:
-            lot_crop_id (str): ID del lote de cultivo a eliminar.
-        Returns:
-            JSON: Mensaje de confirmación.
-        """
-        data = request.get_json()
-        if data and "ids" in data:
-            return self._delete_lot_crop(lot_crop_ids=data["ids"])
-        if lot_crop_id:
-            return self._delete_lot_crop(lot_crop_id=lot_crop_id)
-        raise BadRequest("Missing lot_crop_id.")
-
-    # Métodos auxiliares
-    def _get_lot_crop_list(self):
-        """Obtiene una lista de todos los lotes de cultivos activos."""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            if hasattr(LotCrop, "active"):
-                lot_crops = LotCrop.query.filter_by(active=True).all()
-            else:
-                lot_crops = LotCrop.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            lot_crops = []
-            for org in reseller_package.organizations:
-                lot_crops.extend(org.lot_crops)
-        else:
-            raise Forbidden("Only administrators and resellers can list lot_crops.")
-        response_data = [self._serialize_lot_crop(lot_crop) for lot_crop in lot_crops]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_lot_crop(self, lot_crop_id):
-        """Obtiene los detalles de un lote de cultivo específico."""
-        lot_crop = LotCrop.query.get_or_404(lot_crop_id)
-        claims = get_jwt()
-        if not self._has_access(lot_crop, claims):
-            raise Forbidden("You do not have access to this lot_crop.")
-        response_data = self._serialize_lot_crop(lot_crop)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_lot_crop(self, data):
-        """Crea un nuevo lote de cultivo con los datos proporcionados."""
-        if hasattr(LotCrop, "active"):
-            if LotCrop.query.filter_by(
-                lot_id=data["lot_id"], crop_id=data["crop_id"], active=True
-            ).first():
-                raise BadRequest("LotCrop already exists.")
-        else:
-            if LotCrop.query.filter_by(
-                lot_id=data["lot_id"], crop_id=data["crop_id"]
-            ).first():
-                raise BadRequest("LotCrop already exists.")
-        lot_crop = LotCrop(
-            lot_id=data["lot_id"],
-            crop_id=data["crop_id"],
-            start_date=data["start_date"],
-        )
-        db.session.add(lot_crop)
-        db.session.commit()
-        response_data = self._serialize_lot_crop(lot_crop)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_lot_crop(self, lot_crop_id, data):
-        """Actualiza los datos de un lote de cultivo existente."""
-        lot_crop = LotCrop.query.get_or_404(lot_crop_id)
-        if "lot_id" in data and data["lot_id"] != lot_crop.lot_id:
-            if hasattr(LotCrop, "active"):
-                if LotCrop.query.filter_by(
-                    lot_id=data["lot_id"], crop_id=lot_crop.crop_id, active=True
-                ).first():
-                    raise BadRequest("LotCrop already exists.")
-            else:
-                if LotCrop.query.filter_by(
-                    lot_id=data["lot_id"], crop_id=lot_crop.crop_id
-                ).first():
-                    raise BadRequest("LotCrop already exists.")
-            lot_crop.lot_id = data["lot_id"]
-        if "crop_id" in data:
-            lot_crop.crop_id = data["crop_id"]
-        if "start_date" in data:
-            lot_crop.start_date = data["start_date"]
-        db.session.commit()
-        response_data = self._serialize_lot_crop(lot_crop)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_lot_crop(self, lot_crop_id=None, lot_crop_ids=None):
-        """Elimina un lote de cultivo marcándolo como inactivo."""
-        claims = get_jwt()
-        if lot_crop_id and lot_crop_ids:
-            raise BadRequest(
-                "Solo se puede especificar lot_crop_id o lot_crop_ids, no ambos."
-            )
-        if lot_crop_id:
-            lot_crop = LotCrop.query.get_or_404(lot_crop_id)
-            if hasattr(lot_crop, "active"):
-                lot_crop.active = False
-            else:
-                db.session.delete(lot_crop)
-            db.session.commit()
-            return jsonify({"message": "LotCrop deleted successfully"}), 200
-        if lot_crop_ids:
-            deleted_lot_crops = []
-            for lot_crop_id in lot_crop_ids:
-                lot_crop = LotCrop.query.get(lot_crop_id)
-                if not lot_crop:
-                    continue
-                if hasattr(lot_crop, "active"):
-                    lot_crop.active = False
-                else:
-                    db.session.delete(lot_crop)
-                deleted_lot_crops.append(lot_crop.lot_id)
-                db.session.commit()
-                deleted_lot_crops_str = ", ".join(map(str, deleted_lot_crops))
-            return (
-                jsonify(
-                    {
-                        "message": f"LotCrops {deleted_lot_crops_str} deleted successfully"
-                    }
-                ),
-                200,
-            )
-        if not deleted_lot_crops:
-            return (
-                jsonify(
-                    {
-                        "error": "No lot_crops were deleted due to permission restrictions"
-                    }
-                ),
-                403,
-            )
-
-    def _has_access(self, lot_crop, claims):
-        """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in lot_crop.lot.farm.user.organizations
-            )
-        return user_id == lot_crop.lot.farm.user_id
-
-    def _serialize_lot_crop(self, lot_crop):
-        """Serializa un objeto LotCrop a un diccionario."""
-        return {
-            "id": lot_crop.id,
-            "lot_id": lot_crop.lot_id,
-            "crop_id": lot_crop.crop_id,
-            "start_date": lot_crop.start_date,
-            "created_at": lot_crop.created_at.isoformat(),
-            "updated_at": lot_crop.updated_at.isoformat(),
-        }
-
-
-# Vista para análisis comunes (common_analyses)
-class CommonAnalysisView(MethodView):
-    """Clase para gestionar operaciones CRUD sobre análisis comunes."""
-
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, common_analysis_id=None):
-        """
-        Obtiene una lista de análisis comunes o un análisis común específico.
-        Args:
-            common_analysis_id (str, optional): ID del análisis común a consultar.
-        Returns:
-            JSON: Lista de análisis comunes o detalles de un análisis común específico.
-        """
-        if common_analysis_id:
-            return self._get_common_analysis(common_analysis_id)
-        return self._get_common_analysis_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Crea un nuevo análisis común.
-        Returns:
-            JSON: Detalles del análisis común creado.
-        """
-        data = request.get_json()
-        if not data or not all(k in data for k in ("date", "lot_id")):
-            raise BadRequest("Missing required fields.")
-        return self._create_common_analysis(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, common_analysis_id):
-        """
-        Actualiza un análisis común existente.
-        Args:
-            common_analysis_id (str): ID del análisis común a actualizar.
-        Returns:
-            JSON: Detalles del análisis común actualizado.
-        """
-        data = request.get_json()
-        if not data or not common_analysis_id:
-            raise BadRequest("Missing common_analysis_id or data.")
-        return self._update_common_analysis(common_analysis_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, common_analysis_id=None):
-        """
-        Elimina un análisis común existente.
-        Args:
-            common_analysis_id (str): ID del análisis común a eliminar.
-        Returns:
-            JSON: Mensaje de confirmación.
-        """
-        data = request.get_json()
-        if data and "ids" in data:
-            return self._delete_common_analysis(common_analysis_ids=data["ids"])
-        if common_analysis_id:
-            return self._delete_common_analysis(common_analysis_id=common_analysis_id)
-        raise BadRequest("Missing common_analysis_id.")
-
-    # Métodos auxiliares
-    def _get_common_analysis_list(self):
-        """Obtiene una lista de todos los análisis comunes activos."""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            if hasattr(CommonAnalysis, "active"):
-                common_analyses = CommonAnalysis.query.filter_by(active=True).all()
-            else:
-                common_analyses = CommonAnalysis.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            common_analyses = []
-            for org in reseller_package.organizations:
-                common_analyses.extend(org.common_analyses)
-        else:
-            raise Forbidden(
-                "Only administrators and resellers can list common_analyses."
-            )
-        response_data = [
-            self._serialize_common_analysis(common_analysis)
-            for common_analysis in common_analyses
-        ]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_common_analysis(self, common_analysis_id):
-        """Obtiene los detalles de un análisis común específico."""
-        common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
-        claims = get_jwt()
-        if not self._has_access(common_analysis, claims):
-            raise Forbidden("You do not have access to this common_analysis.")
-        response_data = self._serialize_common_analysis(common_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_common_analysis(self, data):
-        """Crea un nuevo análisis común con los datos proporcionados."""
-        if hasattr(CommonAnalysis, "active"):
-            if CommonAnalysis.query.filter_by(
-                date=data["date"], lot_id=data["lot_id"], active=True
-            ).first():
-                raise BadRequest("CommonAnalysis already exists.")
-        else:
-            if CommonAnalysis.query.filter_by(
-                date=data["date"], lot_id=data["lot_id"]
-            ).first():
-                raise BadRequest("CommonAnalysis already exists.")
-        common_analysis = CommonAnalysis(
-            date=data["date"],
-            lot_id=data["lot_id"],
-        )
-        db.session.add(common_analysis)
-        db.session.commit()
-        response_data = self._serialize_common_analysis(common_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_common_analysis(self, common_analysis_id, data):
-        """Actualiza los datos de un análisis común existente."""
-        common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
-        if "date" in data:
-            common_analysis.date = data["date"]
-        if "lot_id" in data:
-            common_analysis.lot_id = data["lot_id"]
-        db.session.commit()
-        response_data = self._serialize_common_analysis(common_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_common_analysis(
-        self, common_analysis_id=None, common_analysis_ids=None
-    ):
-        """Elimina un análisis común marcándolo como inactivo."""
-        claims = get_jwt()
-        if common_analysis_id and common_analysis_ids:
-            raise BadRequest(
-                "Solo se puede especificar common_analysis_id o common_analysis_ids, no ambos."
-            )
-        if common_analysis_id:
-            common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
-            if hasattr(common_analysis, "active"):
-                common_analysis.active = False
-            else:
-                db.session.delete(common_analysis)
-            db.session.commit()
-            return jsonify({"message": "CommonAnalysis deleted successfully"}), 200
-        if common_analysis_ids:
-            deleted_common_analyses = []
-            for common_analysis_id in common_analysis_ids:
-                common_analysis = CommonAnalysis.query.get(common_analysis_id)
-                if not common_analysis:
-                    continue
-                if hasattr(common_analysis, "active"):
-                    common_analysis.active = False
-                else:
-                    db.session.delete(common_analysis)
-                deleted_common_analyses.append(common_analysis.lot_id)
-                db.session.commit()
-                deleted_common_analyses_str = ", ".join(
-                    map(str, deleted_common_analyses)
-                )
-            return (
-                jsonify(
-                    {
-                        "message": f"CommonAnalyses {deleted_common_analyses_str} deleted successfully"
-                    }
-                ),
-                200,
-            )
-        if not deleted_common_analyses:
-            return (
-                jsonify(
-                    {
-                        "error": "No common_analyses were deleted due to permission restrictions"
-                    }
-                ),
-                403,
-            )
-
-    def _has_access(self, common_analysis, claims):
-        """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in common_analysis.lot.farm.user.organizations
-            )
-        return user_id == common_analysis.lot.farm.user_id
-
-    def _serialize_common_analysis(self, common_analysis):
-        """Serializa un objeto CommonAnalysis a un diccionario."""
-        return {
-            "id": common_analysis.id,
-            "date": common_analysis.date,
-            "lot_id": common_analysis.lot_id,
-            "created_at": common_analysis.created_at.isoformat(),
-            "updated_at": common_analysis.updated_at.isoformat(),
-        }
-
-
 # Vista para nutrientes (nutrients)
+# 👌
 class NutrientView(MethodView):
     """Clase para gestionar operaciones CRUD sobre nutrientes."""
 
@@ -1296,436 +877,8 @@ class NutrientView(MethodView):
         }
 
 
-# Vista para análisis de hojas (leaf_analyses)
-class LeafAnalysisView(MethodView):
-    """Clase para gestionar operaciones CRUD sobre análisis de hojas."""
 
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, leaf_analysis_id=None):
-        """
-        Obtiene una lista de análisis de hojas o un análisis de hoja específico.
-        Args:
-            leaf_analysis_id (str, optional): ID del análisis de hoja a consultar.
-        Returns:
-            JSON: Lista de análisis de hojas o detalles de un análisis de hoja específico.
-        """
-        if leaf_analysis_id:
-            return self._get_leaf_analysis(leaf_analysis_id)
-        return self._get_leaf_analysis_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Crea un nuevo análisis de hoja.
-        Returns:
-            JSON: Detalles del análisis de hoja creado.
-        """
-        data = request.get_json()
-        if not data or not all(k in data for k in ("common_analysis_id",)):
-            raise BadRequest("Missing required fields.")
-        return self._create_leaf_analysis(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, leaf_analysis_id):
-        """
-        Actualiza un análisis de hoja existente.
-        Args:
-            leaf_analysis_id (str): ID del análisis de hoja a actualizar.
-        Returns:
-            JSON: Detalles del análisis de hoja actualizado.
-        """
-        data = request.get_json()
-        if not data or not leaf_analysis_id:
-            raise BadRequest("Missing leaf_analysis_id or data.")
-        return self._update_leaf_analysis(leaf_analysis_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, leaf_analysis_id=None):
-        """
-        Elimina un análisis de hoja existente.
-        Args:
-            leaf_analysis_id (str): ID del análisis de hoja a eliminar.
-        Returns:
-            JSON: Mensaje de confirmación.
-        """
-        data = request.get_json()
-        if data and "ids" in data:
-            return self._delete_leaf_analysis(leaf_analysis_ids=data["ids"])
-        if leaf_analysis_id:
-            return self._delete_leaf_analysis(leaf_analysis_id=leaf_analysis_id)
-        raise BadRequest("Missing leaf_analysis_id.")
-
-    # Métodos auxiliares
-    def _get_leaf_analysis_list(self):
-        """Obtiene una lista de todos los análisis de hojas activos."""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            if hasattr(LeafAnalysis, "active"):
-                leaf_analyses = LeafAnalysis.query.filter_by(active=True).all()
-            else:
-                leaf_analyses = LeafAnalysis.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            leaf_analyses = []
-            for org in reseller_package.organizations:
-                leaf_analyses.extend(org.leaf_analyses)
-        else:
-            raise Forbidden("Only administrators and resellers can list leaf_analyses.")
-        response_data = [
-            self._serialize_leaf_analysis(leaf_analysis)
-            for leaf_analysis in leaf_analyses
-        ]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_leaf_analysis(self, leaf_analysis_id):
-        """Obtiene los detalles de un análisis de hoja específico."""
-        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
-        claims = get_jwt()
-        if not self._has_access(leaf_analysis, claims):
-            raise Forbidden("You do not have access to this leaf_analysis.")
-        response_data = self._serialize_leaf_analysis(leaf_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_leaf_analysis(self, data):
-        """Crea un nuevo análisis de hoja con los datos proporcionados."""
-        if hasattr(LeafAnalysis, "active"):
-            if LeafAnalysis.query.filter_by(
-                common_analysis_id=data["common_analysis_id"], active=True
-            ).first():
-                raise BadRequest("LeafAnalysis already exists.")
-        else:
-            if LeafAnalysis.query.filter_by(
-                common_analysis_id=data["common_analysis_id"]
-            ).first():
-                raise BadRequest("LeafAnalysis already exists.")
-        leaf_analysis = LeafAnalysis(
-            common_analysis_id=data["common_analysis_id"],
-        )
-        db.session.add(leaf_analysis)
-        db.session.commit()
-        response_data = self._serialize_leaf_analysis(leaf_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_leaf_analysis(self, leaf_analysis_id, data):
-        """Actualiza los datos de un análisis de hoja existente."""
-        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
-        if "common_analysis_id" in data:
-            leaf_analysis.common_analysis_id = data["common_analysis_id"]
-        db.session.commit()
-        response_data = self._serialize_leaf_analysis(leaf_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_leaf_analysis(self, leaf_analysis_id=None, leaf_analysis_ids=None):
-        """Elimina un análisis de hoja marcándolo como inactivo."""
-        claims = get_jwt()
-        if leaf_analysis_id and leaf_analysis_ids:
-            raise BadRequest(
-                "Solo se puede especificar leaf_analysis_id o leaf_analysis_ids, no ambos."
-            )
-        if leaf_analysis_id:
-            leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
-            if hasattr(leaf_analysis, "active"):
-                leaf_analysis.active = False
-            else:
-                db.session.delete(leaf_analysis)
-            db.session.commit()
-            return jsonify({"message": "LeafAnalysis deleted successfully"}), 200
-        if leaf_analysis_ids:
-            deleted_leaf_analyses = []
-            for leaf_analysis_id in leaf_analysis_ids:
-                leaf_analysis = LeafAnalysis.query.get(leaf_analysis_id)
-                if not leaf_analysis:
-                    continue
-                if hasattr(leaf_analysis, "active"):
-                    leaf_analysis.active = False
-                else:
-                    db.session.delete(leaf_analysis)
-                deleted_leaf_analyses.append(leaf_analysis.common_analysis_id)
-                db.session.commit()
-                deleted_leaf_analyses_str = ", ".join(map(str, deleted_leaf_analyses))
-            return (
-                jsonify(
-                    {
-                        "message": f"LeafAnalyses {deleted_leaf_analyses_str} deleted successfully"
-                    }
-                ),
-                200,
-            )
-        if not deleted_leaf_analyses:
-            return (
-                jsonify(
-                    {
-                        "error": "No leaf_analyses were deleted due to permission restrictions"
-                    }
-                ),
-                403,
-            )
-
-    def _has_access(self, leaf_analysis, claims):
-        """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in leaf_analysis.common_analysis.lot.farm.user.organizations
-            )
-        return user_id == leaf_analysis.common_analysis.lot.farm.user_id
-
-    def _serialize_leaf_analysis(self, leaf_analysis):
-        """Serializa un objeto LeafAnalysis a un diccionario."""
-        return {
-            "id": leaf_analysis.id,
-            "common_analysis_id": leaf_analysis.common_analysis_id,
-            "created_at": leaf_analysis.created_at.isoformat(),
-            "updated_at": leaf_analysis.updated_at.isoformat(),
-        }
-
-
-# Vista para aplicaciones de nutrientes (nutrient_applications)
-class NutrientApplicationView(MethodView):
-    """Clase para gestionar operaciones CRUD sobre aplicaciones de nutrientes."""
-
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, nutrient_application_id=None):
-        """
-        Obtiene una lista de aplicaciones de nutrientes o una aplicación de nutriente específico.
-        Args:
-            nutrient_application_id (str, optional): ID de la aplicación de nutriente a consultar.
-        Returns:
-            JSON: Lista de aplicaciones de nutrientes o detalles de una aplicación de nutriente específico.
-        """
-        if nutrient_application_id:
-            return self._get_nutrient_application(nutrient_application_id)
-        return self._get_nutrient_application_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Crea una nueva aplicación de nutriente.
-        Returns:
-            JSON: Detalles de la aplicación de nutriente creada.
-        """
-        data = request.get_json()
-        if not data or not all(k in data for k in ("date", "lot_id")):
-            raise BadRequest("Missing required fields.")
-        return self._create_nutrient_application(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, nutrient_application_id):
-        """
-        Actualiza una aplicación de nutriente existente.
-        Args:
-            nutrient_application_id (str): ID de la aplicación de nutriente a actualizar.
-        Returns:
-            JSON: Detalles de la aplicación de nutriente actualizada.
-        """
-        data = request.get_json()
-        if not data or not nutrient_application_id:
-            raise BadRequest("Missing nutrient_application_id or data.")
-        return self._update_nutrient_application(nutrient_application_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, nutrient_application_id=None):
-        """
-        Elimina una aplicación de nutriente existente.
-        Args:
-            nutrient_application_id (str): ID de la aplicación de nutriente a eliminar.
-        Returns:
-            JSON: Mensaje de confirmación.
-        """
-        data = request.get_json()
-        if data and "ids" in data:
-            return self._delete_nutrient_application(
-                nutrient_application_ids=data["ids"]
-            )
-        if nutrient_application_id:
-            return self._delete_nutrient_application(
-                nutrient_application_id=nutrient_application_id
-            )
-        raise BadRequest("Missing nutrient_application_id.")
-
-    # Métodos auxiliares
-    def _get_nutrient_application_list(self):
-        """Obtiene una lista de todos los nutrientes aplicados activos."""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            if hasattr(NutrientApplication, "active"):
-                nutrient_applications = NutrientApplication.query.filter_by(
-                    active=True
-                ).all()
-            else:
-                nutrient_applications = NutrientApplication.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            nutrient_applications = []
-            for org in reseller_package.organizations:
-                nutrient_applications.extend(org.nutrient_applications)
-        else:
-            raise Forbidden(
-                "Only administrators and resellers can list nutrient_applications."
-            )
-        response_data = [
-            self._serialize_nutrient_application(nutrient_application)
-            for nutrient_application in nutrient_applications
-        ]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_nutrient_application(self, nutrient_application_id):
-        """Obtiene los detalles de una aplicación de nutriente específico."""
-        nutrient_application = NutrientApplication.query.get_or_404(
-            nutrient_application_id
-        )
-        claims = get_jwt()
-        if not self._has_access(nutrient_application, claims):
-            raise Forbidden("You do not have access to this nutrient_application.")
-        response_data = self._serialize_nutrient_application(nutrient_application)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_nutrient_application(self, data):
-        """Crea una nueva aplicación de nutriente con los datos proporcionados."""
-        if hasattr(NutrientApplication, "active"):
-            if NutrientApplication.query.filter_by(
-                date=data["date"], lot_id=data["lot_id"], active=True
-            ).first():
-                raise BadRequest("NutrientApplication already exists.")
-        else:
-            if NutrientApplication.query.filter_by(
-                date=data["date"], lot_id=data["lot_id"]
-            ).first():
-                raise BadRequest("NutrientApplication already exists.")
-        nutrient_application = NutrientApplication(
-            date=data["date"],
-            lot_id=data["lot_id"],
-        )
-        db.session.add(nutrient_application)
-        db.session.commit()
-        response_data = self._serialize_nutrient_application(nutrient_application)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_nutrient_application(self, nutrient_application_id, data):
-        """Actualiza los datos de una aplicación de nutriente existente."""
-        nutrient_application = NutrientApplication.query.get_or_404(
-            nutrient_application_id
-        )
-        if "date" in data:
-            nutrient_application.date = data["date"]
-        if "lot_id" in data:
-            nutrient_application.lot_id = data["lot_id"]
-        db.session.commit()
-        response_data = self._serialize_nutrient_application(nutrient_application)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_nutrient_application(
-        self, nutrient_application_id=None, nutrient_application_ids=None
-    ):
-        """Elimina una aplicación de nutriente marcándolo como inactivo."""
-        claims = get_jwt()
-        if nutrient_application_id and nutrient_application_ids:
-            raise BadRequest(
-                "Solo se puede especificar nutrient_application_id o nutrient_application_ids, no ambos."
-            )
-        if nutrient_application_id:
-            nutrient_application = NutrientApplication.query.get_or_404(
-                nutrient_application_id
-            )
-            if hasattr(nutrient_application, "active"):
-                nutrient_application.active = False
-            else:
-                db.session.delete(nutrient_application)
-            db.session.commit()
-            return jsonify({"message": "NutrientApplication deleted successfully"}), 200
-        if nutrient_application_ids:
-            deleted_nutrient_applications = []
-            for nutrient_application_id in nutrient_application_ids:
-                nutrient_application = NutrientApplication.query.get(
-                    nutrient_application_id
-                )
-                if not nutrient_application:
-                    continue
-                if hasattr(nutrient_application, "active"):
-                    nutrient_application.active = False
-                else:
-                    db.session.delete(nutrient_application)
-                deleted_nutrient_applications.append(nutrient_application.lot_id)
-                db.session.commit()
-                deleted_nutrient_applications_str = ", ".join(
-                    map(str, deleted_nutrient_applications)
-                )
-            return (
-                jsonify(
-                    {
-                        "message": f"NutrientApplications {deleted_nutrient_applications_str} deleted successfully"
-                    }
-                ),
-                200,
-            )
-        if not deleted_nutrient_applications:
-            return (
-                jsonify(
-                    {
-                        "error": "No nutrient_applications were deleted due to permission restrictions"
-                    }
-                ),
-                403,
-            )
-
-    def _has_access(self, nutrient_application, claims):
-        """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in nutrient_application.lot.farm.user.organizations
-            )
-        return user_id == nutrient_application.lot.farm.user_id
-
-    def _serialize_nutrient_application(self, nutrient_application):
-        """Serializa un objeto NutrientApplication a un diccionario."""
-        return {
-            "id": nutrient_application.id,
-            "date": nutrient_application.date,
-            "lot_id": nutrient_application.lot_id,
-            "created_at": nutrient_application.created_at.isoformat(),
-            "updated_at": nutrient_application.updated_at.isoformat(),
-        }
-
-
+# 👌
 class ObjectiveView(MethodView):
     """Class to manage CRUD operations for nutrient objectives tied to crops"""
 
@@ -2042,320 +1195,7 @@ class ObjectiveView(MethodView):
 # }
 
 
-class SoilAnalysisView(MethodView):
-    """Class to manage CRUD operations for soil analyses"""
-
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, soil_analysis_id=None):
-        """
-        Retrieve a list of soil analyses or a specific soil analysis
-        Args:
-            soil_analysis_id (int, optional): ID of the soil analysis to retrieve
-        Returns:
-            JSON: List of soil analyses or details of a specific soil analysis
-        """
-        if soil_analysis_id:
-            return self._get_soil_analysis(soil_analysis_id)
-        return self._get_soil_analysis_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Create a new soil analysis
-        Returns:
-            JSON: Details of the created soil analysis
-        """
-        data = request.get_json()
-        required_fields = ["common_analysis_id", "energy", "grazing"]
-        if not data or not all(k in data for k in required_fields):
-            raise BadRequest("Missing required fields")
-        return self._create_soil_analysis(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, id: int):
-        """
-        Update an existing soil analysis
-        Args:
-            soil_analysis_id (int): ID of the soil analysis to update
-        Returns:
-            JSON: Details of the updated soil analysis
-        """
-        data = request.get_json()
-        soil_analysis_id = id
-        if not data or not soil_analysis_id:
-            raise BadRequest("Missing soil_analysis_id or data")
-        return self._update_soil_analysis(soil_analysis_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, id=None):
-        """
-        Delete an existing soil analysis
-        Args:
-            soil_analysis_id (int): ID of the soil analysis to delete
-        Returns:
-            JSON: Confirmation message
-        """
-        soil_analysis_id = id
-        if not soil_analysis_id:
-            raise BadRequest("Missing soil_analysis_id")
-        return self._delete_soil_analysis(soil_analysis_id)
-
-    # Helper Methods
-    def _get_soil_analysis_list(self):
-        """Retrieve a list of all soil analyses"""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            soil_analyses = SoilAnalysis.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            soil_analyses = []
-            for organization in reseller_package.organizations:
-                for common_analysis in organization.common_analyses:
-                    soil_analyses.extend / common_analysis.soil_analysis
-        else:
-            raise Forbidden("Only administrators and resellers can list soil analyses")
-        response_data = [self._serialize_soil_analysis(sa) for sa in soil_analyses]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_soil_analysis(self, soil_analysis_id):
-        """Retrieve details of a specific soil analysis"""
-        soil_analysis = SoilAnalysis.query.get_or_404(soil_analysis_id)
-        claims = get_jwt()
-        if not self._has_access(soil_analysis, claims):
-            raise Forbidden("You do not have access to this soil analysis")
-        response_data = self._serialize_soil_analysis(soil_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_soil_analysis(self, data):
-        """Create a new soil analysis"""
-        common_analysis_id = data["common_analysis_id"]
-        energy = data["energy"]
-        grazing = data["grazing"]
-        soil_analysis = SoilAnalysis(
-            common_analysis_id=common_analysis_id, energy=energy, grazing=grazing
-        )
-        db.session.add(soil_analysis)
-        db.session.commit()
-        response_data = self._serialize_soil_analysis(soil_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_soil_analysis(self, soil_analysis_id, data):
-        """Update an existing soil analysis"""
-        soil_analysis = SoilAnalysis.query.get_or_404(soil_analysis_id)
-        if "energy" in data:
-            soil_analysis.energy = data["energy"]
-        if "grazing" in data:
-            soil_analysis.grazing = data["grazing"]
-        db.session.commit()
-        response_data = self._serialize_soil_analysis(soil_analysis)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_soil_analysis(self, soil_analysis_id):
-        """Delete an existing soil analysis"""
-        soil_analysis = SoilAnalysis.query.get_or_404(soil_analysis_id)
-        db.session.delete(soil_analysis)
-        db.session.commit()
-        return jsonify({"message": "Soil analysis deleted successfully"}), 200
-
-    def _has_access(self, soil_analysis, claims):
-        """Check if the current user has access to the soil analysis"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == soil_analysis.common_analysis.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
-
-    def _serialize_soil_analysis(self, soil_analysis):
-        """Serialize a SoilAnalysis object to a dictionary"""
-        return {
-            "id": soil_analysis.id,
-            "common_analysis_id": soil_analysis.common_analysis_id,
-            "energy": soil_analysis.energy,
-            "grazing": soil_analysis.grazing,
-            "created_at": soil_analysis.created_at.isoformat(),
-            "updated_at": soil_analysis.updated_at.isoformat(),
-        }
-
-
-class ProductionView(MethodView):
-    """Class to manage CRUD operations for productions"""
-
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, production_id=None):
-        """
-        Retrieve a list of productions or a specific production
-        Args:
-            production_id (int, optional): ID of the production to retrieve
-        Returns:
-            JSON: List of productions or details of a specific production
-        """
-        if production_id:
-            return self._get_production(production_id)
-        return self._get_production_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Create a new production
-        Returns:
-            JSON: Details of the created production
-        """
-        data = request.get_json()
-        required_fields = ["lot_id", "date", "area", "production_kg"]
-        if not data or not all(k in data for k in required_fields):
-            raise BadRequest("Missing required fields")
-        return self._create_production(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, id: int):
-        """
-        Update an existing production
-        Args:
-            production_id (int): ID of the production to update
-        Returns:
-            JSON: Details of the updated production
-        """
-        data = request.get_json()
-        production_id = id
-        if not data or not production_id:
-            raise BadRequest("Missing production_id or data")
-        return self._update_production(production_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, id=None):
-        """
-        Delete an existing production
-        Args:
-            production_id (int): ID of the production to delete
-        Returns:
-            JSON: Confirmation message
-        """
-        production_id = id
-        if not production_id:
-            raise BadRequest("Missing production_id")
-        return self._delete_production(production_id)
-
-    # Helper Methods
-    def _get_production_list(self):
-        """Retrieve a list of all productions"""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            productions = Production.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            productions = []
-            for organization in reseller_package.organizations:
-                for lot in organization.lots:
-                    productions.extend(lot.productions)
-        else:
-            raise Forbidden("Only administrators and resellers can list productions")
-        response_data = [self._serialize_production(p) for p in productions]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_production(self, production_id):
-        """Retrieve details of a specific production"""
-        production = Production.query.get_or_404(production_id)
-        claims = get_jwt()
-        if not self._has_access(production, claims):
-            raise Forbidden("You do not have access to this production")
-        response_data = self._serialize_production(production)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_production(self, data):
-        """Create a new production"""
-        lot_id = data["lot_id"]
-        date = data["date"]
-        area = data["area"]
-        production_kg = data["production_kg"]
-        production = Production(
-            lot_id=lot_id, date=date, area=area, production_kg=production_kg
-        )
-        db.session.add(production)
-        db.session.commit()
-        response_data = self._serialize_production(production)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_production(self, production_id, data):
-        """Update an existing production"""
-        production = Production.query.get_or_404(production_id)
-        if "date" in data:
-            production.date = data["date"]
-        if "area" in data:
-            production.area = data["area"]
-        if "production_kg" in data:
-            production.production_kg = data["production_kg"]
-        db.session.commit()
-        response_data = self._serialize_production(production)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_production(self, production_id):
-        """Delete an existing production"""
-        production = Production.query.get_or_404(production_id)
-        db.session.delete(production)
-        db.session.commit()
-        return jsonify({"message": "Production deleted successfully"}), 200
-
-    def _has_access(self, production, claims):
-        """Check if the current user has access to the production"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == production.lot.farm.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
-
-    def _serialize_production(self, production):
-        """Serialize a Production object to a dictionary"""
-        return {
-            "id": production.id,
-            "lot_id": production.lot_id,
-            "date": production.date,
-            "area": production.area,
-            "production_kg": production.production_kg,
-            "created_at": production.created_at.isoformat(),
-            "updated_at": production.updated_at.isoformat(),
-        }
-
-
+# 👌
 class ProductView(MethodView):
     """Class to manage CRUD operations for products"""
 
@@ -2505,13 +1345,13 @@ class ProductView(MethodView):
             "updated_at": product.updated_at.isoformat(),
         }
 
-
+# 👌
 class ProductContributionView(MethodView):
     """Class to manage CRUD operations for product contributions"""
 
     decorators = [jwt_required()]
 
-    @check_permission(required_roles=["administrator", "reseller"])
+    @check_permission(required_roles=["administrator"])
     def get(self, product_contribution_id=None):
         """
         Retrieve a list of product contributions or a specific product contribution
@@ -2524,25 +1364,31 @@ class ProductContributionView(MethodView):
             return self._get_product_contribution(product_contribution_id)
         return self._get_product_contribution_list()
 
-    @check_permission(required_roles=["administrator", "reseller"])
+    @check_permission(required_roles=["administrator"])
     def post(self):
         """
         Create a new product contribution
+        Expected JSON data:
+            {
+                "product_id": int,
+                "nutrient_contributions": {"nutrient_<id>": float, ...} (e.g., "nutrient_1": 10.5)
+            }
         Returns:
             JSON: Details of the created product contribution
         """
         data = request.get_json()
         required_fields = ["product_id"]
         if not data or not all(k in data for k in required_fields):
-            raise BadRequest("Missing required fields")
+            raise BadRequest("Missing required fields: product_id")
         return self._create_product_contribution(data)
 
-    @check_permission(resource_owner_check=True)
+    @check_permission(required_roles=["administrator"])
     def put(self, id: int):
         """
         Update an existing product contribution
         Args:
             product_contribution_id (int): ID of the product contribution to update
+        Expected JSON data: Same as POST, with optional fields
         Returns:
             JSON: Details of the updated product contribution
         """
@@ -2552,7 +1398,7 @@ class ProductContributionView(MethodView):
             raise BadRequest("Missing product_contribution_id or data")
         return self._update_product_contribution(product_contribution_id, data)
 
-    @check_permission(resource_owner_check=True)
+    @check_permission(required_roles=["administrator"])
     def delete(self, id=None):
         """
         Delete an existing product contribution
@@ -2569,24 +1415,7 @@ class ProductContributionView(MethodView):
     # Helper Methods
     def _get_product_contribution_list(self):
         """Retrieve a list of all product contributions"""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            product_contributions = ProductContribution.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            product_contributions = []
-            for organization in reseller_package.organizations:
-                for product in organization.products:
-                    product_contributions.extend(product.product_contributions)
-        else:
-            raise Forbidden(
-                "Only administrators and resellers can list product contributions"
-            )
+        product_contributions = ProductContribution.query.all()
         response_data = [
             self._serialize_product_contribution(pc) for pc in product_contributions
         ]
@@ -2598,9 +1427,6 @@ class ProductContributionView(MethodView):
         product_contribution = ProductContribution.query.get_or_404(
             product_contribution_id
         )
-        claims = get_jwt()
-        if not self._has_access(product_contribution, claims):
-            raise Forbidden("You do not have access to this product contribution")
         response_data = self._serialize_product_contribution(product_contribution)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
@@ -2613,6 +1439,32 @@ class ProductContributionView(MethodView):
             raise BadRequest("Invalid product ID")
         product_contribution = ProductContribution(product_id=product_id)
         db.session.add(product_contribution)
+        db.session.flush()  # Ensure new_objective.id is available
+        # Handle nutrient contributions
+        nutrient_contributions = {
+            k: v for k, v in data.items() if k.startswith("nutrient_")
+        }
+        for key, value in nutrient_contributions.items():
+            nutrient_id = int(key.split("_")[1])
+            nutrient = Nutrient.query.get(nutrient_id)
+            if not nutrient:
+                raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+            try:
+                contribution = float(value)  # Convert to float
+                if contribution < 0:
+                    raise BadRequest(
+                        f"Contribution for {nutrient.name} must be non-negative."
+                    )
+                insert_stmt = product_contribution_nutrients.insert().values(
+                    product_contribution_id=product_contribution.id,
+                    nutrient_id=nutrient_id,
+                    contribution=contribution,
+                )
+                db.session.execute(insert_stmt)
+            except ValueError:
+                raise BadRequest(
+                    f"Invalid numeric value for {nutrient.name}: '{value}'"
+                )
         db.session.commit()
         response_data = self._serialize_product_contribution(product_contribution)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
@@ -2623,12 +1475,46 @@ class ProductContributionView(MethodView):
         product_contribution = ProductContribution.query.get_or_404(
             product_contribution_id
         )
+        # Update main fields if provided
         if "product_id" in data:
-            product_id = data["product_id"]
-            product = Product.query.get(product_id)
+            product = Product.query.get(data["product_id"])
             if not product:
                 raise BadRequest("Invalid product ID")
-            product_contribution.product_id = product_id
+            product_contribution.product_id = data["product_id"]
+        # Handle nutrient contributions if provided
+        nutrient_contributions = {
+            k: v for k, v in data.items() if k.startswith("nutrient_")
+        }
+        if nutrient_contributions:
+            # Delete existing nutrient contributions
+            db.session.query(product_contribution_nutrients).filter_by(
+                product_contribution_id=product_contribution.id
+            ).delete()
+            # Add new nutrient contributions
+            for key, value in nutrient_contributions.items():
+                nutrient_id = int(key.split("_")[1])
+                nutrient = Nutrient.query.get(nutrient_id)
+                if not nutrient:
+                    raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+                # Convert value to float (or int) and validate
+                try:
+                    contribution = float(
+                        value
+                    )  # Use float to handle decimal values; use int if only integers are expected
+                    if contribution < 0:
+                        raise BadRequest(
+                            f"Contribution for {nutrient.name} must be non-negative."
+                        )
+                    insert_stmt = product_contribution_nutrients.insert().values(
+                        product_contribution_id=product_contribution.id,
+                        nutrient_id=nutrient_id,
+                        contribution=contribution,
+                    )
+                    db.session.execute(insert_stmt)
+                except ValueError:
+                    raise BadRequest(
+                        f"Contribution for {nutrient.name} must be a valid number."
+                    )
         db.session.commit()
         response_data = self._serialize_product_contribution(product_contribution)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
@@ -2643,34 +1529,33 @@ class ProductContributionView(MethodView):
         db.session.commit()
         return jsonify({"message": "Product contribution deleted successfully"}), 200
 
-    def _has_access(self, product_contribution, claims):
-        """Check if the current user has access to the product contribution"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == product_contribution.product.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
-
     def _serialize_product_contribution(self, product_contribution):
         """Serialize a ProductContribution object to a dictionary"""
+        nutrient_contributions = (
+            db.session.query(product_contribution_nutrients)
+            .filter_by(product_contribution_id=product_contribution.id)
+            .all()
+        )
+        nutrient_contributions_dict = [
+            {
+                "nutrient_id": contribution.nutrient_id,
+                "contribution": contribution.contribution,
+                "nutrient_name": Nutrient.query.get(contribution.nutrient_id).name,
+                "nutrient_symbol": Nutrient.query.get(contribution.nutrient_id).symbol,
+                "nutrient_unit": Nutrient.query.get(contribution.nutrient_id).unit,
+            }
+            for contribution in nutrient_contributions
+        ]
         return {
             "id": product_contribution.id,
             "product_id": product_contribution.product_id,
             "product_name": product_contribution.product.name,
             "created_at": product_contribution.created_at.isoformat(),
             "updated_at": product_contribution.updated_at.isoformat(),
+            "nutrient_contributions": nutrient_contributions_dict,
         }
 
-
+# 👌
 class ProductPriceView(MethodView):
     """Class to manage CRUD operations for product prices"""
 
@@ -2689,7 +1574,7 @@ class ProductPriceView(MethodView):
             return self._get_product_price(product_price_id)
         return self._get_product_price_list()
 
-    @check_permission(required_roles=["administrator", "reseller"])
+    @check_permission(required_roles=["administrator"])
     def post(self):
         """
         Create a new product price
@@ -2697,12 +1582,12 @@ class ProductPriceView(MethodView):
             JSON: Details of the created product price
         """
         data = request.get_json()
-        required_fields = ["product_id", "price", "start_date"]
+        required_fields = ["product_id", "price", "start_date", "end_date"]
         if not data or not all(k in data for k in required_fields):
             raise BadRequest("Missing required fields")
         return self._create_product_price(data)
 
-    @check_permission(resource_owner_check=True)
+    @check_permission(required_roles=["administrator"])
     def put(self, id: int):
         """
         Update an existing product price
@@ -2717,7 +1602,7 @@ class ProductPriceView(MethodView):
             raise BadRequest("Missing product_price_id or data")
         return self._update_product_price(product_price_id, data)
 
-    @check_permission(resource_owner_check=True)
+    @check_permission(required_roles=["administrator"])
     def delete(self, id=None):
         """
         Delete an existing product price
@@ -2767,10 +1652,15 @@ class ProductPriceView(MethodView):
     def _create_product_price(self, data):
         """Create a new product price"""
         product_id = data["product_id"]
+        # Verificar si ya existe un precio para el producto
+        existing_price = ProductPrice.query.filter_by(product_id=product_id).first()
+        if existing_price:
+            raise Conflict("Ya existe un precio para este producto")
         price = data["price"]
         start_date = data["start_date"]
+        end_date = data["end_date"]
         product_price = ProductPrice(
-            product_id=product_id, price=price, start_date=start_date
+            product_id=product_id, price=price, start_date=start_date, end_date=end_date
         )
         db.session.add(product_price)
         db.session.commit()
@@ -2823,10 +1713,1326 @@ class ProductPriceView(MethodView):
             "product_id": product_price.product_id,
             "product_name": product_price.product.name,
             "price": product_price.price,
-            "start_date": product_price.start_date,
-            "end_date": product_price.end_date,
-            "created_at": product_price.created_at.isoformat(),
-            "updated_at": product_price.updated_at.isoformat(),
+            "start_date": (
+                product_price.start_date.isoformat()
+                if product_price.start_date
+                else None
+            ),
+            "end_date": (
+                product_price.end_date.isoformat() if product_price.end_date else None
+            ),
+            "created_at": (
+                product_price.created_at.isoformat()
+                if product_price.created_at
+                else None
+            ),
+            "updated_at": (
+                product_price.updated_at.isoformat()
+                if product_price.updated_at
+                else None
+            ),
+        }
+
+# 👌# Vista para análisis comunes (common_analyses)
+class CommonAnalysisView(MethodView):
+    """Clase para gestionar operaciones CRUD sobre análisis comunes."""
+    decorators = [jwt_required()]
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, common_analysis_id=None):
+        """
+        Obtiene una lista de análisis comunes o un análisis común específico.
+        Args:
+            common_analysis_id (str, optional): ID del análisis común a consultar.
+        Returns:
+            JSON: Lista de análisis comunes o detalles de un análisis común específico.
+        """
+        if common_analysis_id:
+            return self._get_common_analysis(common_analysis_id)
+        return self._get_common_analysis_list()
+    @check_permission(required_roles=["administrator", "reseller"])
+    def post(self):
+        """
+        Crea un nuevo análisis común.
+        Returns:
+            JSON: Detalles del análisis común creado.
+        """
+        data = request.get_json()
+        if not data or not all(k in data for k in ("date", "lot_id", "protein", "rest", "rest_days", "month")):
+            raise BadRequest("Missing required fields.")
+        return self._create_common_analysis(data)
+    @check_permission(resource_owner_check=True)
+    def put(self, id):
+        """
+        Actualiza un análisis común existente.
+        Args:
+            common_analysis_id (str): ID del análisis común a actualizar.
+        Returns:
+            JSON: Detalles del análisis común actualizado.
+        """
+        data = request.get_json()
+        common_analysis_id = id
+        if not data or not common_analysis_id:
+            raise BadRequest("Missing common_analysis_id or data.")
+        return self._update_common_analysis(common_analysis_id, data)
+    @check_permission(resource_owner_check=True)
+    def delete(self, id=None):
+        """
+        Elimina un análisis común existente.
+        Args:
+            common_analysis_id (str): ID del análisis común a eliminar.
+        Returns:
+            JSON: Mensaje de confirmación.
+        """
+        data = request.get_json()
+        common_analysis_id = id
+        if data and "ids" in data:
+            return self._delete_common_analysis(common_analysis_ids=data["ids"])
+        if common_analysis_id:
+            return self._delete_common_analysis(common_analysis_id=common_analysis_id)
+        raise BadRequest("Missing common_analysis_id.")
+    # Métodos auxiliares
+    def _get_common_analysis_list(self, filter_by=None):
+        """
+        Obtiene una lista de todos los análisis comunes activos según el rol del usuario.
+        
+        Args:
+            filter_by (int): Filtro por ID de finca.
+        
+        Returns:
+            Response: Lista de análisis comunes en formato JSON.
+        """
+        claims = get_jwt()
+        user_role = claims.get("rol")
+        user_id = claims.get("id")
+        common_analyses = []  # Lista de análisis comunes que se devolverá
+        
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            query = CommonAnalysis.query
+            if hasattr(CommonAnalysis, "active"):
+                query = query.filter_by(active=True)
+            if filter_by:
+                query = query.join(Lot).join(Farm).filter(Farm.id == filter_by)
+        elif user_role == RoleEnum.RESELLER.value:
+            reseller_package = (
+                ResellerPackage.query.options(
+                    joinedload(ResellerPackage.organizations).joinedload("farms")
+                )
+                .filter_by(reseller_id=user_id)
+                .first()
+            )
+            if not reseller_package:
+                raise NotFound("Reseller package not found.")
+            
+            if filter_by:
+                query = (
+                    CommonAnalysis.query.join(Lot)
+                    .join(Farm)
+                    .filter(Farm.id == filter_by)
+                    .join(ResellerPackage.organizations, Farm.organization_id == Organization.id)
+                    .filter(Organization.id.in_(reseller_package.organization_ids))
+                )
+            else:
+                query = (
+                    CommonAnalysis.query.join(Lot)
+                    .join(Farm)
+                    .join(ResellerPackage.organizations, Farm.organization_id == Organization.id)
+                    .filter(Organization.id.in_(reseller_package.organization_ids))
+                )
+        else:
+            raise Forbidden("Only administrators and resellers can list common_analyses.")
+        
+        common_analyses = query.all()
+        
+        # Serialización y respuesta
+        response_data = [
+            self._serialize_common_analysis(common_analysis)
+            for common_analysis in common_analyses
+        ]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    
+    def _get_common_analysis(self, common_analysis_id):
+        """Obtiene los detalles de un análisis común específico."""
+        common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
+        claims = get_jwt()
+        if not self._has_access(common_analysis, claims):
+            raise Forbidden("You do not have access to this common_analysis.")
+        response_data = self._serialize_common_analysis(common_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    
+    def _create_common_analysis(self, data):
+        """Crea un nuevo análisis común con los datos proporcionados."""
+        if CommonAnalysis.query.filter_by(
+            date=data["date"], lot_id=data["lot_id"]
+        ).first():
+            raise BadRequest("CommonAnalysis already exists.")
+        common_analysis = CommonAnalysis(
+            date=data["date"],
+            lot_id=data["lot_id"],
+            protein=data["protein"],
+            rest=data["rest"],
+            rest_days=data["rest_days"],
+            month=data["month"],
+        )
+        db.session.add(common_analysis)
+        db.session.commit()
+        response_data = self._serialize_common_analysis(common_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+    def _update_common_analysis(self, common_analysis_id, data):
+        """Actualiza los datos de un análisis común existente."""
+        common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
+        if "date" in data:
+            common_analysis.date = data["date"]
+        if "lot_id" in data:
+            common_analysis.lot_id = data["lot_id"]
+        if "protein" in data:
+            common_analysis.protein = data["protein"]
+        if "rest" in data:
+            common_analysis.rest = data["rest"]
+        if "rest_days" in data:
+            common_analysis.rest_days = data["rest_days"]
+        if "month" in data:
+            common_analysis.month = data["month"]
+        db.session.commit()
+        response_data = self._serialize_common_analysis(common_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    def _delete_common_analysis(
+        self, common_analysis_id=None, common_analysis_ids=None
+    ):
+        """Elimina un análisis común marcándolo como inactivo."""
+        claims = get_jwt()
+        if common_analysis_id and common_analysis_ids:
+            raise BadRequest(
+                "Solo se puede especificar common_analysis_id o common_analysis_ids, no ambos."
+            )
+        if common_analysis_id:
+            common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
+            db.session.delete(common_analysis)
+            db.session.commit()
+            return jsonify({"message": "CommonAnalysis deleted successfully"}), 200
+        if common_analysis_ids:
+            deleted_common_analyses = []
+            for common_analysis_id in common_analysis_ids:
+                common_analysis = CommonAnalysis.query.get(common_analysis_id)
+                if not common_analysis:
+                    continue
+                db.session.delete(common_analysis)
+                deleted_common_analyses.append(common_analysis.lot_id)
+                db.session.commit()
+                deleted_common_analyses_str = ", ".join(
+                    map(str, deleted_common_analyses)
+                )
+            return (
+                jsonify(
+                    {
+                        "message": f"CommonAnalyses {deleted_common_analyses_str} deleted successfully"
+                    }
+                ),
+                200,
+            )
+    def _has_access(self, common_analysis, claims):
+        """Verifica si el usuario actual tiene acceso al recurso."""
+        user_role = claims.get("rol")
+        user_id = claims.get("id")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return True
+        if user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=user_id
+            ).first()
+            return any(
+                org.id in [o.id for o in reseller_package.organizations]
+                for org in common_analysis.lot.farm.user.organizations
+            )
+        return user_id == common_analysis.lot.farm.user_id
+    def _serialize_common_analysis(self, common_analysis):
+        """Serializa un objeto CommonAnalysis a un diccionario."""
+        return {
+            "id": common_analysis.id,
+            "date": common_analysis.date.isoformat() if common_analysis.date else None,
+            "lot_id": common_analysis.lot_id,
+            "lot_name": common_analysis.lot.name,
+            "farm_name": common_analysis.lot.farm.name,
+            "protein": common_analysis.protein,
+            "rest": common_analysis.rest,
+            "rest_days": common_analysis.rest_days,
+            "month": common_analysis.month,
+            "created_at": common_analysis.created_at.isoformat() if common_analysis.created_at else None,
+            "updated_at": common_analysis.updated_at.isoformat() if common_analysis.updated_at else None,
+        }
+
+# Vista para lotes de cultivos (lot_crops)
+# 👌
+class LotCropView(MethodView):
+    """Clase para gestionar operaciones CRUD sobre la relación entre lotes y cultivos."""
+
+    decorators = [jwt_required()]
+
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, lot_crop_id=None):
+        """
+        Obtiene una lista de relaciones lot-crop o una relación específica.
+        Args:
+            lot_crop_id (int, optional): ID de la relación lot-crop a consultar.
+        Returns:
+            JSON: Lista de relaciones o detalles de una relación específica.
+        """
+        if lot_crop_id:
+            return self._get_lot_crop(lot_crop_id)
+        return self._get_lot_crop_list()
+
+    @check_permission(required_roles=["administrator", "reseller"])
+    def post(self):
+        """
+        Crea una nueva relación lot-crop.
+        Returns:
+            JSON: Detalles de la relación creada.
+        """
+        data = request.get_json()
+        if not data or not all(k in data for k in ("lot_id", "crop_id", "start_date")):
+            raise BadRequest("Missing required fields.")
+        return self._create_lot_crop(data)
+
+    @check_permission(resource_owner_check=True)
+    def put(self, id: int):
+        """
+        Actualiza una relación lot-crop existente.
+        Args:
+            lot_crop_id (int): ID de la relación a actualizar.
+        Returns:
+            JSON: Detalles de la relación actualizada.
+        """
+        data = request.get_json()
+        lot_crop_id = data.get("id")
+        if not data or not lot_crop_id:
+            raise BadRequest("Missing lot_crop_id or data.")
+        return self._update_lot_crop(lot_crop_id, data)
+
+    @check_permission(resource_owner_check=True)
+    def delete(self, id=None):
+        """
+        Elimina una relación lot-crop existente.
+        Args:
+            lot_crop_id (int): ID de la relación a eliminar.
+        Returns:
+            JSON: Mensaje de confirmación.
+        """
+        data = request.get_json()
+        lot_crop_id = id
+        if data and "ids" in data:
+            return self._delete_lot_crop(lot_crop_ids=data["ids"])
+        if lot_crop_id:
+            return self._delete_lot_crop(lot_crop_id=lot_crop_id)
+        raise BadRequest("Missing lot_crop_id.")
+
+    # Métodos auxiliares
+    def _get_lot_crop_list(self):
+        """Obtiene una lista de todas las relaciones lot-crop."""
+        claims = get_jwt()
+        user_role = claims.get("rol")
+        org_id = claims.get("org_id")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            lot_crops = LotCrop.query.all()
+        elif user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=org_id
+            ).first()
+            if not reseller_package:
+                raise NotFound("Reseller package not found.")
+            lot_crops = []
+            for org in reseller_package.organizations:
+                for farm in org.farms:
+                    lot_crops.extend(farm.lot_crops)
+        else:
+            # Filtra por organización del usuario
+            lot_crops = LotCrop.query.join(Lot).join(Farm).filter(Farm.org_id == org_id).all()
+        response_data = [self._serialize_lot_crop(lot_crop) for lot_crop in lot_crops]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _get_lot_crop(self, lot_crop_id):
+        """Obtiene los detalles de una relación lot-crop específica."""
+        lot_crop = LotCrop.query.get_or_404(lot_crop_id)
+        claims = get_jwt()
+        if not self._has_access(lot_crop, claims):
+            raise Forbidden("You do not have access to this lot-crop.")
+        response_data = self._serialize_lot_crop(lot_crop)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _create_lot_crop(self, data):
+        """Crea una nueva relación lot-crop con los datos proporcionados."""
+        # Verificar si el lote y el cultivo existen
+        lot = Lot.query.get_or_404(data["lot_id"])
+        crop = Crop.query.get_or_404(data["crop_id"])
+        
+        # Verificar duplicados
+        if LotCrop.query.filter_by(lot_id=data["lot_id"], crop_id=data["crop_id"], 
+                                 start_date=data["start_date"]).first():
+            raise BadRequest("This lot-crop relationship already exists.")
+        
+        lot_crop = LotCrop(
+            lot_id=data["lot_id"],
+            crop_id=data["crop_id"],
+            start_date=data["start_date"],
+            end_date=data.get("end_date")
+        )
+        db.session.add(lot_crop)
+        db.session.commit()
+        response_data = self._serialize_lot_crop(lot_crop)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+
+    def _update_lot_crop(self, lot_crop_id, data):
+        """Actualiza los datos de una relación lot-crop existente."""
+        lot_crop = LotCrop.query.get_or_404(lot_crop_id)
+        
+        if "lot_id" in data and data["lot_id"] != lot_crop.lot_id:
+            Lot.query.get_or_404(data["lot_id"])  # Verificar que el lote existe
+            lot_crop.lot_id = data["lot_id"]
+        
+        if "crop_id" in data and data["crop_id"] != lot_crop.crop_id:
+            Crop.query.get_or_404(data["crop_id"])  # Verificar que el cultivo existe
+            lot_crop.crop_id = data["crop_id"]
+        
+        if "start_date" in data:
+            lot_crop.start_date = data["start_date"]
+        
+        if "end_date" in data:
+            lot_crop.end_date = data["end_date"]
+            
+        db.session.commit()
+        response_data = self._serialize_lot_crop(lot_crop)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _delete_lot_crop(self, lot_crop_id=None, lot_crop_ids=None):
+        """Elimina una o varias relaciones lot-crop."""
+        claims = get_jwt()
+        if lot_crop_id and lot_crop_ids:
+            raise BadRequest("Solo se puede especificar lot_crop_id o lot_crop_ids, no ambos.")
+        
+        if lot_crop_id:
+            lot_crop = LotCrop.query.get_or_404(lot_crop_id)
+            if not self._has_access(lot_crop, claims):
+                raise Forbidden("You do not have access to this lot-crop.")
+            db.session.delete(lot_crop)
+            db.session.commit()
+            return jsonify({"message": "LotCrop deleted successfully"}), 200
+        
+        if lot_crop_ids:
+            deleted_lot_crops = []
+            for lc_id in lot_crop_ids:
+                lot_crop = LotCrop.query.get(lc_id)
+                if not lot_crop:
+                    continue
+                if not self._has_access(lot_crop, claims):
+                    continue
+                db.session.delete(lot_crop)
+                deleted_lot_crops.append(f"LotCrop {lot_crop.id}")
+            db.session.commit()
+            if deleted_lot_crops:
+                deleted_str = ", ".join(deleted_lot_crops)
+                return jsonify({"message": f"LotCrops {deleted_str} deleted successfully"}), 200
+            return jsonify({"error": "No lot-crops were deleted due to permission restrictions"}), 403
+
+    def _has_access(self, lot_crop, claims):
+        """Verifica si el usuario actual tiene acceso al recurso."""
+        user_role = claims.get("rol")
+        org_id = claims.get("org_id")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return True
+        if user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=org_id
+            ).first()
+            return any(
+                org.id == lot_crop.lot.farm.org_id
+                for org in reseller_package.organizations
+            )
+        return lot_crop.lot.farm.org_id == org_id
+
+    def _serialize_lot_crop(self, lot_crop):
+        """Serializa un objeto LotCrop a un diccionario."""
+        return {
+            "id": lot_crop.id,
+            "lot_id": lot_crop.lot_id,
+            "lot_name": lot_crop.lot.name if lot_crop.lot else "",
+            "crop_id": lot_crop.crop_id,
+            "crop_name": lot_crop.crop.name if lot_crop.crop else "",
+            "farm_id": lot_crop.lot.farm_id,
+            "farm_name": lot_crop.lot.farm.name if lot_crop.lot.farm else "",
+            "start_date": lot_crop.start_date.isoformat(),
+            "end_date": lot_crop.end_date.isoformat() if lot_crop.end_date else None,
+            "created_at": lot_crop.created_at.isoformat(),
+            "updated_at": lot_crop.updated_at.isoformat(),
+            "organization_id": lot_crop.lot.farm.org_id if lot_crop.lot and lot_crop.lot.farm else None
+        }
+
+# Vista para análisis de foliar (leaf_analyses)
+# 👌
+class LeafAnalysisView(MethodView):
+    """Clase para gestionar operaciones CRUD sobre análisis de hojas con valores de nutrientes."""
+
+    decorators = [jwt_required()]
+
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, leaf_analysis_id=None):
+        """
+        Obtiene una lista de análisis de hojas o un análisis de hoja específico.
+        Args:
+            leaf_analysis_id (int, optional): ID del análisis de hoja a consultar.
+        Returns:
+            JSON: Lista de análisis de hojas o detalles de un análisis de hoja específico.
+        """
+        filter_by = request.args.get("filter_by")
+        if filter_by:
+            filter_by = int(filter_by)
+            return self._get_leaf_analysis_list(filter_by=filter_by)
+        
+        if leaf_analysis_id:
+            return self._get_leaf_analysis(leaf_analysis_id)
+        return self._get_leaf_analysis_list()
+
+    @check_permission(required_roles=["administrator", "reseller"])
+    def post(self):
+        """
+        Crea un nuevo análisis de hoja con valores de nutrientes.
+        Expected JSON data:
+            {
+                "common_analysis_id": int,
+                "nutrient_values": {"nutrient_<id>": float, ...} (e.g., "nutrient_1": 10.5)
+            }
+        Returns:
+            JSON: Detalles del análisis de hoja creado.
+        """
+        data = request.get_json()
+        required_fields = ["common_analysis_id"]
+        if not data or not all(k in data for k in required_fields):
+            raise BadRequest("Missing required fields: common_analysis_id.")
+        return self._create_leaf_analysis(data)
+
+    @check_permission(resource_owner_check=True)
+    def put(self, id):
+        """
+        Actualiza un análisis de hoja existente.
+        Args:
+            leaf_analysis_id (int): ID del análisis de hoja a actualizar.
+        Expected JSON data: Same as POST, con campos opcionales.
+        Returns:
+            JSON: Detalles del análisis de hoja actualizado.
+        """
+        data = request.get_json()
+        leaf_analysis_id = id
+
+        if not data or not leaf_analysis_id:
+            raise BadRequest("Missing leaf_analysis_id or data.")
+        return self._update_leaf_analysis(leaf_analysis_id, data)
+
+    @check_permission(resource_owner_check=True)
+    def delete(self, id=None):
+        """
+        Elimina un análisis de hoja existente.
+        Args:
+            leaf_analysis_id (int): ID del análisis de hoja a eliminar.
+        Returns:
+            JSON: Mensaje de confirmación.
+        """
+        leaf_analysis_id = id
+        if not leaf_analysis_id:
+            raise BadRequest("Missing leaf_analysis_id.")
+        return self._delete_leaf_analysis(leaf_analysis_id)
+
+    # Métodos auxiliares
+    def _get_leaf_analysis_list(self, filter_by=None):
+        """Obtiene una lista de todos los análisis de hojas según el rol del usuario y el filtro por finca."""
+        claims = get_jwt()
+        user_role = claims.get("rol")
+        leaf_analyses = []
+        
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            query = LeafAnalysis.query.join(CommonAnalysis, LeafAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
+        elif user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(reseller_id=claims.get("org_id")).first()
+            if not reseller_package:
+                raise NotFound("Reseller package not found.")
+            query = LeafAnalysis.query.join(CommonAnalysis, LeafAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
+            query = query.join(Farm, Lot.farm_id == Farm.id)
+            query = query.join(Organization, Farm.org_id == Organization.id)
+            query = query.filter(Organization.id.in_(reseller_package.organization_ids))
+        else:
+            raise Forbidden("Only administrators and resellers can list leaf analyses.")
+            
+        if filter_by:
+            query = query.filter(Lot.farm_id == filter_by)
+            
+        leaf_analyses = query.all()
+        response_data = [
+            self._serialize_leaf_analysis(leaf_analysis)
+            for leaf_analysis in leaf_analyses
+        ]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _get_leaf_analysis(self, leaf_analysis_id):
+        """Obtiene los detalles de un análisis de hoja específico."""
+        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
+        claims = get_jwt()
+        if not self._has_access(leaf_analysis, claims):
+            raise Forbidden("You do not have access to this leaf analysis.")
+        response_data = self._serialize_leaf_analysis(leaf_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _create_leaf_analysis(self, data):
+        """Crea un nuevo análisis de hoja con valores de nutrientes."""
+        common_analysis_id = data["common_analysis_id"]
+
+        # Validar que common_analysis_id existe
+    
+        common_analysis = CommonAnalysis.query.get(common_analysis_id)
+        if not common_analysis:
+            raise BadRequest("Invalid common_analysis_id.")
+
+        # Crear el nuevo análisis foliar
+        new_leaf_analysis = LeafAnalysis(common_analysis_id=common_analysis_id)
+        db.session.add(new_leaf_analysis)
+        db.session.flush()  # Asegura que el ID esté disponible
+
+        # Manejar valores de nutrientes
+        nutrient_values = {k: v for k, v in data.items() if k.startswith("nutrient_")}
+        for key, value in nutrient_values.items():
+            nutrient_id = int(key.split("_")[1])
+            nutrient = Nutrient.query.get(nutrient_id)
+            if not nutrient:
+                raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+            try:
+                nutrient_value = float(value)
+                if nutrient_value < 0:
+                    raise BadRequest(f"Value for {nutrient.name} must be non-negative.")
+                insert_stmt = leaf_analysis_nutrients.insert().values(
+                    leaf_analysis_id=new_leaf_analysis.id,
+                    nutrient_id=nutrient_id,
+                    value=nutrient_value,
+                    created_at=datetime.utcnow()
+                )
+                db.session.execute(insert_stmt)
+            except ValueError:
+                raise BadRequest(f"Invalid numeric value for {nutrient.name}: '{value}'")
+
+        db.session.commit()
+        response_data = self._serialize_leaf_analysis(new_leaf_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+
+    def _update_leaf_analysis(self, leaf_analysis_id, data):
+        """Actualiza un análisis de hoja existente."""
+        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
+
+        # Actualizar common_analysis_id si está presente
+        if "common_analysis_id" in data:
+
+            common_analysis = CommonAnalysis.query.get(data["common_analysis_id"])
+            if not common_analysis:
+                raise BadRequest("Invalid common_analysis_id.")
+            leaf_analysis.common_analysis_id = data["common_analysis_id"]
+
+        # Manejar valores de nutrientes si están presentes
+        nutrient_values = {k: v for k, v in data.items() if k.startswith("nutrient_")}
+        if nutrient_values:
+            # Eliminar valores de nutrientes existentes
+            db.session.query(leaf_analysis_nutrients).filter_by(
+                leaf_analysis_id=leaf_analysis.id
+            ).delete()
+            # Agregar nuevos valores de nutrientes
+            for key, value in nutrient_values.items():
+                nutrient_id = int(key.split("_")[1])
+                nutrient = Nutrient.query.get(nutrient_id)
+                if not nutrient:
+                    raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+                try:
+                    nutrient_value = float(value)
+                    if nutrient_value < 0:
+                        raise BadRequest(f"Value for {nutrient.name} must be non-negative.")
+                    insert_stmt = leaf_analysis_nutrients.insert().values(
+                        leaf_analysis_id=leaf_analysis.id,
+                        nutrient_id=nutrient_id,
+                        value=nutrient_value,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.execute(insert_stmt)
+                except ValueError:
+                    raise BadRequest(f"Invalid numeric value for {nutrient.name}: '{value}'")
+
+        db.session.commit()
+        response_data = self._serialize_leaf_analysis(leaf_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _delete_leaf_analysis(self, leaf_analysis_id):
+        """Elimina un análisis de hoja."""
+        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
+        db.session.delete(leaf_analysis)
+        db.session.commit()
+        return jsonify({"message": "Leaf analysis deleted successfully"}), 200
+
+    def _has_access(self, leaf_analysis, claims):
+        """Verifica si el usuario actual tiene acceso al análisis de hoja."""
+        user_role = claims.get("rol")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return True
+        if user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+            if not reseller_package:
+                return False
+            return any(
+                org.id == leaf_analysis.common_analysis.organization_id  # Ajusta según tu modelo
+                for org in reseller_package.organizations
+            )
+        return False
+    
+    def _serialize_leaf_analysis(self, leaf_analysis):
+        """Serializa un objeto LeafAnalysis a un diccionario."""
+        nutrient_values = (
+            db.session.query(leaf_analysis_nutrients)
+            .filter_by(leaf_analysis_id=leaf_analysis.id)
+            .all()
+        )
+        analysis_dict = {
+            "id": leaf_analysis.id,
+            "common_analysis_id": leaf_analysis.common_analysis_id,
+            "farm_name": leaf_analysis.common_analysis.farm_name,
+            "lot_name": leaf_analysis.common_analysis.lot_name,
+            "created_at": leaf_analysis.created_at.isoformat(),
+            "updated_at": leaf_analysis.updated_at.isoformat(),
+            "nutrients_info": {  # Nueva clave para los detalles de los nutrientes
+                str(nv.nutrient_id): {
+                    "name": Nutrient.query.get(nv.nutrient_id).name,
+                    "symbol": Nutrient.query.get(nv.nutrient_id).symbol,
+                    "unit": Nutrient.query.get(nv.nutrient_id).unit,
+                }
+                for nv in nutrient_values
+            }
+        }
+        # Aplanar los valores de los nutrientes directamente en el diccionario
+        for nv in nutrient_values:
+            analysis_dict[f"nutrient_{nv.nutrient_id}"] = nv.value
+        return analysis_dict
+
+# 👌
+class SoilAnalysisView(MethodView):
+    """Class to manage CRUD operations for soil analyses"""
+
+    decorators = [jwt_required()]
+
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, soil_analysis_id=None):
+        """
+        Retrieve a list of soil analyses or a specific soil analysis
+        Args:
+            soil_analysis_id (int, optional): ID of the soil analysis to retrieve
+        Returns:
+            JSON: List of soil analyses or details of a specific soil analysis
+        """
+
+        if soil_analysis_id:
+            return self._get_soil_analysis(soil_analysis_id)
+        filter_value = request.args.get("filter_value")
+        if filter_value:
+            filter_value = int(filter_value)
+            return self._get_soil_analysis_list(filter_by=filter_value)
+        else:
+            return self._get_soil_analysis_list()
+        
+        
+    @check_permission(required_roles=["administrator", "reseller"])
+    def post(self):
+        """
+        Create a new soil analysis
+        Returns:
+            JSON: Details of the created soil analysis
+        """
+        data = request.get_json()
+        required_fields = ["common_analysis_id", "energy", "grazing"]
+        if not data or not all(k in data for k in required_fields):
+            raise BadRequest("Missing required fields")
+        return self._create_soil_analysis(data)
+
+    @check_permission(resource_owner_check=True)
+    def put(self, id: int):
+        """
+        Update an existing soil analysis
+        Args:
+            soil_analysis_id (int): ID of the soil analysis to update
+        Returns:
+            JSON: Details of the updated soil analysis
+        """
+        data = request.get_json()
+        soil_analysis_id = id
+        if not data or not soil_analysis_id:
+            raise BadRequest("Missing soil_analysis_id or data")
+        return self._update_soil_analysis(soil_analysis_id, data)
+
+    @check_permission(resource_owner_check=True)
+    def delete(self, id=None):
+        """
+        Delete an existing soil analysis
+        Args:
+            soil_analysis_id (int): ID of the soil analysis to delete
+        Returns:
+            JSON: Confirmation message
+        """
+        soil_analysis_id = id
+        if not soil_analysis_id:
+            raise BadRequest("Missing soil_analysis_id")
+        return self._delete_soil_analysis(soil_analysis_id)
+
+    # Helper Methods
+    def _get_soil_analysis_list(self, filter_by=None):
+        """Retrieve a list of all soil analyses"""
+        claims = get_jwt()
+        user_role = claims.get("rol")
+        soil_analyses = []
+        
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            query = SoilAnalysis.query.join(CommonAnalysis, SoilAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
+        elif user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(reseller_id=claims.get("org_id")).first()
+            if not reseller_package:
+                raise NotFound("Reseller package not found.")
+            query = SoilAnalysis.query.join(CommonAnalysis, SoilAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
+            query = query.join(Farm, Lot.farm_id == Farm.id)
+            query = query.join(Organization, Farm.org_id == Organization.id)
+            query = query.filter(Organization.id.in_(reseller_package.organization_ids))
+        else:
+            raise Forbidden("Only administrators and resellers can list soil analyses")
+            
+        if filter_by:
+            query = query.filter(Lot.farm_id == filter_by)
+            
+        soil_analyses = query.all()
+        response_data = [self._serialize_soil_analysis(sa) for sa in soil_analyses]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _get_soil_analysis(self, soil_analysis_id):
+        """Retrieve details of a specific soil analysis"""
+        soil_analysis = SoilAnalysis.query.get_or_404(soil_analysis_id)
+        claims = get_jwt()
+        if not self._has_access(soil_analysis, claims):
+            raise Forbidden("You do not have access to this soil analysis")
+        response_data = self._serialize_soil_analysis(soil_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _create_soil_analysis(self, data):
+        """Create a new soil analysis"""
+        common_analysis_id = data["common_analysis_id"]
+        energy = data["energy"]
+        grazing = data["grazing"]
+        soil_analysis = SoilAnalysis(
+            common_analysis_id=common_analysis_id, energy=energy, grazing=grazing
+        )
+        db.session.add(soil_analysis)
+        db.session.commit()
+        response_data = self._serialize_soil_analysis(soil_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+
+    def _update_soil_analysis(self, soil_analysis_id, data):
+        """Update an existing soil analysis"""
+        soil_analysis = SoilAnalysis.query.get_or_404(soil_analysis_id)
+        if "energy" in data:
+            soil_analysis.energy = data["energy"]
+        if "grazing" in data:
+            soil_analysis.grazing = data["grazing"]
+        db.session.commit()
+        response_data = self._serialize_soil_analysis(soil_analysis)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _delete_soil_analysis(self, soil_analysis_id):
+        """Delete an existing soil analysis"""
+        soil_analysis = SoilAnalysis.query.get_or_404(soil_analysis_id)
+        db.session.delete(soil_analysis)
+        db.session.commit()
+        return jsonify({"message": "Soil analysis deleted successfully"}), 200
+
+    def _has_access(self, soil_analysis, claims):
+        """Check if the current user has access to the soil analysis"""
+        user_role = claims.get("rol")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return True
+        if user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+            if not reseller_package:
+                return False
+            return any(
+                org.id == soil_analysis.common_analysis.organization.id
+                for org in reseller_package.organizations
+            )
+        return False
+
+    def _serialize_soil_analysis(self, soil_analysis):
+        """Serialize a SoilAnalysis object to a dictionary"""
+        return {
+            "id": soil_analysis.id,
+            "common_analysis_id": soil_analysis.common_analysis_id,
+            "energy": soil_analysis.energy,
+            "grazing": soil_analysis.grazing,
+            "created_at": soil_analysis.created_at.isoformat(),
+            "updated_at": soil_analysis.updated_at.isoformat(),
+        }
+
+# Vista para aplicaciones de nutrientes (nutrient_applications)
+class NutrientApplicationView(MethodView):
+    """Class to manage CRUD operations for nutrient applications"""
+    decorators = [jwt_required()]
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, nutrient_application_id=None):
+        """
+        Obtiene una lista de aplicaciones de nutrientes o una aplicación de nutriente específico.
+        Args:
+            nutrient_application_id (str, optional): ID de la aplicación de nutriente a consultar.
+        Returns:
+            JSON: Lista de aplicaciones de nutrientes o detalles de una aplicación de nutriente específico.
+        """
+        if nutrient_application_id:
+            return self._get_nutrient_application(nutrient_application_id)
+        filter_by = request.args.get('filter_by', None)
+        if filter_by:
+            filter_by = int(filter_by)
+        return self._get_nutrient_application_list(filter_by=filter_by)
+    
+    @check_permission(required_roles=["administrator", "reseller"])
+    def post(self):
+        """
+        Create a new nutrient application with nutrient quantities.
+        Expected JSON data:
+            {
+                "lot_id": int,
+                "date": str (YYYY-MM-DD),
+                "nutrient_quantities": {"nutrient_<id>": float, ...} (e.g., "nutrient_1": 10.5)
+            }
+        Returns:
+            JSON: Details of the created nutrient application.
+        """
+        data = request.get_json()
+        required_fields = ["lot_id", "date"]
+        if not data or not all(k in data for k in required_fields):
+            raise BadRequest("Missing required fields: lot_id and date.")
+        return self._create_nutrient_application(data)
+    @check_permission(resource_owner_check=True)
+    def put(self, id: int):
+        """
+        Update an existing nutrient application.
+        Args:
+            nutrient_application_id (int): ID of the nutrient application to update.
+        Expected JSON data: Same as POST, with optional fields.
+        Returns:
+            JSON: Details of the updated nutrient application.
+        """
+        data = request.get_json()
+        nutrient_application_id = id
+        if not data or not nutrient_application_id:
+            raise BadRequest("Missing nutrient_application_id or data.")
+        return self._update_nutrient_application(nutrient_application_id, data)
+    @check_permission(resource_owner_check=True)
+    def delete(self, id=None):
+        """
+        Delete an existing nutrient application.
+        Args:
+            nutrient_application_id (int): ID of the nutrient application to delete.
+        Returns:
+            JSON: Confirmation message.
+        """
+        nutrient_application_id = id
+        if not nutrient_application_id:
+            raise BadRequest("Missing nutrient_application_id.")
+        return self._delete_nutrient_application(nutrient_application_id)
+    # Helper Methods
+    def _get_nutrient_application_list(self, filter_by=None):
+        """
+        Retrieve a list of all nutrient applications based on user role
+        Args:
+            filter_by (int): Filtro por ID de finca.
+        Returns:
+            Response: Lista de nutrient applications en formato JSON.
+        """
+        claims = get_jwt()
+        user_role = claims.get("rol")
+        nutrient_applications = []  # Lista de nutrient applications que se devolverá
+
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            query = (
+                NutrientApplication.query
+                .join(Lot, NutrientApplication.lot_id == Lot.id)
+                .join(Farm, Lot.farm_id == Farm.id)
+            )
+        elif user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+            if not reseller_package:
+                raise NotFound("Reseller package not found.")
+            query = (
+                NutrientApplication.query
+                .join(Lot, NutrientApplication.lot_id == Lot.id)
+                .join(Farm, Lot.farm_id == Farm.id)
+                .join(Organization, Farm.org_id == Organization.id)
+                .filter(Organization.id.in_(reseller_package.organization_ids))
+            )
+        else:
+            raise Forbidden("Only administrators and resellers can list nutrient applications.")
+
+        if filter_by:
+            query = query.filter(Lot.farm_id == filter_by)
+
+        nutrient_applications = query.all()
+        response_data = [
+            self._serialize_nutrient_application(nutrient_application)
+            for nutrient_application in nutrient_applications
+        ]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    
+    def _get_nutrient_application(self, nutrient_application_id):
+        """Retrieve details of a specific nutrient application"""
+        nutrient_application = NutrientApplication.query.get_or_404(nutrient_application_id)
+        claims = get_jwt()
+        if not self._has_access(nutrient_application, claims):
+            raise Forbidden("You do not have access to this nutrient application.")
+        response_data = self._serialize_nutrient_application(nutrient_application)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    def _create_nutrient_application(self, data):
+        """Create a new nutrient application with nutrient quantities"""
+        lot_id = data["lot_id"]
+        date = datetime.strptime(data["date"], "%Y-%m-%d")
+        # Validate lot exists
+        lot = Lot.query.get(lot_id)
+        if not lot:
+            raise BadRequest("Invalid lot ID.")
+        new_nutrient_application = NutrientApplication(
+            date=date, lot_id=lot_id
+        )
+        db.session.add(new_nutrient_application)
+        db.session.flush()  # Ensure new_nutrient_application.id is available
+        # Handle nutrient quantities
+        nutrient_quantities = {k: v for k, v in data.items() if k.startswith("nutrient_")}
+        for key, value in nutrient_quantities.items():
+            nutrient_id = int(key.split("_")[1])
+            nutrient = Nutrient.query.get(nutrient_id)
+            if not nutrient:
+                raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+            try:
+                quantity_float = float(value)  # Convert to float
+                if quantity_float <= 0:
+                    raise BadRequest(
+                        f"Quantity for {nutrient.name} must be positive."
+                    )
+                insert_stmt = nutrient_application_nutrients.insert().values(
+                    nutrient_application_id=new_nutrient_application.id,
+                    nutrient_id=nutrient_id,
+                    quantity=quantity_float,
+                )
+                db.session.execute(insert_stmt)
+            except ValueError:
+                raise BadRequest(
+                    f"Quantity for {nutrient.name} must be a valid number."
+                )
+        db.session.commit()
+        response_data = self._serialize_nutrient_application(new_nutrient_application)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+    def _update_nutrient_application(self, nutrient_application_id, data):
+        """Update an existing nutrient application"""
+        nutrient_application = NutrientApplication.query.get_or_404(nutrient_application_id)
+        # Update main fields if provided
+        if "lot_id" in data:
+            lot = Lot.query.get(data["lot_id"])
+            if not lot:
+                raise BadRequest("Invalid lot ID.")
+            nutrient_application.lot_id = data["lot_id"]
+        if "date" in data:
+            nutrient_application.date = datetime.strptime(data["date"], "%Y-%m-%d")
+        # Handle nutrient quantities if provided
+        nutrient_quantities = {k: v for k, v in data.items() if k.startswith("nutrient_")}
+        if nutrient_quantities:
+            # Delete existing nutrient quantities
+            db.session.query(nutrient_application_nutrients).filter_by(
+                nutrient_application_id=nutrient_application.id
+            ).delete()
+            # Add new nutrient quantities
+            for key, value in nutrient_quantities.items():
+                nutrient_id = int(key.split("_")[1])
+                nutrient = Nutrient.query.get(nutrient_id)
+                if not nutrient:
+                    raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+                # Convert value to float (or int) and validate
+                try:
+                    quantity_float = float(
+                        value
+                    )  # Use float to handle decimal values; use int if only integers are expected
+                    if quantity_float <= 0:
+                        raise BadRequest(
+                            f"Quantity for {nutrient.name} must be positive."
+                        )
+                    insert_stmt = nutrient_application_nutrients.insert().values(
+                        nutrient_application_id=nutrient_application.id,
+                        nutrient_id=nutrient_id,
+                        quantity=quantity_float,
+                    )
+                    db.session.execute(insert_stmt)
+                except ValueError:
+                    raise BadRequest(
+                        f"Quantity for {nutrient.name} must be a valid number."
+                    )
+        db.session.commit()
+        response_data = self._serialize_nutrient_application(nutrient_application)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    def _delete_nutrient_application(self, nutrient_application_id):
+        """Delete an existing nutrient application"""
+        nutrient_application = NutrientApplication.query.get_or_404(nutrient_application_id)
+        db.session.delete(nutrient_application)
+        db.session.commit()
+        return jsonify({"message": "Nutrient application deleted successfully"}), 200
+    def _has_access(self, nutrient_application, claims):
+        """Check if the current user has access to the nutrient application"""
+        user_role = claims.get("rol")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return True
+        if user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+            if not reseller_package:
+                return False
+            return any(
+                org.id == nutrient_application.lot.farm.organization.id
+                for org in reseller_package.organizations
+            )
+        return False
+    def _serialize_nutrient_application(self, nutrient_application):
+        """Serialize a NutrientApplication object to a dictionary"""
+        nutrient_quantities = (
+            db.session.query(nutrient_application_nutrients)
+            .filter_by(nutrient_application_id=nutrient_application.id)
+            .all()
+        )
+        nutrient_quantities_dict = [
+            {
+                "nutrient_id": quantity.nutrient_id,
+                "quantity": quantity.quantity,
+                "nutrient_name": Nutrient.query.get(quantity.nutrient_id).name,
+                "nutrient_symbol": Nutrient.query.get(quantity.nutrient_id).symbol,
+                "nutrient_unit": Nutrient.query.get(quantity.nutrient_id).unit,
+            }
+            for quantity in nutrient_quantities
+        ]
+        return {
+            "id": nutrient_application.id,
+            "lot_id": nutrient_application.lot_id,
+            "lot_name": nutrient_application.lot.name,
+            "farm_name": nutrient_application.lot.farm.name,
+            "organization_name": nutrient_application.lot.farm.organization.name,
+            "date": nutrient_application.date.isoformat(),
+            "created_at": nutrient_application.created_at.isoformat(),
+            "updated_at": nutrient_application.updated_at.isoformat(),
+            "nutrient_quantities": nutrient_quantities_dict,
+        }
+
+
+
+class ProductionView(MethodView):
+    """Class to manage CRUD operations for productions"""
+    decorators = [jwt_required()]
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, production_id=None):
+        """
+        Retrieve a list of productions or a specific production
+        Args:
+            production_id (int, optional): ID of the production to retrieve
+        Returns:
+            JSON: List of productions or details of a specific production
+        """
+        if production_id:
+            return self._get_production(production_id)
+        return self._get_production_list()
+    @check_permission(required_roles=["administrator", "reseller"])
+    def post(self):
+        """
+        Create a new production
+        Returns:
+            JSON: Details of the created production
+        """
+        data = request.get_json()
+        required_fields = [
+            "lot_id", "date", "area", "production_kg", "bags", "harvest", 
+            "month", "variety", "price_per_kg", "protein_65dde", "discount"
+        ]
+        if not data or not all(k in data for k in required_fields):
+            raise BadRequest("Missing required fields")
+        return self._create_production(data)
+    @check_permission(resource_owner_check=True)
+    def put(self, id: int):
+        """
+        Update an existing production
+        Args:
+            production_id (int): ID of the production to update
+        Returns:
+            JSON: Details of the updated production
+        """
+        data = request.get_json()
+        production_id = id
+        if not data or not production_id:
+            raise BadRequest("Missing production_id or data")
+        return self._update_production(production_id, data)
+    @check_permission(resource_owner_check=True)
+    def delete(self, id=None):
+        """
+        Delete an existing production
+        Args:
+            production_id (int): ID of the production to delete
+        Returns:
+            JSON: Confirmation message
+        """
+        production_id = id
+        if not production_id:
+            raise BadRequest("Missing production_id")
+        return self._delete_production(production_id)
+    # Helper Methods
+    def _get_production_list(self):
+        """Retrieve a list of all productions"""
+        claims = get_jwt()
+        user_role = claims.get("rol")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            productions = Production.query.all()
+        elif user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+            if not reseller_package:
+                raise NotFound("Reseller package not found.")
+            productions = []
+            for organization in reseller_package.organizations:
+                for lot in organization.lots:
+                    productions.extend(lot.productions)
+        else:
+            raise Forbidden("Only administrators and resellers can list productions")
+        response_data = [self._serialize_production(p) for p in productions]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    def _get_production(self, production_id):
+        """Retrieve details of a specific production"""
+        production = Production.query.get_or_404(production_id)
+        claims = get_jwt()
+        if not self._has_access(production, claims):
+            raise Forbidden("You do not have access to this production")
+        response_data = self._serialize_production(production)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    def _create_production(self, data):
+        """Create a new production"""
+        production = Production(
+            lot_id=data["lot_id"],
+            date=data["date"],
+            area=data["area"],
+            production_kg=data["production_kg"],
+            bags=data["bags"],
+            harvest=data["harvest"],
+            month=data["month"],
+            variety=data["variety"],
+            price_per_kg=data["price_per_kg"],
+            protein_65dde=data["protein_65dde"],
+            discount=data["discount"]
+        )
+        db.session.add(production)
+        db.session.commit()
+        response_data = self._serialize_production(production)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+    def _update_production(self, production_id, data):
+        """Update an existing production"""
+        production = Production.query.get_or_404(production_id)
+        if "date" in data:
+            production.date = data["date"]
+        if "area" in data:
+            production.area = data["area"]
+        if "production_kg" in data:
+            production.production_kg = data["production_kg"]
+        if "bags" in data:
+            production.bags = data["bags"]
+        if "harvest" in data:
+            production.harvest = data["harvest"]
+        if "month" in data:
+            production.month = data["month"]
+        if "variety" in data:
+            production.variety = data["variety"]
+        if "price_per_kg" in data:
+            production.price_per_kg = data["price_per_kg"]
+        if "protein_65dde" in data:
+            production.protein_65dde = data["protein_65dde"]
+        if "discount" in data:
+            production.discount = data["discount"]
+        db.session.commit()
+        response_data = self._serialize_production(production)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+    def _delete_production(self, production_id):
+        """Delete an existing production"""
+        production = Production.query.get_or_404(production_id)
+        db.session.delete(production)
+        db.session.commit()
+        return jsonify({"message": "Production deleted successfully"}), 200
+    def _has_access(self, production, claims):
+        """Check if the current user has access to the production"""
+        user_role = claims.get("rol")
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return True
+        if user_role == RoleEnum.RESELLER.value:
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+            if not reseller_package:
+                return False
+            return any(
+                org.id == production.lot.farm.organization.id
+                for org in reseller_package.organizations
+            )
+        return False
+    def _serialize_production(self, production):
+        """Serialize a Production object to a dictionary"""
+        return {
+            "id": production.id,
+            "lot_id": production.lot_id,
+            "farm_name": production.lot.farm.name,
+            "organization_name": production.lot.farm.organization.name,
+            "lot_name": production.lot.name,
+            "date": production.date.isoformat(),
+            "area": production.area,
+            "production_kg": production.production_kg,
+            "bags": production.bags,
+            "harvest": production.harvest,
+            "month": production.month,
+            "variety": production.variety,
+            "price_per_kg": production.price_per_kg,
+            "protein_65dde": production.protein_65dde,
+            "discount": production.discount,
+            "created_at": production.created_at.isoformat(),
+            "updated_at": production.updated_at.isoformat(),
         }
 
 

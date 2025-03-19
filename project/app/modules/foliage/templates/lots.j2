@@ -9,9 +9,9 @@
 
 {# formulario de editar y add #}
 {% set form_fields = {
+    'farm_id': {'type': 'select', 'label': 'Finca', 'options': farms_dic, 'required': True, 'new_value': False},
     'name': {'type': 'text', 'label': 'Nombre del lote', 'required': True},
     'area': {'type': 'number', 'label': 'Área del lote', 'required': True},
-    'farm_id': {'type': 'select', 'label': 'Finca', 'options': farms_dic, 'required': True, 'new_value': False},
 } %}
 {# entregado desde el endpoint #}
 {# api de consumo #}

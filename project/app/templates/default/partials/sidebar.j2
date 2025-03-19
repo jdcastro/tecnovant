@@ -32,13 +32,16 @@
         "icon": icon_window,
         "submenu": [
             {"name": "Nutrientes", "url": url_for('foliage.nutrientes') },
+            {"name": "Tipos de Cultivos", "url": url_for('foliage.amd_crops') },
+            {"name": "Objetivos de Cultivo", "url": url_for('foliage.amd_objectives') }, 
+
             {"name": "Fincas", "url": url_for('foliage.amd_farms') },
             {"name": "Lotes", "url": url_for('foliage.amd_lots') },
-            {"name": "Tipos de Cultivos", "url": url_for('foliage.amd_crops') },
-            {"name": "Objetivos", "url": url_for('foliage.amd_objectives') }, 
+            {"name": "Lote/Cultivo", "url": url_for('foliage.amd_lot_crops') }, 
+            
             {"name": "Productos", "url": url_for('foliage.amd_products') },
             {"name": "Aportes de Productos", "url": url_for('foliage.amd_product_contributions') },
-            {"name": "Precios de Prod", "url": "#"},
+            {"name": "Precios de Prod", "url": url_for('foliage.amd_product_prices') },
         ]
     } %}
     {% set sidebar_menu = {
@@ -52,11 +55,11 @@
         "url": "#",
         "icon": icon_microscope,
         "submenu": [
-            {"name": "Análisis Común", "url": "#"},
-            {"name": "Análisis Foliar", "url": "#"},
-            {"name": "Análisis de Suelo", "url": "#"},
-            {"name": "Consumo", "url": "#"},
-            {"name": "Producción", "url": "#"},
+            {"name": "Análisis Común", "url": url_for('foliage.amd_common_analyses') },
+            {"name": "Análisis Foliar", "url": url_for('foliage.amd_leaf_analyses') },
+            {"name": "Análisis de Suelo", "url": url_for('foliage.amd_soil_analyses') },
+            {"name": "Consumo - Apl. Nutrientes", "url": url_for('foliage.amd_nutrient_applications') }, 
+            {"name": "Producción", "url": url_for('foliage.amd_productions') }, 
         ]
     } %}
     {% set sidebar_menu = {

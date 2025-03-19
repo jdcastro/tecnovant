@@ -380,24 +380,24 @@ window.addEventListener('click', function(event) {
         // const item = {{ items | tojson | safe }}.find(f => f.id === parseInt(id));
         const item = {{ items | tojson | safe }}.find(f => String(f.id) === String(id));
 
-    if (item) {
-        document.getElementById('{{ entity_name_lower }}Id').value = item.id;
-        {% for field_name, field_info in form_fields.items() %}
-        
-        {% if field_info.type == 'select' %}
-        document.getElementById('{{ field_name }}').value = item.{{ field_name }} || '';
-        
-        {% elif field_info.type == 'checkbox' %}
-        document.getElementById('{{ field_name }}').checked = item.{{ field_name }} === true || item.{{ field_name }} === 'true';
-        {% elif field_info.type == 'radio' %}
-        const radioValue = item.{{ field_name }};
-    if (radioValue) {
-        document.querySelector(`input[name="{{ field_name }}"][value="${radioValue}"]`).checked = true;
-    }
+        if (item) {
+            document.getElementById('{{ entity_name_lower }}Id').value = item.id;
+    {% for field_name, field_info in form_fields.items() %}
+            
+            {% if field_info.type == 'select' %}
+            document.getElementById('{{ field_name }}').value = item.{{ field_name }} || '';
+            
+            {% elif field_info.type == 'checkbox' %}
+            document.getElementById('{{ field_name }}').checked = item.{{ field_name }} === true || item.{{ field_name }} === 'true';
+            {% elif field_info.type == 'radio' %}
+            const radioValue = item.{{ field_name }};
+        if (radioValue) {
+            document.querySelector(`input[name="{{ field_name }}"][value="${radioValue}"]`).checked = true;
+        }
     {% elif field_info.type == 'file' or field_info.type == 'image' %}
-    // Los campos de archivo/imagen no se pueden rellenar por seguridad, omitir
+        // Los campos de archivo/imagen no se pueden rellenar por seguridad, omitir
     {% else %}
-    document.getElementById('{{ field_name }}').value = item.{{ field_name }} || '';
+        document.getElementById('{{ field_name }}').value = item.{{ field_name }} || '';
     {% endif %}
     {% endfor %}
     }

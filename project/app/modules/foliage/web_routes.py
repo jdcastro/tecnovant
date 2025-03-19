@@ -1,13 +1,31 @@
+import json 
+from decimal import Decimal
 # Third party imports
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from flask import render_template, url_for, request
+from flask import render_template, url_for, request, jsonify
 
 # Local application imports
 from . import foliage as web
-from .controller import NutrientView, FarmView, LotView, CropView, ObjectiveView, ProductView, ProductContributionView
-from .models import Farm, Crop, Nutrient
+from .controller import (
+    NutrientView,
+    FarmView,
+    LotView,
+    CropView,
+    ObjectiveView,
+    ProductView,
+    ProductContributionView,
+    ProductPriceView,
+    CommonAnalysisView, 
+    LotCropView,
+    LeafAnalysisView, 
+    SoilAnalysisView,
+    NutrientApplicationView, 
+    ProductionView
+)
+from .models import Farm, Crop, Nutrient, Product, Lot, CommonAnalysis
 from app.core.models import get_clients_for_user
-
+from app.core.controller import login_required
+from .nutrient_optimizer import calcular_cv_nutriente, determinar_coeficientes_variacion, contribuciones_de_producto, ObjectiveResource, LeafAnalysisResource, NutrientOptimizer
 
 def get_dashboard_menu():
     """Define el menu superior en los templates"""
@@ -19,9 +37,9 @@ def get_dashboard_menu():
         ]
     }
 
-
+# 👌
 @web.route("/nutrientes")
-@jwt_required()
+@login_required
 def nutrientes():
     """
     Página: Renderiza la vista de nutrientes
@@ -54,9 +72,9 @@ def nutrientes():
         200,
     )
 
-
-@web.route("/dashboard/farms")
-@jwt_required()
+# 👌
+@web.route("/farms")
+@login_required
 def amd_farms():
     """
     Página: Renderiza la vista de Fincas
@@ -89,14 +107,13 @@ def amd_farms():
         200,
     )
 
-
-@web.route("/dashboard/lots")
-@jwt_required()
+# 👌
+@web.route("/lots")
+@login_required
 def amd_lots(filter_value=None):
     """
     Página: Renderiza la vista de lotes
     """
-    user_id = get_jwt_identity()
     context = {
         "dashboard": True,
         "title": "Gestión de lotes",
@@ -137,14 +154,13 @@ def amd_lots(filter_value=None):
         200,
     )
 
-
-@web.route("/dashboard/crops")
-@jwt_required()
+# 👌
+@web.route("/crops")
+@login_required
 def amd_crops():
     """
     Página: Renderiza la vista de cultivos
     """
-    user_id = get_jwt_identity()
     context = {
         "dashboard": True,
         "title": "Gestión de cultivos",
@@ -170,9 +186,77 @@ def amd_crops():
         200,
     )
 
+# 👌
+@web.route("/lot_crops")
+@login_required
+def amd_lot_crops():
+    """
+    Página: Renderiza la vista de lotes de cultivos
+    """
+    context = {
+        "dashboard": True,
+        "title": "Gestión de lotes de cultivos",
+        "description": "Administración de lotes de cultivos.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
 
-@web.route("/dashboard/objectives")
-@jwt_required()
+    # Instanciar la vista de LotCrop
+    lot_crop_view = LotCropView()
+    
+    # Obtener el valor del filtro desde los argumentos de la solicitud
+    filter_value = request.args.get("filter_value")
+    filter_field = "farm_id"
+    farms = Farm.query.all()
+    filter_options = farms
+
+    # Obtener las relaciones LotCrop con filtro opcional por farm_id
+    if filter_value:
+        filter_value = int(filter_value)
+        # Modificar LotCropView para aceptar un filtro por farm_id si es necesario
+        # Por ahora, filtramos manualmente después de obtener la lista
+        response = lot_crop_view._get_lot_crop_list()
+        items = response.get_json()
+        # Filtrar los items por farm_id
+        items = [item for item in items if item["organization_id"] == filter_value]
+        status_code = 200  # Simulamos que el filtro manual es exitoso
+    else:
+        response = lot_crop_view._get_lot_crop_list()
+        items = response.get_json()
+        status_code = response.status_code
+
+    # Obtener lots y crops para el formulario, aplicando el filtro si existe
+    if filter_value:
+        lots = Lot.query.join(Farm).filter(Farm.id == filter_value).all()
+    else:
+        lots = Lot.query.all()
+    lots_dic = {lot.name: lot.id for lot in lots}
+
+    crops = Crop.query.all()  # Los cultivos no necesitan filtrarse por farm_id
+    crop_dic = {crop.name: crop.id for crop in crops}
+
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+
+    return (
+        render_template(
+            "lot_crops.j2",
+            items=items,
+            filter_value=filter_value,
+            filter_field=filter_field,
+            filter_options=filter_options,
+            lots_dic=lots_dic,
+            crop_dic=crop_dic,
+            **context,
+            request=request,
+        ),
+        200,
+    )
+
+# 👌
+@web.route("/objectives")
+@login_required
 def amd_objectives():
     """
     Página: Renderiza la vista de objetivos
@@ -261,9 +345,9 @@ def amd_objectives():
         200,
     )
 
-
-@web.route("/dashboard/products")
-@jwt_required()
+# 👌
+@web.route("/products")
+@login_required
 def amd_products():
     """
     Página: Renderiza la vista de productos
@@ -285,17 +369,17 @@ def amd_products():
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "products.j2", 
-            items=items, 
-            **context, 
+            "products.j2",
+            items=items,
+            **context,
             request=request,
         ),
         200,
     )
-    
 
-@web.route("/dashboard/product_contributions")
-@jwt_required()
+# 👌
+@web.route("/product_contributions")
+@login_required
 def amd_product_contributions():
     """
     Página: Renderiza la vista de contribuciones de productos
@@ -309,16 +393,477 @@ def amd_product_contributions():
         "site_title": "Panel de Control",
         "data_menu": get_dashboard_menu(),
     }
+    # Instantiate the view and get product contributions
     product_contribution_view = ProductContributionView()
     response = product_contribution_view._get_product_contribution_list()
     items = response.get_json()
     status_code = response.status_code
+    # Get products for the dropdown
+    products = Product.query.all()
+    product_options = {product.name: product.id for product in products}
+    # Define form fields
+    nutrient_ids = Nutrient.query.all()
+    form_fields = {
+        "product_id": {
+            "type": "select",
+            "label": "Producto",
+            "options": product_options,
+            "required": True,
+        },
+    }
+    # Add nutrient fields dynamically
+    for nutrient in nutrient_ids:
+        form_fields[f"nutrient_{nutrient.id}"] = {
+            "type": "number",
+            "label": f"Contribución de {nutrient.name} ({nutrient.symbol})",
+            "required": False,  # Optional, as not all nutrients may be set
+            "placeholder": f"Ej: 10.5 ({nutrient.unit})",
+        }
+    # base_headers = ["ID", "Producto", "Fecha de Creación", "Fecha de Actualización"]
+    # nutrient_headers = [f"{nutrient.name} ({nutrient.symbol})" for nutrient in nutrient_ids]
+    # table_headers = base_headers + nutrient_headers
+    # base_fields = ["id", "product_name", "created_at", "updated_at"]
+    # nutrient_fields = [f"nutrient_{nutrient.id}" for nutrient in nutrient_ids]
+    # item_fields = base_fields + nutrient_fields
     if status_code != 200:
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "product_contributions.j2", 
+            "product_contributions.j2",
+            items=items,
+            products=products,  # Pass products for reference if needed
+            nutrient_ids=nutrient_ids,  # Pass nutrients for reference
+            form_fields=form_fields,
+            request=request,
+            **context,
+        ),
+        200,
+    )
+
+# 👌
+@web.route("/product_prices")
+@login_required
+def amd_product_prices():
+    """
+    Página: Renderiza la vista de precios de productos
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de precios de productos",
+        "description": "Administración de precios de productos.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    product_price_view = ProductPriceView()
+    response = product_price_view._get_product_price_list()
+    items = response.get_json()
+    status_code = response.status_code
+    products = Product.query.all()
+    product_options = {product.name: product.id for product in products}
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "product_prices.j2",
+            items=items,
+            product_options=product_options,
+            **context,
+            request=request,
+        ),
+        200,
+    )
+
+# 👌
+@web.route("/common_analyses")
+@login_required
+def amd_common_analyses():
+    """
+    Página: Renderiza la vista de análisis comunes
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de análisis comunes",
+        "description": "Administración de análisis comunes.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    common_analysis_view = CommonAnalysisView()
+    filter_value = request.args.get("filter_value")
+    if filter_value:
+        filter_value = int(filter_value)
+        response = common_analysis_view._get_common_analysis_list(filter_by=filter_value)
+    else:
+        response = common_analysis_view._get_common_analysis_list()
+        
+    items = response.get_json()
+    status_code = response.status_code
+    if filter_value:
+        lots = Lot.query.join(Farm).filter(Farm.id == filter_value).all()
+    else:
+        lots = Lot.query.all()
+    lots_dic = {lot.name: lot.id for lot in lots}
+    
+    filter_field = "farm_id"
+    farms = Farm.query.all()
+    filter_options = farms
+    
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "common_analyses.j2", 
             items=items, 
+            lots_dic=lots_dic, 
+            filter_field=filter_field,
+            filter_options=filter_options,
+            filter_value=filter_value,
+            **context, 
+            request=request,
+        ),
+        200,
+    )
+    
+
+
+# 👌✍🏼
+@web.route("/leaf_analyses")
+@jwt_required()
+def amd_leaf_analyses():
+    """
+    Página: Renderiza la vista de análisis de hojas
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de análisis foliares",
+        "description": "Administración de análisis foliares.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    
+    # Get data
+    leaf_analysis_view = LeafAnalysisView()
+    filter_value = request.args.get("filter_value")
+    if filter_value:
+        filter_value = int(filter_value)
+        response = leaf_analysis_view._get_leaf_analysis_list(filter_by=filter_value)
+    else:
+        response = leaf_analysis_view._get_leaf_analysis_list()
+    filter_field = "farm_id"
+    farms = Farm.query.all()
+    filter_options = farms
+    items = response.get_json()
+    status_code = response.status_code
+    
+    # Get CommonAnalysisView
+    analisis_comun_id = request.args.get("analisis_comun_id")
+    if filter_value:
+        common_analyses = CommonAnalysis.query.join(Lot, CommonAnalysis.lot_id == Lot.id).filter(Lot.farm_id == filter_value).all()
+    else:
+        common_analyses = CommonAnalysis.query.all()
+
+    # Actualizar el diccionario common_analysis_options
+    if analisis_comun_id:
+        common_analysis_options = {int(analisis_comun_id): int(analisis_comun_id)}
+    else:
+        common_analysis_options = {common_analysis.id: common_analysis.id for common_analysis in common_analyses}
+    
+    
+    # Define form fields
+    nutrient_ids = Nutrient.query.all()
+    form_fields = {
+        "common_analysis_id": {
+            "type": "select",
+            "label": "Análisis común",
+            "options": common_analysis_options,
+            "required": True,
+        },
+    }
+    
+    # Add nutrient fields dynamically
+    for nutrient in nutrient_ids:
+        form_fields[f"nutrient_{nutrient.id}"] = {
+            "type": "number",
+            "label": f"Valor de {nutrient.name} ({nutrient.symbol})",
+            "required": False,
+            "placeholder": f"Ej: 10.5 ({nutrient.unit})",
+        }
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+        
+    return render_template(
+        "leaf_analyses.j2",
+        items=items,
+        nutrient_ids=nutrient_ids,
+        form_fields=form_fields,
+        filter_field=filter_field,
+        filter_options=filter_options,
+        filter_value=filter_value,
+        **context,
+        request=request,
+    ), 200
+    
+# 👌
+@web.route("/soil_analyses")
+@jwt_required()
+def amd_soil_analyses():
+    """
+    Página: Renderiza la vista de análisis de suelos
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de análisis de suelos",
+        "description": "Administración de análisis de suelos.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    soil_analysis_view = SoilAnalysisView()
+    filter_value = request.args.get("filter_value")
+    if filter_value:
+        filter_value = int(filter_value)
+        response = soil_analysis_view._get_soil_analysis_list(filter_by=filter_value)
+    else:
+        response = soil_analysis_view._get_soil_analysis_list()
+
+    items = response.get_json()
+    status_code = response.status_code
+    
+    filter_field = "farm_id"
+    farms = Farm.query.all()
+    filter_options = farms
+    
+    # Get CommonAnalysisView
+    analisis_comun_id = request.args.get("analisis_comun_id")
+    if filter_value:
+        common_analyses = CommonAnalysis.query.join(Lot, CommonAnalysis.lot_id == Lot.id).filter(Lot.farm_id == filter_value).all()
+    else:
+        common_analyses = CommonAnalysis.query.all()
+
+    # Actualizar el diccionario common_analysis_options
+    if analisis_comun_id:
+        common_analysis_options = {int(analisis_comun_id): int(analisis_comun_id)}
+    else:
+        common_analysis_options = {common_analysis.id: common_analysis.id for common_analysis in common_analyses}
+
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "soil_analyses.j2", 
+            items=items, 
+            filter_field=filter_field,
+            filter_options=filter_options,
+            filter_value=filter_value,
+            common_analysis_options=common_analysis_options,
+            **context, 
+            request=request,
+        ),
+        200,
+    )
+
+# 👌
+@web.route("/nutrient_applications")
+@jwt_required()
+def amd_nutrient_applications():
+    """
+    Página: Renderiza la vista de aplicaciones de nutrientes
+    """
+    filter_value = request.args.get("filter_value")
+    context = {
+        "dashboard": True,
+        "title": "Gestión de aplicaciones de nutrientes",
+        "description": "Administración de aplicaciones de nutrientes.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+
+    nutrient_application_view = NutrientApplicationView()
+    if filter_value:
+        filter_value = int(filter_value)
+        response = nutrient_application_view._get_nutrient_application_list(filter_by=filter_value)
+    else:
+        response = nutrient_application_view._get_nutrient_application_list()
+
+    status_code = response.status_code
+    items = response.get_json()
+
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+
+    lots = Lot.query.join(Farm).filter(Farm.org_id == filter_value).all() if filter_value else Lot.query.all()
+    lots_dic = {lot.name: lot.id for lot in lots}
+
+    filter_field = "farm_id"
+    farms = Farm.query.all()
+    filter_options = farms
+
+    # Define form fields
+    nutrient_ids = Nutrient.query.all()
+    form_fields = {
+        'date': {
+            'type': 'date', 
+            'label': 'Fecha de aplicación', 
+            'required': True
+        },
+        'lot_id': {
+            'type': 'select', 
+            'label': 'Lote', 
+            'options': lots_dic, 
+            'required': True, 
+            'new_value': False
+        },
+    }
+
+    # Add nutrient fields dynamically
+    for nutrient in nutrient_ids:
+        form_fields[f"nutrient_{nutrient.id}"] = {
+            "type": "number",
+            "label": f"Valor de {nutrient.name} ({nutrient.symbol})",
+            "required": False,
+            "placeholder": f"Ej: 10.5 ({nutrient.unit})",
+        }
+
+    return (
+        render_template(
+            "nutrient_applications.j2", 
+            items=items, 
+            lots_dic=lots_dic,
+            filter_field=filter_field,
+            filter_options=filter_options,
+            filter_value=filter_value,
+            form_fields=form_fields,
+            **context, 
+            request=request,
+        ),
+        status_code,
+    )
+    
+@web.route("/productions")
+@jwt_required()
+def amd_productions():
+    """
+    Página: Renderiza la vista de producciones
+    """
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de producciones",
+        "description": "Administración de producciones.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    production_view = ProductionView()
+    response = production_view._get_production_list()
+    items = response.get_json()
+    status_code = response.status_code
+
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "productions.j2",
+            items=items, 
+            **context, 
+            request=request,
+        ),
+        200,
+    )
+
+
+@web.route("/cv_nutrientes")
+def cv_nutrientes():
+    """
+    Página: Renderiza la vista de CV de nutrientes
+    """
+    # Calcular el CV para cada nutriente en el lote con ID 1
+    coeficientes_variacion = determinar_coeficientes_variacion(1)
+    productos_contribuciones = contribuciones_de_producto()
+    objective_resource = ObjectiveResource()
+    response = objective_resource.get_objective_list()
+    
+    # Obtener demandas ideales para el cultivo de papa
+    crop_objectives = response.papa
+    demandas_ideales = crop_objectives.get(index=0)
+    demandas_ideales_dict = demandas_ideales.nutrient_data  # Already Decimal
+
+    # Obtener análisis de hojas para el lote con ID 1
+    leaf_analysis_resource = LeafAnalysisResource()
+    response = leaf_analysis_resource.get_leaf_analysis_list()
+    data_string = response.get_json()
+    data = json.loads(data_string)  
+    nutrientes_actuales_raw = data["4"][0]["nutrients"]
+
+    # Convertir los valores de nutrientes_actuales a Decimal
+    nutrientes_actuales = {
+        nutriente: Decimal(str(valor))  # Convert string to Decimal
+        for nutriente, valor in nutrientes_actuales_raw.items()
+    }
+
+    # Asegurar que demandas_ideales_dict es un diccionario
+    if not isinstance(demandas_ideales_dict, dict):
+        raise ValueError("demandas_ideales no es un diccionario")
+
+    # Asegurar que nutrientes_actuales es un diccionario
+    if not isinstance(nutrientes_actuales, dict):
+        raise ValueError("nutrientes_actuales no es un diccionario")
+    
+    # Instanciar y usar la clase
+    optimizador = NutrientOptimizer(nutrientes_actuales, demandas_ideales_dict, productos_contribuciones, coeficientes_variacion)
+    limitante = optimizador.identificar_limitante()
+    recomendacion = optimizador.generar_recomendacion(lot_id=1)
+    return f"Nutriente limitante: {limitante}\n{recomendacion}"
+
+
+@web.route("/demo")
+@jwt_required()
+def demo():
+    context = {
+        "dashboard": True,
+        "title": "Gestión de análisis comunes",
+        "description": "Administración de análisis comunes.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    common_analysis_view = CommonAnalysisView()
+    filter_value = request.args.get("filter_value")
+    if filter_value:
+        filter_value = int(filter_value)
+        response = common_analysis_view._get_common_analysis_list(filter_by=filter_value)
+    else:
+        response = common_analysis_view._get_common_analysis_list()
+        
+    items = response.get_json()
+    status_code = response.status_code
+    if filter_value:
+        lots = Lot.query.join(Farm).filter(Farm.id == filter_value).all()
+    else:
+        lots = Lot.query.all()
+    lots_dic = {lot.name: lot.id for lot in lots}
+    
+    filter_field = "farm_id"
+    farms = Farm.query.all()
+    filter_options = farms
+    
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "demo.j2", 
+            items=items, 
+            lots_dic=lots_dic, 
+            filter_field=filter_field,
+            filter_options=filter_options,
+            filter_value=filter_value,
             **context, 
             request=request,
         ),
