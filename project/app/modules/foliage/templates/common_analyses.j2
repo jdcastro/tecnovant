@@ -4,8 +4,8 @@
 {% set entity_name_lower = "analisis_comun" %}
 {% set show_select_box = True %}
 {# Mostrar la grid de ítems #}
-{% set table_headers = ["ID", "Fecha de análisis", "Finca", "Lote", "Proteínas", "Descanso", "Días de descanso", "Mes", "Fecha de creación", "Fecha de actualización"] %}
-{% set item_fields = ["id", "date", "farm_name", "lot_name", "protein", "rest", "rest_days", "month", "created_at", "updated_at"] %}
+{% set table_headers = ["ID", "Fecha de análisis", "Finca", "Lote", "Proteínas", "Aforo", "Descanso", "Días de descanso", "Mes", "Fecha de creación", "Fecha de actualización"] %}
+{% set item_fields = ["id", "date", "farm_name", "lot_name", "protein", "yield_estimate", "rest", "rest_days", "month", "created_at", "updated_at"] %}
 {# formulario de editar y add #}
 {% set form_fields = {
     'date': {'type': 'date', 'label': 'Fecha de análisis', 'required': True},
@@ -13,6 +13,7 @@
     'protein': {'type': 'number', 'label': 'Proteínas', 'required': True},
     'rest': {'type': 'number', 'label': 'Descanso', 'required': True},
     'rest_days': {'type': 'number', 'label': 'Días de descanso', 'required': True},
+    'yield_estimate': {'type': 'number', 'label': 'Aforo', 'required': True},
     'month': {'type': 'number', 'label': 'Mes', "min": 1, "max": 12, 'required': True},
 } %}
 {# entregado desde el endpoint #}

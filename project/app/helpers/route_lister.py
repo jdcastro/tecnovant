@@ -100,23 +100,22 @@ class RouteLister(MethodView):
         docstring = func.__doc__
         return docstring.strip() if docstring else ""
 
+    from typing import List, Dict, Tuple
+
     @staticmethod
     def _parse_docstring(
-        docstring,
-    ) -> (str, List[str], List[str], Dict[str, Dict[str, List[str]]]):
+        docstring: str,
+    ) -> Tuple[str, List[str], List[str], Dict[str, Dict[str, List[str]]]]:
         """
-        Parses the docstring for general and method-specific documentation
+        Parses the docstring for general and method-specific documentation.
+        
         :param docstring: Raw docstring
-        :return: Tuple with parsed general description, parameters, response codes, and method documentation
+        :return: Tuple with parsed general description, parameters, response codes, and method documentation.
         """
         lines = docstring.split("\n")
         general_description, general_params, general_responses, method_docs = (
-            [],
-            [],
-            [],
-            {},
+            [], [], [], {}
         )
-        current_section = None
 
         for line in lines:
             line_stripped = line.strip()
@@ -125,9 +124,7 @@ class RouteLister(MethodView):
             elif line_stripped.startswith(":status"):
                 general_responses.append(line_stripped.replace(":status", "").strip())
             else:
-                if current_section != "description":
-                    current_section = "description"
-                    general_description.append(line_stripped)
+                general_description.append(line_stripped)
 
         return (
             "\n".join(general_description).strip(),
@@ -135,6 +132,7 @@ class RouteLister(MethodView):
             general_responses,
             method_docs,
         )
+
 
     def _get_method_docs(self, view_class, methods) -> Dict[str, Dict[str, List[str]]]:
         """

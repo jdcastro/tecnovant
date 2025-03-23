@@ -1872,6 +1872,7 @@ class CommonAnalysisView(MethodView):
             lot_id=data["lot_id"],
             protein=data["protein"],
             rest=data["rest"],
+            yield_estimate=data["yield_estimate"],
             rest_days=data["rest_days"],
             month=data["month"],
         )
@@ -1891,6 +1892,8 @@ class CommonAnalysisView(MethodView):
             common_analysis.protein = data["protein"]
         if "rest" in data:
             common_analysis.rest = data["rest"]
+        if "yield_estimate" in data:
+            common_analysis.yield_estimate = data["yield_estimate"]
         if "rest_days" in data:
             common_analysis.rest_days = data["rest_days"]
         if "month" in data:
@@ -1959,6 +1962,7 @@ class CommonAnalysisView(MethodView):
             "protein": common_analysis.protein,
             "rest": common_analysis.rest,
             "rest_days": common_analysis.rest_days,
+            "yield_estimate": common_analysis.yield_estimate,
             "month": common_analysis.month,
             "created_at": common_analysis.created_at.isoformat() if common_analysis.created_at else None,
             "updated_at": common_analysis.updated_at.isoformat() if common_analysis.updated_at else None,
@@ -2068,12 +2072,32 @@ class LotCropView(MethodView):
         # Verificar si el lote y el cultivo existen
         lot = Lot.query.get_or_404(data["lot_id"])
         crop = Crop.query.get_or_404(data["crop_id"])
-        
-        # Verificar duplicados
+
+        # Convertir las fechas de entrada a objetos datetime
+        new_start_date = datetime.fromisoformat(data["start_date"])
+        new_end_date = datetime.fromisoformat(data["end_date"]) if data.get("end_date") else None
+
+        # Verificar si ya existe un cultivo activo (sin fecha de fin) en el lote
+        active_crop = LotCrop.query.filter_by(lot_id=data["lot_id"]).filter(LotCrop.end_date.is_(None)).first()
+        if active_crop:
+            raise BadRequest("There is an active crop in this lot. Please close it before starting a new one.")
+
+        # Verificar solapamiento con cultivos existentes
+        existing_crops = LotCrop.query.filter_by(lot_id=data["lot_id"]).all()
+        for existing in existing_crops:
+            existing_start = existing.start_date
+            existing_end = existing.end_date if existing.end_date else datetime.max  # Si no hay end_date, asumir que sigue activo
+
+            # Comprobar si hay solapamiento
+            if (new_start_date <= existing_end) and (new_end_date is None or new_end_date >= existing_start):
+                raise BadRequest("The new crop dates overlap with an existing crop in this lot.")
+
+        # Verificar duplicados (misma combinación de lote, cultivo y fecha de inicio)
         if LotCrop.query.filter_by(lot_id=data["lot_id"], crop_id=data["crop_id"], 
-                                 start_date=data["start_date"]).first():
+                                start_date=data["start_date"]).first():
             raise BadRequest("This lot-crop relationship already exists.")
-        
+
+        # Crear el nuevo cultivo
         lot_crop = LotCrop(
             lot_id=data["lot_id"],
             crop_id=data["crop_id"],
@@ -2089,21 +2113,41 @@ class LotCropView(MethodView):
     def _update_lot_crop(self, lot_crop_id, data):
         """Actualiza los datos de una relación lot-crop existente."""
         lot_crop = LotCrop.query.get_or_404(lot_crop_id)
-        
+
+        # Nuevas fechas propuestas
+        new_lot_id = data.get("lot_id", lot_crop.lot_id)
+        new_start_date = datetime.fromisoformat(data["start_date"]) if "start_date" in data else lot_crop.start_date
+        new_end_date = datetime.fromisoformat(data["end_date"]) if data.get("end_date") else lot_crop.end_date
+
+        # Si se cambia el lote o las fechas, validar solapamientos
+        if "lot_id" in data or "start_date" in data or "end_date" in data:
+            # Verificar si el lote existe
+            if "lot_id" in data and data["lot_id"] != lot_crop.lot_id:
+                Lot.query.get_or_404(data["lot_id"])
+
+            # Verificar solapamiento con otros cultivos en el lote
+            existing_crops = LotCrop.query.filter(LotCrop.lot_id == new_lot_id, LotCrop.id != lot_crop_id).all()
+            for existing in existing_crops:
+                existing_start = existing.start_date
+                existing_end = existing.end_date if existing.end_date else datetime.max
+
+                if (new_start_date <= existing_end) and (new_end_date is None or new_end_date >= existing_start):
+                    raise BadRequest("The updated crop dates overlap with an existing crop in this lot.")
+
+        # Actualizar los campos
         if "lot_id" in data and data["lot_id"] != lot_crop.lot_id:
-            Lot.query.get_or_404(data["lot_id"])  # Verificar que el lote existe
             lot_crop.lot_id = data["lot_id"]
-        
+
         if "crop_id" in data and data["crop_id"] != lot_crop.crop_id:
             Crop.query.get_or_404(data["crop_id"])  # Verificar que el cultivo existe
             lot_crop.crop_id = data["crop_id"]
-        
+
         if "start_date" in data:
             lot_crop.start_date = data["start_date"]
-        
+
         if "end_date" in data:
             lot_crop.end_date = data["end_date"]
-            
+
         db.session.commit()
         response_data = self._serialize_lot_crop(lot_crop)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)

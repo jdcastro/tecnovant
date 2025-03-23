@@ -1,0 +1,99 @@
+{% extends "base.j2" %}
+{% block content %}
+
+
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold">Configuración del Informe</h1>
+            <div>
+                <button class="bg-gray-200 px-4 py-2 rounded mr-2">Restablecer</button>
+                <button class="bg-blue-600 text-white px-4 py-2 rounded">Guardar configuración</button>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-3 gap-4">
+            <div class="col-span-2 space-y-4">
+                <div class="bg-gray-50 p-4 rounded-lg shadow">
+                    <h2 class="text-lg font-semibold mb-2">Filtros de Selección</h2>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block font-medium">Finca</label>
+                            <select class="w-full border p-2 rounded">
+                                <option>Todas las fincas</option>
+                                <option>El nuevo rocío</option>
+                                <option>La esperanza</option>
+                                <option>Valle verde</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Lote</label>
+                            <select class="w-full border p-2 rounded">
+                                <option>Todos los lotes</option>
+                                <option>Lote 1</option>
+                                <option>Lote 2</option>
+                                <option>Lote A</option>
+                                <option>Sector Norte</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Rango de Fechas</label>
+                            <input type="date" class="w-full border p-2 rounded">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg shadow">
+                    <h2 class="text-lg font-semibold mb-2">Análisis Disponibles</h2>
+                    <table class="w-full border rounded">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="p-2">ID</th>
+                                <th class="p-2">Fecha</th>
+                                <th class="p-2">Finca</th>
+                                <th class="p-2">Lote</th>
+                                <th class="p-2">Tipo</th>
+                                <th class="p-2">Proteínas</th>
+                                <th class="p-2">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border">
+                                <td class="p-2">4</td>
+                                <td class="p-2">2025-03-19</td>
+                                <td class="p-2">El nuevo rocío</td>
+                                <td class="p-2">Lote 1</td>
+                                <td class="p-2">🌱</td>
+                                <td class="p-2">543</td>
+                                <td class="p-2 text-blue-500 cursor-pointer">👁️</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 p-4 rounded-lg shadow">
+                <h2 class="text-lg font-semibold mb-2">Opciones del Informe</h2>
+                <label class="block font-medium">Título del Informe</label>
+                <input type="text" class="w-full border p-2 rounded mb-2" value="Informe de Análisis">
+                
+                <h3 class="font-semibold mt-4">Secciones a incluir</h3>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="checkbox" class="mr-2"> Análisis Foliar
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" class="mr-2"> Análisis de Suelo
+                    </label>
+                </div>
+                
+                <h3 class="font-semibold mt-4">Visualizaciones</h3>
+                <label class="flex items-center">
+                    <input type="checkbox" class="mr-2"> Gráficos comparativos
+                </label>
+                
+                <button class="mt-4 bg-blue-600 text-white px-4 py-2 rounded w-full">Generar Informe</button>
+            </div>
+        </div>
+    
+
+
+{% endblock %}

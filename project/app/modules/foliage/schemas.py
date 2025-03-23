@@ -1,34 +1,36 @@
 from marshmallow import Schema, fields, validates, ValidationError
 from app.core.schemas import OrganizationSchema
 
-class NutrientValueSchema(Schema):
-    value = fields.Float(required=True)
-
-    @validates("value")
-    def validate_value(self, value):
-        if value < 0:
-            raise ValidationError("El valor del nutriente no puede ser negativo.")
+class NutrientSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
+    symbol = fields.Str(required=True)
+    unit = fields.Str(required=True)
+    org_id = fields.Int()
+    description = fields.Str(allow_none=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
 
 class FarmSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
     org_id = fields.Int(required=True)
-    organization = fields.Nested(lambda: OrganizationSchema(only=("name",)), dump_only=True)
-    lots = fields.Method("get_lot_names")
+    org_name = fields.Str(dump_only=True)
+    lots = fields.List(fields.Str(), dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
-
-    def get_lot_names(self, obj):
-        return [lot.name for lot in obj.lots]
 
 class LotSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
     area = fields.Float(required=True)
     farm_id = fields.Int(required=True)
-    farm = fields.Nested(lambda: FarmSchema(only=("name",)), dump_only=True)
+    farm_name = fields.Method("get_farm_name", dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+
+    def get_farm_name(self, obj):
+        return getattr(obj.farm, 'name', '')
 
 class CropSchema(Schema):
     id = fields.Int(dump_only=True)

@@ -68,16 +68,14 @@
 {% endif %}
 
 {% set reportes = {
-    "name": "Reportes",
+    "name": "Análisis de datos",
     "url": "#",
     "icon": icon_file_chart_bar,
     "notifications": 3,
     "submenu": [
-        {"name": "Análisis de datos", "url": "#"},
-        {"name": "Recomendaciones", "url": "#"},
-        {"name": "Reportes", "url": "#"},
-        {"name": "Pronóstico", "url": "#"},
-        {"name": "Gráficas de seguimiento", "url": "#"},
+        {"name": "Recomendaciones", "url": url_for('foliage.listar_reportes') },
+        {"name": "Generar reporte", "url": url_for('foliage.generar_informe') },
+        {"name": "Ver reporte", "url": url_for('foliage.vista_reporte') },
     ]
 } %}
 {% set sidebar_menu = {

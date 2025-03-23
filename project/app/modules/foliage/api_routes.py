@@ -87,3 +87,8 @@ api.add_url_rule("/nutrient_applications/<int:id>", view_func=nutrient_applicati
 production_view = ProductionView.as_view("production_view")
 api.add_url_rule("/production/", view_func=production_view, methods=["GET", "POST", "DELETE"])
 api.add_url_rule("/production/<int:id>", view_func=nutrient_application_view, methods=["GET", "PUT", "DELETE"])
+
+# test
+from .report_view import ReportView
+report_view = ReportView.as_view("report_view")
+api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])

@@ -181,6 +181,7 @@ class CommonAnalysis(db.Model):
     protein = db.Column(db.Float)
     rest = db.Column(db.Float)
     rest_days = db.Column(db.Integer)
+    yield_estimate = db.Column(db.Float)  # for aforo
     month = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
