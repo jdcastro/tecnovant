@@ -49,7 +49,7 @@
     } %}
 {% endif %}
 
-{% if rol == "administrator" or rol == "reseller" or rol == "org_admin" or rol == "org_editor" %}
+{% if rol == "administrator" or rol == "reseller" %}
     {% set foliar_menu = {
         "name": "Análisis Foliar",
         "url": "#",
@@ -73,9 +73,9 @@
     "icon": icon_file_chart_bar,
     "notifications": 3,
     "submenu": [
-        {"name": "Recomendaciones", "url": url_for('foliage.listar_reportes') },
-        {"name": "Generar reporte", "url": url_for('foliage.generar_informe') },
-        {"name": "Ver reporte", "url": url_for('foliage.vista_reporte') },
+        {"name": "Recomendaciones", "url": url_for('foliage_report.listar_reportes') },
+        {"name": "Generar reporte", "url": url_for('foliage_report.generar_informe') },
+        {"name": "Ver reporte", "url": url_for('foliage_report.vista_reporte') },
     ]
 } %}
 {% set sidebar_menu = {

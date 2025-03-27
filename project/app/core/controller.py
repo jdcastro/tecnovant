@@ -104,6 +104,57 @@ def check_permission(required_roles=None, resource_owner_check=False):
     return decorator
 
 
+def check_resource_access(resource, claims):
+    """
+    Verifica si un usuario tiene acceso a un recurso específico basado en su rol y claims.
+    
+    Args:
+        resource: El recurso al que se intenta acceder (debe tener un atributo org_id)
+        claims: Diccionario con información del usuario (rol, user_id, org_id)
+    
+    Returns:
+        bool: True si el usuario tiene acceso, False en caso contrario
+    
+    Raises:
+        ValueError: Si los claims no contienen la información necesaria
+    """
+    user_role = claims.get("rol")
+    if not user_role:
+        return False
+
+    # Caso del rol ADMINISTRATOR: acceso total
+    if user_role == RoleEnum.ADMINISTRATOR.value:
+        return True
+    
+    # Caso del rol RESELLER: acceso a recursos de organizaciones en su paquete
+    if user_role == RoleEnum.RESELLER.value:
+        reseller_org_id = claims.get("org_id")
+        if not reseller_org_id:
+            return False
+        reseller_package = ResellerPackage.query.filter_by(reseller_id=reseller_org_id).first()
+        if not reseller_package:
+            return False
+        resource_org_id = getattr(resource, "org_id", None)
+        if resource_org_id is None:
+            return False
+        return any(org.id == resource_org_id for org in reseller_package.organizations)
+    
+    # Caso de roles organizacionales: ORG_ADMIN, ORG_EDITOR, ORG_VIEWER
+    if user_role in (RoleEnum.ORG_ADMIN.value, RoleEnum.ORG_EDITOR.value, RoleEnum.ORG_VIEWER.value):
+        user_id = claims.get("user_id")
+        if not user_id:
+            return False
+        user = User.query.get(user_id)
+        if not user:
+            return False
+        resource_org_id = getattr(resource, "org_id", None)
+        if resource_org_id is None:
+            return False
+        return any(org.id == resource_org_id for org in user.organizations)
+    
+    return False
+
+
 class LoginView(MethodView):
     """Handle user authentication"""
 
@@ -844,8 +895,8 @@ class InstallationView(MethodView):
     def _create_admin_user(self, form_data):
         """Create initial administrator account with validated credentials."""
         credentials = {
-            "username": form_data.get("admin_username", "admin").strip(),
-            "password": form_data.get("admin_password", "admin123").strip(),
+            "username": form_data.get("admin_username", "merlin").strip(),
+            "password": form_data.get("admin_password", "Strong_Pass123!").strip(),
             "use_custom": "use_custom_creds" in form_data,
         }
 

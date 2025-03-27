@@ -70,8 +70,8 @@ class Config:
     Handles environment variables, database settings, mail configuration, and JWT settings.
     """
 
-    #    CORE = True
-    #    MODULES = ["foliage", "foliage_web"]
+    CORE = True
+    MODULES = ["foliage", "foliage_report"]
     THEME = "default"
     TITLE = os.getenv("TITLE")
     SECRET_KEY = os.getenv("SECRET_KEY")

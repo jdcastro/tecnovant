@@ -10,9 +10,9 @@
 {# formulario de editar y add #}
 {% set form_fields = {
     'lot_id': {'type': 'select', 'label': 'Lote', 'options': lots_dic, 'required': True, 'new_value': False},
-    'crop_id': {'type': 'select', 'label': 'Lote', 'options': crop_dic, 'required': True, 'new_value': False},
+    'crop_id': {'type': 'select', 'label': 'Cultivo', 'options': crop_dic, 'required': True, 'new_value': False},
     'start_date': {'type': 'date', 'label': 'Fecha de inicio', 'required': True},
-    'end_date': {'type': 'date', 'label': 'Fecha de inicio', 'required': False},
+    'end_date': {'type': 'date', 'label': 'Finaliza', 'required': False},
     
 } %}
 {# entregado desde el endpoint #}

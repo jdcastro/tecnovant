@@ -16,9 +16,10 @@ License:
 import logging
 from logging.handlers import RotatingFileHandler
 import traceback
+import json
 
 # Third party imports
-from flask import render_template
+from flask import request, render_template, Response, Flask
 from werkzeug.exceptions import HTTPException
 
 
@@ -44,44 +45,84 @@ def setup_logging(log_file="errors.log"):
 
     return logger
 
-
-def error_handler(app, logger):
-    """
-    Registers a global error handler for the Flask app.
+def error_handler(app: Flask, logger) -> None:
+    """Register global error handlers for the Flask application.
 
     Args:
-        app (Flask): The Flask application instance.
-        logger (logging.Logger): Configured logger instance.
+        app: Flask application instance.
+        logger: Configured logger instance for error logging.
     """
 
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        """
-        Handles global exceptions and logs them.
-
-        Args:
-            e (Exception): The exception instance.
+    def _is_api_request() -> bool:
+        """Determine if the request is for an API endpoint.
 
         Returns:
-            tuple: Rendered template and HTTP status code.
+            bool: True if the request expects JSON (e.g., Accept header or URL pattern), False otherwise.
         """
-        logger.error(f"Error occurred: {str(e)}\nTraceback: {traceback.format_exc()}")
+        accept_header = request.headers.get("Accept", "").lower()
+        return (
+            "application/json" in accept_header
+            or request.path.startswith("/api/")
+        )
 
+    @app.errorhandler(Exception)
+    def handle_exception(e: Exception) -> tuple:
+        """Handle global exceptions, log them, and return appropriate responses.
+
+        Args:
+            e: The exception instance to handle.
+
+        Returns:
+            tuple: Response (JSON or HTML) and HTTP status code.
+        """
+        # Log the error with additional request context
+        logger.error(
+            f"Error occurred: {str(e)}\n"
+            f"Method: {request.method}, Path: {request.path}, "
+            f"Headers: {request.headers}, Body: {request.get_data(as_text=True)}\n"
+            f"Traceback: {traceback.format_exc()}"
+        )
+
+        # Determine error details based on exception type
         if isinstance(e, HTTPException):
             error_code = e.code
             error_description = e.name
-            error_details = str(e)
+            error_details = e.description if hasattr(e, "description") else str(e)
         else:
             error_code = 500
             error_description = "Internal Server Error"
-            error_details = "An unhandled exception occurred."
+            error_details = "An unexpected error occurred on the server."
 
-        return (
-            render_template(
-                "layouts/error_handler.j2",
-                e=error_code,
-                e_description=error_description,
-                e_details=error_details,
-            ),
-            error_code,
-        )
+        # Choose response format based on request type
+        if _is_api_request():
+            # JSON response for API requests
+            response_data = {
+                "status": "error",
+                "message": error_description,
+                "code": error_code,
+                "details": error_details,
+            }
+            return Response(
+                json.dumps(response_data, ensure_ascii=False, indent=4),
+                status=error_code,
+                mimetype="application/json",
+            )
+        else:
+            # HTML response for web requests
+            try:
+                return (
+                    render_template(
+                        "layouts/error_handler.j2",
+                        e=error_code,
+                        e_description=error_description,
+                        e_details=error_details,
+                    ),
+                    error_code,
+                )
+            except Exception as template_error:
+                # Fallback if template rendering fails
+                logger.error(f"Template rendering failed: {str(template_error)}")
+                return (
+                    f"Error {error_code}: {error_description} - {error_details}",
+                    error_code,
+                )

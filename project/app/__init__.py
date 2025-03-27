@@ -1,8 +1,9 @@
 """🚀 Started file app"""
 
 # Python standard library imports
-import logging
 import os
+import logging
+from importlib import import_module
 
 # Third party imports
 from flask import Flask
@@ -30,25 +31,36 @@ def init_extensions(app):
 
 
 def register_blueprints(app):
-    """🟦 Register Flask Blueprints from the configuration.
+    """
+    Register Flask Blueprints from the configuration.
 
     Args:
         app (Flask): The Flask application instance.
     """
+    if Config.CORE == True:
+        try:
+            from app.core import core, core_api
+            app.register_blueprint(core)
+            app.register_blueprint(core_api)
+        except ImportError as e:
+            logging.error(f"Failed to import core module: {e}")
 
-    try:
-        from app.core import core, core_api
+    for module in Config.MODULES:
+        module_name = f"app.modules.{module}"
+        try:
+            module_obj = import_module(module_name)
+            blueprint_web = getattr(module_obj, module)
+            app.register_blueprint(blueprint_web)
 
-        app.register_blueprint(core)
-        app.register_blueprint(core_api)
+            # Verificar si existe el blueprint MODULE_api
+            if hasattr(module_obj, f"{module}_api"):
+                blueprint_api = getattr(module_obj, f"{module}_api")
+                app.register_blueprint(blueprint_api)
+        except ImportError as e:
+            logging.error(f"Failed to import module {module_name}: {e}")
+        except AttributeError as e:
+            logging.error(f"Blueprint {module} not found in module {module_name}: {e}")
 
-        from app.modules.foliage import foliage, foliage_api
-
-        app.register_blueprint(foliage)
-        app.register_blueprint(foliage_api)
-
-    except ImportError as e:
-        logging.error(f"Failed to import core module: {e}")
 
 
 def configure_logging():

@@ -30,7 +30,7 @@ nutrient_application_nutrients = db.Table(
     db.Column(
         "nutrient_id", db.Integer, db.ForeignKey("nutrients.id"), primary_key=True
     ),
-    db.Column("quantity", db.Float, nullable=False),
+    db.Column("quantity", db.Float, nullable=True),
     db.Column("created_at", db.DateTime, default=datetime.utcnow),
 )
 
@@ -42,7 +42,7 @@ objective_nutrients = db.Table(
     db.Column(
         "nutrient_id", db.Integer, db.ForeignKey("nutrients.id"), primary_key=True
     ),
-    db.Column("target_value", db.Float, nullable=False),
+    db.Column("target_value", db.Float, nullable=True),
     db.Column("created_at", db.DateTime, default=datetime.utcnow),
 )
 
@@ -57,7 +57,7 @@ product_contribution_nutrients = db.Table(
     db.Column(
         "nutrient_id", db.Integer, db.ForeignKey("nutrients.id"), primary_key=True
     ),
-    db.Column("contribution", db.Float, nullable=False),
+    db.Column("contribution", db.Float, nullable=True),
     db.Column("created_at", db.DateTime, default=datetime.utcnow),
 )
 
@@ -181,6 +181,7 @@ class CommonAnalysis(db.Model):
     protein = db.Column(db.Float)
     rest = db.Column(db.Float)
     rest_days = db.Column(db.Integer)
+    energy = db.Column(db.Float)
     yield_estimate = db.Column(db.Float)  # for aforo
     month = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -234,8 +235,8 @@ class SoilAnalysis(db.Model):
 
     def __repr__(self):
         return f"<SoilAnalysis {self.id}>"
+   
     
-
 class Nutrient(db.Model):
     """Model representing a nutrient"""
 
@@ -307,7 +308,46 @@ class LeafAnalysis(db.Model):
     def lot_name(self):
         return self.common_analysis.lot.name if self.common_analysis else None
 
+    
+class Recommendation(db.Model):
+    """Model representing a recommendation for a lot"""
 
+    __tablename__ = "recommendations"
+    id = db.Column(db.Integer, primary_key=True)
+    lot_id = db.Column(db.Integer, db.ForeignKey("lots.id"), nullable=False)
+    crop_id = db.Column(db.Integer, db.ForeignKey("crops.id"), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    author = db.Column(db.String(100))
+    title = db.Column(db.String(255), nullable=False)
+    limiting_nutrient_id = db.Column(db.String(255), nullable=False)
+    automatic_recommendations = db.Column(db.Text)  # Recomendaciones automáticas (puede ser JSON)
+    text_recommendations = db.Column(db.Text)      # Recomendaciones en texto libre
+    optimal_comparison = db.Column(db.Text)        # Comparación con niveles óptimos (puede ser JSON)
+    minimum_law_analyses = db.Column(db.Text)      # Análisis legal mínimo (puede ser JSON)
+    soil_analysis_details = db.Column(db.Text)     # Detalles del análisis de suelo (puede ser JSON)
+    foliar_analysis_details = db.Column(db.Text)   # Detalles del análisis foliar (puede ser JSON)
+    applied = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # Relaciones
+    lot = db.relationship("Lot", back_populates="recommendations")
+    crop = db.relationship("Crop")
+
+    __table_args__ = (
+        db.Index("ix_recommendations_lot_id", "lot_id"),
+        db.Index("ix_recommendations_date", "date"),
+    )
+
+    def __repr__(self):
+        return f"<Recommendation {self.id}>"
+    
+    @property
+    def organization(self):
+        return self.lot.farm.organization if self.lot and self.lot.farm else None
 
 
 class NutrientApplication(db.Model):
@@ -462,34 +502,6 @@ class ProductPrice(db.Model):
         return f"<ProductPrice {self.id}>"
 
 
-class Recommendation(db.Model):
-    """Model representing a recommendation for a lot"""
-
-    __tablename__ = "recommendations"
-    id = db.Column(db.Integer, primary_key=True)
-    lot_id = db.Column(db.Integer, db.ForeignKey("lots.id"), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    recommendation = db.Column(db.Text, nullable=False)
-    applied = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
-    lot = db.relationship("Lot", back_populates="recommendations")
-    __table_args__ = (
-        db.Index("ix_recommendations_lot_id", "lot_id"),
-        db.Index("ix_recommendations_date", "date"),
-    )
-
-    def __repr__(self):
-        return f"<Recommendation {self.id}>"
-    
-    
-    @property
-    def organization(self):
-        return self.lot.farm.organization if self.lot and self.lot.farm else None
-
-
 # Validación de nutrientes
 class NutrientValueSchema(Schema):
     value = fields.Float(required=True)
@@ -515,16 +527,17 @@ def get_all_users():
     return User.query.options(db.joinedload(User.farms)).all()
 
 
+
 # Example query optimization using joinedload
-def get_lot_details(lot_id):
-    return Lot.query.options(
-        db.joinedload(Lot.farm),
-        db.joinedload(Lot.lot_crops),
-        db.joinedload(Lot.common_analyses),
-        db.joinedload(Lot.nutrient_applications),
-        db.joinedload(Lot.productions),
-        db.joinedload(Lot.recommendations),
-    ).get(lot_id)
+# def get_lot_details(lot_id):
+#     return Lot.query.options(
+#         db.joinedload(Lot.farm),
+#         db.joinedload(Lot.lot_crops),
+#         db.joinedload(Lot.common_analyses),
+#         db.joinedload(Lot.nutrient_applications),
+#         db.joinedload(Lot.productions),
+#         db.joinedload(Lot.recommendations),
+#     ).get(lot_id)
 
 
 # Example of using subqueryload for more complex relationships

@@ -12,8 +12,8 @@ from sqlalchemy.orm import joinedload
 
 # Local application imports
 from app.extensions import db
-from app.core.controller import check_permission
-from app.core.models import RoleEnum, ResellerPackage, Organization
+from app.core.controller import check_permission, check_resource_access
+from app.core.models import User, RoleEnum, ResellerPackage, Organization
 from .models import (
     Farm,
     Lot,
@@ -37,7 +37,6 @@ from .models import (
 )
 
 # helper
-
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -93,7 +92,7 @@ class FarmView(MethodView):
         return self._update_farm(farm_id, data)
 
     @check_permission(resource_owner_check=True)
-    def delete(self, farm_id=None):
+    def delete(self, id=None):
         """
         Elimina una granja existente.
         Args:
@@ -102,6 +101,7 @@ class FarmView(MethodView):
             JSON: Mensaje de confirmación.
         """
         data = request.get_json()
+        farm_id = id
         if data and "ids" in data:
             return self._delete_farm(farm_ids=data["ids"])
         if farm_id:
@@ -112,24 +112,13 @@ class FarmView(MethodView):
     def _get_farm_list(self):
         """Obtiene una lista de todas las granjas activas."""
         claims = get_jwt()
-        user_role = claims.get("rol")
-        org_id = claims.get("org_id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            if hasattr(Farm, "active"):
-                farms = Farm.query.filter_by(active=True).all()
-            else:
-                farms = Farm.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=org_id
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            farms = []
-            for org in reseller_package.organizations:
-                farms.extend(org.farms)
-        else:
-            raise Forbidden("Only administrators and resellers can list farms.")
+        
+        farms = Farm.query.filter_by(active=True).all() if hasattr(Farm, "active") else Farm.query.all()
+        accessible_farms = [farm for farm in farms if self._has_access(farm, claims)]
+        
+        if farms and not accessible_farms:
+            raise Forbidden("You do not have access to any farms.")
+        
         response_data = [self._serialize_farm(farm) for farm in farms]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
@@ -224,19 +213,7 @@ class FarmView(MethodView):
 
     def _has_access(self, farm, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        org_id = claims.get("org_id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=org_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in farm.organization
-            )
-        return farm.org_id == claims.get("org_id")
+        return check_resource_access(farm, claims)
 
     def _serialize_farm(self, farm):
         """Serializa un objeto Farm a un diccionario."""
@@ -439,19 +416,7 @@ class LotView(MethodView):
 
     def _has_access(self, lot, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in lot.farm.user.organizations
-            )
-        return user_id == lot.farm.user_id
+        return check_resource_access(lot, claims)
 
     def _serialize_lot(self, lot):
         """Serializa un objeto Lot a un diccionario."""
@@ -639,19 +604,7 @@ class CropView(MethodView):
 
     def _has_access(self, crop, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in crop.user.organizations
-            )
-        return user_id == crop.user_id
+        return check_resource_access(crop, claims)
 
     def _serialize_crop(self, crop):
         """Serializa un objeto Crop a un diccionario."""
@@ -850,19 +803,7 @@ class NutrientView(MethodView):
 
     def _has_access(self, nutrient, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in nutrient.user.organizations
-            )
-        return user_id == nutrient.user_id
+        return check_resource_access(nutrient, claims)
 
     def _serialize_nutrient(self, nutrient):
         """Serializa un objeto Nutrient a un diccionario."""
@@ -986,7 +927,10 @@ class ObjectiveView(MethodView):
     def _create_objective(self, data):
         """Create a new objective with nutrient targets"""
         crop_id = data["crop_id"]
-        target_value = float(data["target_value"])  # Convert to float
+        try:
+            target_value = float(data["target_value"]) # Convert to float
+        except (ValueError, TypeError):
+            target_value = 0.0  
         protein = data.get("protein")  # Optional
         rest = data.get("rest")  # Optional
 
@@ -996,8 +940,8 @@ class ObjectiveView(MethodView):
             raise BadRequest("Invalid crop ID.")
 
         # Convert optional fields to float if provided
-        protein = float(protein) if protein is not None else None
-        rest = float(rest) if rest is not None else None
+        protein = float(data.get('protein', 0)) if data.get('protein') else None
+        rest = float(data.get('rest', 0)) if data.get('rest') else None
 
         # Create new objective
         new_objective = Objective(
@@ -1013,9 +957,14 @@ class ObjectiveView(MethodView):
             nutrient = Nutrient.query.get(nutrient_id)
             if not nutrient:
                 raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
+            
+            # Handle null or empty values
+            if value is None or value == "":
+                continue  # Skip this nutrient target if value is null or empty
+            
             try:
                 target_value_float = float(value)  # Convert to float
-                if target_value_float <= 0:
+                if target_value_float < 0:
                     raise BadRequest(
                         f"Target value for {nutrient.name} must be positive."
                     )
@@ -1039,18 +988,36 @@ class ObjectiveView(MethodView):
         """Update an existing objective"""
         objective = Objective.query.get_or_404(objective_id)
 
-        # Update main fields if provided
+        # Update main fields if provided and valid
         if "crop_id" in data:
             crop = Crop.query.get(data["crop_id"])
             if not crop:
                 raise BadRequest("Invalid crop ID.")
             objective.crop_id = data["crop_id"]
-        if "target_value" in data:
-            objective.target_value = data["target_value"]
-        if "protein" in data:
-            objective.protein = data["protein"]
-        if "rest" in data:
-            objective.rest = data["rest"]
+
+        if "target_value" in data and data["target_value"]:
+            try:
+                objective.target_value = float(data["target_value"])
+                if objective.target_value < 0:
+                    raise BadRequest("Target value must be positive.")
+            except ValueError:
+                raise BadRequest("Target value must be a valid number.")
+
+        if "protein" in data and data["protein"]:
+            try:
+                objective.protein = float(data["protein"])
+                if objective.protein <= 0:
+                    raise BadRequest("Protein value must be positive.")
+            except ValueError:
+                raise BadRequest("Protein value must be a valid number.")
+
+        if "rest" in data and data["rest"]:
+            try:
+                objective.rest = float(data["rest"])
+                if objective.rest <= 0:
+                    raise BadRequest("Rest value must be positive.")
+            except ValueError:
+                raise BadRequest("Rest value must be a valid number.")
 
         # Handle nutrient targets if provided
         nutrient_targets = {k: v for k, v in data.items() if k.startswith("nutrient_")}
@@ -1065,25 +1032,24 @@ class ObjectiveView(MethodView):
                 nutrient = Nutrient.query.get(nutrient_id)
                 if not nutrient:
                     raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
-                # Convert value to float (or int) and validate
-                try:
-                    target_value = float(
-                        value
-                    )  # Use float to handle decimal values; use int if only integers are expected
-                    if target_value <= 0:
-                        raise BadRequest(
-                            f"Target value for {nutrient.name} must be positive."
+                # Convert value to float and validate
+                if value:
+                    try:
+                        target_value = float(value)
+                        if target_value < 0:
+                            raise BadRequest(
+                                f"Target value for {nutrient.name} must be positive."
+                            )
+                        insert_stmt = objective_nutrients.insert().values(
+                            objective_id=objective.id,
+                            nutrient_id=nutrient_id,
+                            target_value=target_value,
                         )
-                    insert_stmt = objective_nutrients.insert().values(
-                        objective_id=objective.id,
-                        nutrient_id=nutrient_id,
-                        target_value=target_value,
-                    )
-                    db.session.execute(insert_stmt)
-                except ValueError:
-                    raise BadRequest(
-                        f"Target value for {nutrient.name} must be a valid number."
-                    )
+                        db.session.execute(insert_stmt)
+                    except ValueError:
+                        raise BadRequest(
+                            f"Target value for {nutrient.name} must be a valid number."
+                        )
 
         db.session.commit()
         response_data = self._serialize_objective(objective)
@@ -1099,20 +1065,7 @@ class ObjectiveView(MethodView):
 
     def _has_access(self, objective, claims):
         """Check if the current user has access to the objective"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == objective.crop.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(objective, claims)
 
     def _serialize_objective(self, objective):
         """Serialize an Objective object to a dictionary"""
@@ -1320,20 +1273,7 @@ class ProductView(MethodView):
 
     def _has_access(self, product, claims):
         """Check if the current user has access to the product"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == product.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(product, claims)
 
     def _serialize_product(self, product):
         """Serialize a Product object to a dictionary"""
@@ -1691,20 +1631,7 @@ class ProductPriceView(MethodView):
 
     def _has_access(self, product_price, claims):
         """Check if the current user has access to the product price"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == product_price.product.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(product_price, claims)
 
     def _serialize_product_price(self, product_price):
         """Serialize a ProductPrice object to a dictionary"""
@@ -1757,7 +1684,7 @@ class CommonAnalysisView(MethodView):
             JSON: Detalles del análisis común creado.
         """
         data = request.get_json()
-        if not data or not all(k in data for k in ("date", "lot_id", "protein", "rest", "rest_days", "month")):
+        if not data or not all(k in data for k in ("date", "lot_id", "protein", "energy", "rest", "rest_days", "month")):
             raise BadRequest("Missing required fields.")
         return self._create_common_analysis(data)
     @check_permission(resource_owner_check=True)
@@ -1804,6 +1731,8 @@ class CommonAnalysisView(MethodView):
         claims = get_jwt()
         user_role = claims.get("rol")
         user_id = claims.get("id")
+        user_org = claims.get("organizations", [])
+        
         common_analyses = []  # Lista de análisis comunes que se devolverá
         
         if user_role == RoleEnum.ADMINISTRATOR.value:
@@ -1838,8 +1767,24 @@ class CommonAnalysisView(MethodView):
                     .join(ResellerPackage.organizations, Farm.organization_id == Organization.id)
                     .filter(Organization.id.in_(reseller_package.organization_ids))
                 )
+        elif user_role == RoleEnum.ORG_ADMIN.value:
+            org_ids = [org["id"] for org in user_org ]
+            if not org_ids:
+                raise Forbidden("User is not associated with any organization.")
+
+            if filter_by:
+                query = (
+                    CommonAnalysis.query.join(Lot)
+                    .join(Farm).filter(Farm.id == filter_by)
+                    .filter(Farm.org_id.in_(org_ids))
+                )
+            else:
+                query = (
+                    CommonAnalysis.query.join(Lot)
+                    .join(Farm).filter(Farm.org_id.in_(org_ids))
+                )
         else:
-            raise Forbidden("Only administrators and resellers can list common_analyses.")
+            raise Forbidden("You can't list common_analyses.")
         
         common_analyses = query.all()
         
@@ -1872,6 +1817,7 @@ class CommonAnalysisView(MethodView):
             lot_id=data["lot_id"],
             protein=data["protein"],
             rest=data["rest"],
+            energy=data["energy"],
             yield_estimate=data["yield_estimate"],
             rest_days=data["rest_days"],
             month=data["month"],
@@ -1892,6 +1838,8 @@ class CommonAnalysisView(MethodView):
             common_analysis.protein = data["protein"]
         if "rest" in data:
             common_analysis.rest = data["rest"]
+        if "energy" in data:
+            common_analysis.energy = data["energy"]
         if "yield_estimate" in data:
             common_analysis.yield_estimate = data["yield_estimate"]
         if "rest_days" in data:
@@ -1938,19 +1886,8 @@ class CommonAnalysisView(MethodView):
             )
     def _has_access(self, common_analysis, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        user_id = claims.get("id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=user_id
-            ).first()
-            return any(
-                org.id in [o.id for o in reseller_package.organizations]
-                for org in common_analysis.lot.farm.user.organizations
-            )
-        return user_id == common_analysis.lot.farm.user_id
+        return check_resource_access(common_analysis, claims)
+        
     def _serialize_common_analysis(self, common_analysis):
         """Serializa un objeto CommonAnalysis a un diccionario."""
         return {
@@ -1960,6 +1897,7 @@ class CommonAnalysisView(MethodView):
             "lot_name": common_analysis.lot.name,
             "farm_name": common_analysis.lot.farm.name,
             "protein": common_analysis.protein,
+            "energy": common_analysis.energy,
             "rest": common_analysis.rest,
             "rest_days": common_analysis.rest_days,
             "yield_estimate": common_analysis.yield_estimate,
@@ -1967,6 +1905,7 @@ class CommonAnalysisView(MethodView):
             "created_at": common_analysis.created_at.isoformat() if common_analysis.created_at else None,
             "updated_at": common_analysis.updated_at.isoformat() if common_analysis.updated_at else None,
         }
+
 
 # Vista para lotes de cultivos (lot_crops)
 # 👌
@@ -2185,19 +2124,7 @@ class LotCropView(MethodView):
 
     def _has_access(self, lot_crop, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
-        user_role = claims.get("rol")
-        org_id = claims.get("org_id")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=org_id
-            ).first()
-            return any(
-                org.id == lot_crop.lot.farm.org_id
-                for org in reseller_package.organizations
-            )
-        return lot_crop.lot.farm.org_id == org_id
+        return check_resource_access(lot_crop, claims)
 
     def _serialize_lot_crop(self, lot_crop):
         """Serializa un objeto LotCrop a un diccionario."""
@@ -2427,20 +2354,7 @@ class LeafAnalysisView(MethodView):
 
     def _has_access(self, leaf_analysis, claims):
         """Verifica si el usuario actual tiene acceso al análisis de hoja."""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == leaf_analysis.common_analysis.organization_id  # Ajusta según tu modelo
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(leaf_analysis, claims)
     
     def _serialize_leaf_analysis(self, leaf_analysis):
         """Serializa un objeto LeafAnalysis a un diccionario."""
@@ -2613,20 +2527,7 @@ class SoilAnalysisView(MethodView):
 
     def _has_access(self, soil_analysis, claims):
         """Check if the current user has access to the soil analysis"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == soil_analysis.common_analysis.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(soil_analysis, claims)
 
     def _serialize_soil_analysis(self, soil_analysis):
         """Serialize a SoilAnalysis object to a dictionary"""
@@ -2855,20 +2756,8 @@ class NutrientApplicationView(MethodView):
         return jsonify({"message": "Nutrient application deleted successfully"}), 200
     def _has_access(self, nutrient_application, claims):
         """Check if the current user has access to the nutrient application"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == nutrient_application.lot.farm.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(nutrient_application, claims)
+        
     def _serialize_nutrient_application(self, nutrient_application):
         """Serialize a NutrientApplication object to a dictionary"""
         nutrient_quantities = (
@@ -3043,20 +2932,8 @@ class ProductionView(MethodView):
         return jsonify({"message": "Production deleted successfully"}), 200
     def _has_access(self, production, claims):
         """Check if the current user has access to the production"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == production.lot.farm.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
+        return check_resource_access(production, claims)
+        
     def _serialize_production(self, production):
         """Serialize a Production object to a dictionary"""
         return {
@@ -3079,157 +2956,3 @@ class ProductionView(MethodView):
             "updated_at": production.updated_at.isoformat(),
         }
 
-
-class RecommendationView(MethodView):
-    """Class to manage CRUD operations for recommendations"""
-
-    decorators = [jwt_required()]
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, recommendation_id=None):
-        """
-        Retrieve a list of recommendations or a specific recommendation
-        Args:
-            recommendation_id (int, optional): ID of the recommendation to retrieve
-        Returns:
-            JSON: List of recommendations or details of a specific recommendation
-        """
-        if recommendation_id:
-            return self._get_recommendation(recommendation_id)
-        return self._get_recommendation_list()
-
-    @check_permission(required_roles=["administrator", "reseller"])
-    def post(self):
-        """
-        Create a new recommendation
-        Returns:
-            JSON: Details of the created recommendation
-        """
-        data = request.get_json()
-        required_fields = ["lot_id", "date", "recommendation"]
-        if not data or not all(k in data for k in required_fields):
-            raise BadRequest("Missing required fields")
-        return self._create_recommendation(data)
-
-    @check_permission(resource_owner_check=True)
-    def put(self, id: int):
-        """
-        Update an existing recommendation
-        Args:
-            recommendation_id (int): ID of the recommendation to update
-        Returns:
-            JSON: Details of the updated recommendation
-        """
-        data = request.get_json()
-        recommendation_id = id
-        if not data or not recommendation_id:
-            raise BadRequest("Missing recommendation_id or data")
-        return self._update_recommendation(recommendation_id, data)
-
-    @check_permission(resource_owner_check=True)
-    def delete(self, id=None):
-        """
-        Delete an existing recommendation
-        Args:
-            recommendation_id (int): ID of the recommendation to delete
-        Returns:
-            JSON: Confirmation message
-        """
-        recommendation_id = id
-        if not recommendation_id:
-            raise BadRequest("Missing recommendation_id")
-        return self._delete_recommendation(recommendation_id)
-
-    # Helper Methods
-    def _get_recommendation_list(self):
-        """Retrieve a list of all recommendations"""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            recommendations = Recommendation.query.all()
-        elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                raise NotFound("Reseller package not found.")
-            recommendations = []
-            for organization in reseller_package.organizations:
-                for lot in organization.lots:
-                    recommendations.extend(lot.recommendations)
-        else:
-            raise Forbidden(
-                "Only administrators and resellers can list recommendations"
-            )
-        response_data = [self._serialize_recommendation(r) for r in recommendations]
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _get_recommendation(self, recommendation_id):
-        """Retrieve details of a specific recommendation"""
-        recommendation = Recommendation.query.get_or_404(recommendation_id)
-        claims = get_jwt()
-        if not self._has_access(recommendation, claims):
-            raise Forbidden("You do not have access to this recommendation")
-        response_data = self._serialize_recommendation(recommendation)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _create_recommendation(self, data):
-        """Create a new recommendation"""
-        lot_id = data["lot_id"]
-        date = data["date"]
-        recommendation = data["recommendation"]
-        rec = Recommendation(lot_id=lot_id, date=date, recommendation=recommendation)
-        db.session.add(rec)
-        db.session.commit()
-        response_data = self._serialize_recommendation(rec)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=201, mimetype="application/json")
-
-    def _update_recommendation(self, recommendation_id, data):
-        """Update an existing recommendation"""
-        recommendation = Recommendation.query.get_or_404(recommendation_id)
-        if "date" in data:
-            recommendation.date = data["date"]
-        if "recommendation" in data:
-            recommendation.recommendation = data["recommendation"]
-        db.session.commit()
-        response_data = self._serialize_recommendation(recommendation)
-        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
-        return Response(json_data, status=200, mimetype="application/json")
-
-    def _delete_recommendation(self, recommendation_id):
-        """Delete an existing recommendation"""
-        recommendation = Recommendation.query.get_or_404(recommendation_id)
-        db.session.delete(recommendation)
-        db.session.commit()
-        return jsonify({"message": "Recommendation deleted successfully"}), 200
-
-    def _has_access(self, recommendation, claims):
-        """Check if the current user has access to the recommendation"""
-        user_role = claims.get("rol")
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return True
-        if user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            if not reseller_package:
-                return False
-            return any(
-                org.id == recommendation.lot.farm.organization.id
-                for org in reseller_package.organizations
-            )
-        return False
-
-    def _serialize_recommendation(self, recommendation):
-        """Serialize a Recommendation object to a dictionary"""
-        return {
-            "id": recommendation.id,
-            "lot_id": recommendation.lot_id,
-            "date": recommendation.date,
-            "recommendation": recommendation.recommendation,
-            "created_at": recommendation.created_at.isoformat(),
-            "updated_at": recommendation.updated_at.isoformat(),
-        }

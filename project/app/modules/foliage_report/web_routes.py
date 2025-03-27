@@ -1,181 +1,65 @@
-from flask import jsonify
-from flask.views import MethodView
-from flask_jwt_extended import jwt_required, get_jwt
-from werkzeug.exceptions import Forbidden
+import json 
+from decimal import Decimal
 
-from app.extensions import db
-from app.core.models import RoleEnum, ResellerPackage
-from .models import (
-    CommonAnalysis,
-    Lot,
-    LotCrop,
-    Objective,
-    Nutrient,
-    leaf_analysis_nutrients,
-    objective_nutrients
-)
+from flask import render_template, url_for, request
+
+from . import foliage_report as web
+from .helpers import calcular_cv_nutriente, determinar_coeficientes_variacion, contribuciones_de_producto, ObjectiveResource, LeafAnalysisResource, NutrientOptimizer
+from app.modules.foliage.models import Recommendation
+from app.core.controller import login_required, check_resource_access
+
+def get_dashboard_menu():
+    """Define el menu superior en los templates"""
+    return {
+        "menu": [
+            {"name": "Home", "url": url_for("core.index")},
+            {"name": "Logout", "url": url_for("core.logout")},
+            {"name": "Profile", "url": url_for("core.profile")},
+        ]
+    }
 
 
-class ReportView(MethodView):
-    """Clase para generar reportes integrados de análisis"""
-    decorators = [jwt_required()]
+@web.route("listar_reportes")
+@login_required
+def listar_reportes():
+    context = {
+        "dashboard": True,
+        "title": "Informes de Análisis - TecnoAgro",
+        "description": "Panel de control.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "og_image": "/img/og-image.jpg",
+        "twitter_image": "/img/twitter-image.jpg",
+        "data_menu": get_dashboard_menu(),
+    }
+    reports = True
+    reportes = Recommendation.query.all()
+    # contar registros en reportes
+    count = len(reportes)
+    
+    total_informes = count
+    items = {}
+    return render_template("listar_reportes.j2", **context, reports=reports, request=request, total_informes=total_informes, items=items)
 
-    def get(self, id):
-        """
-        Genera reporte completo de análisis con niveles óptimos
-        Args:
-            common_analysis_id (int): ID del análisis común a reportar
-        Returns:
-            JSON: Estructura con datos de análisis y niveles óptimos
-        """
-        common_analysis_id = id
-        common_analysis = self._get_common_analysis(common_analysis_id)
-        self._check_access(common_analysis)
 
-        report_data = {
-            "analysisData": self._build_analysis_data(common_analysis),
-            "optimalLevels": self._get_optimal_levels(common_analysis)
-        }
 
-        return jsonify(report_data), 200
 
-    def _get_common_analysis(self, analysis_id):
-        """Obtiene el análisis común con relaciones optimizadas"""
-        return CommonAnalysis.query.options(
-            db.joinedload(CommonAnalysis.lot).joinedload(Lot.farm),
-            db.joinedload(CommonAnalysis.soil_analysis),
-            db.joinedload(CommonAnalysis.leaf_analysis)
-        ).get_or_404(analysis_id)
 
-    def _check_access(self, common_analysis):
-        """Valida permisos de acceso a la organización"""
-        claims = get_jwt()
-        user_role = claims.get("rol")
-        
-        if user_role == RoleEnum.ADMINISTRATOR.value:
-            return
-            
-        if user_role == RoleEnum.RESELLER.value:
-            org_id = common_analysis.organization.id if common_analysis.organization else None
-            if not org_id:
-                raise Forbidden("No se pudo determinar la organización del análisis")
-                
-            reseller_package = ResellerPackage.query.filter_by(
-                reseller_id=claims.get("org_id")
-            ).first()
-            
-            if not reseller_package or org_id not in reseller_package.organization_ids:
-                raise Forbidden("Acceso denegado al recurso")
 
-    def _build_analysis_data(self, analysis):
-        """Construye la estructura principal del reporte"""
-        return {
-            "common": self._serialize_common(analysis),
-            "foliar": self._get_foliar_data(analysis.leaf_analysis),
-            "soil": self._get_soil_data(analysis.soil_analysis)
-        }
+@web.route("/vista_reporte")
+@login_required
+def vista_reporte():
+    context = {
+        "dashboard": True,
+        "title": "Dashboard TecnoAgro",
+        "description": "Panel de control.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "og_image": "/img/og-image.jpg",
+        "twitter_image": "/img/twitter-image.jpg",
+        "data_menu": get_dashboard_menu(),
+    }
 
-    def _serialize_common(self, analysis):
-        """Serializa datos del análisis común"""
-        return {
-            "id": analysis.id,
-            "fechaAnalisis": analysis.date.isoformat(),
-            "finca": analysis.farm_name if analysis.lot and analysis.lot.farm else "N/A",
-            "lote": analysis.lot_name if analysis.lot else "N/A",
-            "proteinas": analysis.protein,
-            "descanso": analysis.rest,
-            "diasDescanso": analysis.rest_days,
-            "mes": analysis.month,
-            "aforo": analysis.yield_estimate
-        }
-
-    def _get_foliar_data(self, leaf_analysis):
-        """Obtiene y formatea datos foliares"""
-        if not leaf_analysis:
-            return None
-
-        foliar_data = {"id": leaf_analysis.id}
-        nutrients = db.session.query(leaf_analysis_nutrients).filter_by(
-            leaf_analysis_id=leaf_analysis.id
-        ).all()
-
-        for nv in nutrients:
-            nutrient = Nutrient.query.get(nv.nutrient_id)
-            if nutrient:
-                key = nutrient.name.lower().replace(" ", "")
-                foliar_data[key] = nv.value
-
-        return foliar_data
-
-    def _get_soil_data(self, soil_analysis):
-        """Obtiene y formatea datos de suelo"""
-        if not soil_analysis:
-            return None
-
-        return {
-            "id": soil_analysis.id,
-            "energia": soil_analysis.energy,
-            "pastoreo": soil_analysis.grazing
-        }
-
-    def _lot_crop_data(self, common_analysis):
-        """Obtiene el cultivo activo del lote en la fecha del análisis"""
-        if not common_analysis or not common_analysis.lot_id:
-            return None
-
-        # Buscar el cultivo activo en el rango de fechas
-        lot_crop = LotCrop.query.filter(
-            LotCrop.lot_id == common_analysis.lot_id,
-            LotCrop.start_date <= common_analysis.date,
-            db.or_(
-                LotCrop.end_date >= common_analysis.date,
-                LotCrop.end_date.is_(None)
-            )
-        ).options(db.joinedload(LotCrop.crop)).first()
-
-        return lot_crop
-
-    def _get_optimal_levels(self, common_analysis):
-        """Obtiene niveles óptimos del cultivo actual"""
-        lot_crop = self._lot_crop_data(common_analysis)
-        if not lot_crop or not lot_crop.crop:
-            return None
-
-        objective = Objective.query.filter_by(crop_id=lot_crop.crop.id).first()
-        if not objective:
-            return None
-
-        return {
-            "info": {
-                "cultivo": lot_crop.crop.name,
-                "valor_obj": objective.target_value,
-                "proteina": objective.protein,
-                "descanso": objective.rest
-            },
-            "nutrientes": self._get_nutrient_targets(objective)
-        }
-
-    def _get_nutrient_targets(self, objective):
-        """Obtiene y formatea los objetivos de nutrientes desde objective_nutrients"""
-        targets = {}
-        obj_nutrients = db.session.query(objective_nutrients).filter_by(
-            objective_id=objective.id
-        ).all()
-
-        for on in obj_nutrients:
-            nutrient = Nutrient.query.get(on.nutrient_id)
-            if nutrient:
-                key = nutrient.name.lower().replace(" ", "")
-                targets[key] = on.target_value  # Usamos el target_value de objective_nutrients directamente
-
-        return targets
-
-#  Título	Finca / Lote	Cultivo	Fecha	Tipo	Autor
-"""
-Reportes, incluirán los datos completos de un análisis completo común (CommonAnalysis) 
-ahí se identificará el análisis de suelo (SoilAnalysis) y foliar (LeafAnalysis, debe incluir los nutrientes relacionados de la tabla leaf_analysis_nutrients ) relacionados con el ID del CommonAnalysis, esto deben presentarse así (Nota, los datos y listado de nutriente deben obtenerse de los registrados en el modelo Nutrient): 
-        
-        
     analysisData = {
         "common": {
             "id": 3,
@@ -216,17 +100,8 @@ ahí se identificará el análisis de suelo (SoilAnalysis) y foliar (LeafAnalysi
         },
     }
     
-optimalLevels se obtendrá a partir del tipo de cultivo, este se comparará con los tipos de cultivo registrados en Crops y sus valores de nutrientes registrados en objective_nutrients (Nota, los datos y listado de nutriente deben obtenerse de los registrados en el modelo Nutrient)
     optimalLevels = {
-        VALOR OBJETIVO	PROTEÍNA	DESCANSO
-        "info": {
-            "cultivo": "papa", 
-            "valor_obj": "10",
-            "proteina": "8",
-            "descanso": "5",
-        
-        }
-        "nutrientes": {
+        "foliar": {
             "nitrogeno": {"min": 2.8, "max": 3.5},
             "fosforo": {"min": 0.2, "max": 0.4},
             "potasio": {"min": 2.0, "max": 3.0},
@@ -238,6 +113,17 @@ optimalLevels se obtendrá a partir del tipo de cultivo, este se comparará con 
             "zinc": {"min": 20, "max": 50},
             "cobre": {"min": 5, "max": 15},
             "boro": {"min": 20, "max": 50},
+        },
+        "soil": {
+            "ph": {"min": 6.0, "max": 7.0},
+            "materiaOrganica": {"min": 3.0, "max": 5.0},
+            "nitrogeno": {"min": 0.15, "max": 0.25},
+            "fosforo": {"min": 15, "max": 30},
+            "potasio": {"min": 150, "max": 250},
+            "calcio": {"min": 1000, "max": 2000},
+            "magnesio": {"min": 150, "max": 300},
+            "azufre": {"min": 10, "max": 20},
+            "cic": {"min": 12, "max": 25},
         },
     }
 
@@ -385,4 +271,72 @@ optimalLevels se obtendrá a partir del tipo de cultivo, este se comparará con 
 
     limitingNutrient = findLimitingNutrient()
     recommendations = generateRecommendations()
-"""
+
+    return render_template('ver_reporte.j2', **context, 
+            request=request,  analysisData=analysisData, optimalLevels=optimalLevels, foliarChartData=foliarChartData, soilChartData=soilChartData, historicalData=historicalData, nutrientNames=nutrientNames, limitingNutrient=limitingNutrient, recommendations=recommendations)
+
+
+
+@web.route("/solicitar_informe")
+@login_required
+def generar_informe():
+    context = {
+        "dashboard": True,
+        "title": "Dashboard TecnoAgro",
+        "description": "Panel de control.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "og_image": "/img/og-image.jpg",
+        "twitter_image": "/img/twitter-image.jpg",
+        "data_menu": get_dashboard_menu(),
+    }
+    return render_template("solicitar_informe.j2", **context, request=request)
+
+
+
+
+
+
+@web.route("/cv_nutrientes")
+@login_required
+def cv_nutrientes():
+    """
+    Página: Renderiza la vista de CV de nutrientes
+    """
+    # Calcular el CV para cada nutriente en el lote con ID 1
+    coeficientes_variacion = determinar_coeficientes_variacion(1)
+    productos_contribuciones = contribuciones_de_producto()
+    objective_resource = ObjectiveResource()
+    response = objective_resource.get_objective_list()
+    
+    # Obtener demandas ideales para el cultivo de papa
+    crop_objectives = response.papa
+    demandas_ideales = crop_objectives.get(index=0)
+    demandas_ideales_dict = demandas_ideales.nutrient_data  # Already Decimal
+
+    # Obtener análisis de hojas para el lote con ID 1
+    leaf_analysis_resource = LeafAnalysisResource()
+    response = leaf_analysis_resource.get_leaf_analysis_list()
+    data_string = response.get_json()
+    data = json.loads(data_string)  
+    nutrientes_actuales_raw = data["4"][0]["nutrients"]
+
+    # Convertir los valores de nutrientes_actuales a Decimal
+    nutrientes_actuales = {
+        nutriente: Decimal(str(valor))  # Convert string to Decimal
+        for nutriente, valor in nutrientes_actuales_raw.items()
+    }
+
+    # Asegurar que demandas_ideales_dict es un diccionario
+    if not isinstance(demandas_ideales_dict, dict):
+        raise ValueError("demandas_ideales no es un diccionario")
+
+    # Asegurar que nutrientes_actuales es un diccionario
+    if not isinstance(nutrientes_actuales, dict):
+        raise ValueError("nutrientes_actuales no es un diccionario")
+    
+    # Instanciar y usar la clase
+    optimizador = NutrientOptimizer(nutrientes_actuales, demandas_ideales_dict, productos_contribuciones, coeficientes_variacion)
+    limitante = optimizador.identificar_limitante()
+    recomendacion = optimizador.generar_recomendacion(lot_id=1)
+    return f"Nutriente limitante: {limitante}\n{recomendacion}"

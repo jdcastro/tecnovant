@@ -1,14 +1,26 @@
-{# layouts/crud_base.j2 #}
-{# base for developing CRUD forms
-Requires handling of GET, PUT, POST, DELETE methods from a single endpoint.
-receives item parameters and "items" a table with the get content,
-creates a modal type form for editing or adding
-creates a deletion confirmation modal
-allows bulk deletion
-
-example of use: users.j2
-#}
 {% extends "base.j2" %}
+{# identificadores de entidad #}
+{% set entity_name = "Usuarios" %}
+{% set entity_name_lower = "usuario" %}
+{% set show_select_box = False %}
+
+{# Mostrar la grid de ítems #}
+{% set table_headers = ["ID", "Título", "Finca / Lote", "Cultivo", "Fecha", "Autor"]%}
+{% set item_fields = ["id", "title", "finca_lote", "crop", "date", "autor" ] %}
+
+
+{# formulario de editar y add #}
+{% set form_fields = {
+    'username': {'type': 'text', 'label': 'Nombre de usuario', 'required': True, 'disabled_in_edit': True},
+    'full_name': {'type': 'text', 'label': 'Nombre completo', 'required': True},
+    'email': {'type': 'email', 'label': 'Correo electrónico', 'required': True},
+    'role': {'type': 'select', 'label': 'Roles', 'options': {'Administrador': 'administrator', 'Reseller': 'reseller', 'Org Admin': 'org_admin','Org Editor': 'org_editor', 'Usuario Básico': 'org_viewer'}, 'required': True, 'new_value': False},    
+
+    'password': {'type': 'password', 'label': 'Clave', 'required': True},
+    'password_confirm': {'type': 'password', 'label': 'Confirmar Clave', 'required': True}
+} %}
+{% set api_url = url_for('core_api.user_view') %}
+
 
 {# declaracion de variables #}
 {% set dashboard = true %}
@@ -78,12 +90,11 @@ base_input_classes, table_header_class, table_cell_class %}
     <h1 class="text-2xl mt-0 pt-0 font-bold">{{ title }}</h1>
     {% if reports %}
         <div>
-            <span class="bg-gray-200 px-4 py-2 rounded mr-2">Informes generados {{ total_informes }}</span>
             <button class="bg-blue-600 text-white px-4 py-2 rounded">+ Crear Nuevo Informe</button>
         </div>
     {% endif %}
 </div>
-<div id="message" class="max-w-sm mx-auto mt-10 text-red-500"></div>
+
 {# Contenido genérico de la página crud #}
 <div class="mx-auto max-w-8xl pt-0 pb-6 sm:px-6 lg:px-8">
     <div class="px-4 py-2 sm:px-0">
@@ -105,19 +116,13 @@ base_input_classes, table_header_class, table_cell_class %}
 {% endif %}
 {# fin Selector dinámico #}
 
-        <div class="mb-4 flex justify-between">        
-            <button onclick="showModal('create')" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">
-                Crear Nuevo {{ entity_name }}
-            </button>
-            {% if show_select_box %}
-            <button onclick="handleBulkAction()" class="{{ base_button_classes }} {{ border_color }} {{ delete_button_bg_color }} text-white {{ focus_ring_color }}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-            </button>
-            {% endif %}
-        </div>
-        <div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
+{{ info_card(title="Total de Informes", value=total_informes, description="Informes almacenados" ) }}
+{{ info_card(title="Análisis reciente", value="Último análisis", description="" ) }}
+{{ info_card(title="Mi cajilla", value="valor", description="esta descripcion" ) }}
+</div>
+
+<div>
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border rounded">
                 <thead class="{{ bg_color }} dark:bg-gray-900 hidden sm:table-header-group">
                     <tr class="bg-gray-200 dark:bg-gray-900 hidden sm:table-row">
@@ -177,13 +182,11 @@ base_input_classes, table_header_class, table_cell_class %}
                     </td>
                 </tr>
 
-
-
-
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
     </div>
 </div>
 

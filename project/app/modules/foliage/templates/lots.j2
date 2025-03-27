@@ -4,8 +4,8 @@
 {% set entity_name_lower = "lote" %}
 {% set show_select_box = True %}
 {# Mostrar la grid de ítems #}
-{% set table_headers = ["ID", "Nombre del lote", "Área del lote", "Finca", "Fecha de creación", "Fecha de actualización"] %}
-{% set item_fields = ["id", "name", "area", "farm_name", "created_at", "updated_at"] %}
+{% set table_headers = ["ID", "Finca", "Nombre del lote", "Área del lote",  "Fecha de creación", "Fecha de actualización"] %}
+{% set item_fields = ["id", "farm_name", "name", "area",  "created_at", "updated_at"] %}
 
 {# formulario de editar y add #}
 {% set form_fields = {

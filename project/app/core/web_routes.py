@@ -154,8 +154,8 @@ def amd_users():
     user_id = get_jwt_identity()
     context = {
         "dashboard": True,
-        "title": "Gestión de clientes",
-        "description": "Administración de clientes.",
+        "title": "Gestión de usuarios",
+        "description": "Administración de usuarios.",
         "author": "Johnny De Castro",
         "site_title": "Panel de Control",
         "data_menu": get_dashboard_menu(),
