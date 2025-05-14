@@ -25,7 +25,8 @@ from flask_jwt_extended import (
     set_refresh_cookies,
     unset_jwt_cookies,
 )
-from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized
+from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized, InternalServerError
+from werkzeug.security import check_password_hash
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
@@ -824,6 +825,121 @@ class OrgView(MethodView):
             "created_at": org.created_at.isoformat(),
             "updated_at": org.updated_at.isoformat(),
         }
+
+class ProfileView(MethodView):
+    """Handles fetching and updating the current user's profile."""
+
+    decorators = [jwt_required()]
+
+    def get(self):
+        """Fetch the current logged-in user's profile data."""
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        if not user:
+            raise NotFound("User not found.")
+
+        # Serialize relevant data (excluding sensitive info like password hash)
+        serialized_data = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value,
+            "organizations": [{"id": org.id, "name": org.name} for org in user.organizations.all()]
+            # Add other non-sensitive fields from User model if needed
+        }
+        return jsonify(serialized_data), 200
+
+    def put(self):
+        """Update the current logged-in user's profile data."""
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        if not user:
+            raise NotFound("User not found.")
+
+        data = request.get_json()
+        if not data:
+            raise BadRequest("No data provided.")
+
+        updated = False
+        # Allow updating specific fields (e.g., full_name, email)
+        if "full_name" in data and data["full_name"] != user.full_name:
+            user.full_name = data["full_name"].strip()
+            if not user.full_name:
+                 raise BadRequest("Full name cannot be empty.")
+            updated = True
+
+        if "email" in data and data["email"] != user.email:
+            new_email = data["email"].strip().lower()
+            if not new_email:
+                 raise BadRequest("Email cannot be empty.")
+            # Optional: Add email format validation
+            existing_user = User.query.filter(User.email == new_email, User.id != user_id).first()
+            if existing_user:
+                raise BadRequest("Email address is already in use.")
+            user.email = new_email
+            updated = True
+
+        # Add other updatable fields here if necessary
+
+        if updated:
+            try:
+                db.session.commit()
+                return jsonify({"msg": "Profile updated successfully."}), 200
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Error updating profile for user {user_id}: {e}")
+                raise InternalServerError("Failed to update profile.")
+        else:
+            return jsonify({"msg": "No changes detected."}), 200
+
+
+class ChangePasswordView(MethodView):
+    """Handles changing the current user's password."""
+
+    decorators = [jwt_required()]
+
+    def post(self):
+        """Change the current user's password."""
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        if not user:
+            raise NotFound("User not found.")
+
+        data = request.get_json()
+        if not data or not all(k in data for k in ["current_password", "new_password", "confirm_password"]):
+            raise BadRequest("Missing required fields: current_password, new_password, confirm_password.")
+
+        current_password = data.get("current_password")
+        new_password = data.get("new_password")
+        confirm_password = data.get("confirm_password")
+
+        # 1. Verify current password
+        if not user.check_password(current_password):
+            raise Unauthorized("Incorrect current password.")
+
+        # 2. Check if new password and confirm match
+        if new_password != confirm_password:
+            raise BadRequest("New password and confirmation do not match.")
+
+        # 3. Optional: Add password strength validation (reuse validator if needed)
+        if len(new_password) < 8: # Example basic check
+             raise BadRequest("New password must be at least 8 characters long.")
+        # Add more complex checks from validators.py if desired
+
+        # 4. Check if the new password is the same as the old one
+        if user.check_password(new_password):
+            raise BadRequest("New password cannot be the same as the current password.")
+
+        # 5. Set the new password
+        try:
+            user.set_password(new_password)
+            db.session.commit()
+            return jsonify({"msg": "Password updated successfully."}), 200
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error changing password for user {user_id}: {e}")
+            raise InternalServerError("Failed to change password.")
 
 
 class InstallationView(MethodView):

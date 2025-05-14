@@ -1,12 +1,17 @@
 import json 
 from decimal import Decimal
 
-from flask import render_template, url_for, request
+from flask import render_template, url_for, request, current_app
+from flask_jwt_extended import get_jwt, jwt_required
+from werkzeug.exceptions import Forbidden
 
+from app.extensions import db
 from . import foliage_report as web
-from .helpers import calcular_cv_nutriente, determinar_coeficientes_variacion, contribuciones_de_producto, ObjectiveResource, LeafAnalysisResource, NutrientOptimizer
-from app.modules.foliage.models import Recommendation
+from .helpers import calcular_cv_nutriente, determinar_coeficientes_variacion, contribuciones_de_producto, ObjectiveResource, LeafAnalysisResource, NutrientOptimizer, ReportView
+from app.modules.foliage.models import Recommendation, Lot, Farm, Crop, CommonAnalysis
 from app.core.controller import login_required, check_resource_access
+
+
 
 def get_dashboard_menu():
     """Define el menu superior en los templates"""
@@ -19,36 +24,208 @@ def get_dashboard_menu():
     }
 
 
-@web.route("listar_reportes")
-@login_required
+@web.route("/listar_reportes/")
+@login_required 
 def listar_reportes():
+    claims = get_jwt()
+    user_role = claims.get("rol")
     context = {
         "dashboard": True,
-        "title": "Informes de Análisis - TecnoAgro",
-        "description": "Panel de control.",
+        "title": "Informes de Análisis",
+        "description": "Listado de informes generados.",
         "author": "Johnny De Castro",
-        "site_title": "Panel de Control",
-        "og_image": "/img/og-image.jpg",
-        "twitter_image": "/img/twitter-image.jpg",
+        "site_title": "Listado de Informes",
+        "data_menu": get_dashboard_menu(),
+        "entity_name": "Reportes", # Añadido para la plantilla
+        "entity_name_lower": "reporte" # Añadido para la plantilla
+    }
+
+    # Filtrar reportes según el rol y acceso
+    query = Recommendation.query.options(
+        db.joinedload(Recommendation.lot).joinedload(Lot.farm).joinedload(Farm.organization),
+        db.joinedload(Recommendation.crop)
+    ).filter(Recommendation.active == True) # Opcional: mostrar solo activos
+
+    accessible_recommendations = []
+    all_recommendations = query.all()
+
+    for rec in all_recommendations:
+        if check_resource_access(rec.lot.farm, claims): # Verificar acceso a la finca del lote
+             accessible_recommendations.append(rec)
+
+    # Serializar solo los datos necesarios para la tabla
+    items_list = []
+    for rec in accessible_recommendations:
+        items_list.append({
+            "id": rec.id,
+            "title": rec.title,
+            "finca_lote": f"{rec.lot.farm.name} / {rec.lot.name}" if rec.lot and rec.lot.farm else "N/A",
+            "crop": rec.crop.name if rec.crop else "N/A",
+            "date": rec.date.strftime('%Y-%m-%d') if rec.date else "N/A",
+            "autor": rec.author or "Sistema"
+        })
+
+    total_informes = len(items_list)
+
+    return render_template(
+        "listar_reportes.j2",
+        **context,
+        request=request,
+        total_informes=total_informes,
+        items=items_list 
+    )
+
+
+
+@web.route("/vista_reporte/<int:report_id>")
+@jwt_required() 
+# @login_required
+def vista_reporte(report_id):
+    
+    claims = get_jwt()
+    context = {
+        "dashboard": True,
+        "title": "Ver Informe de Análisis",
+        "description": "Detalles del informe.",
+        "author": "Johnny De Castro",
+        "site_title": "Ver Informe",
         "data_menu": get_dashboard_menu(),
     }
-    reports = True
-    reportes = Recommendation.query.all()
-    # contar registros en reportes
-    count = len(reportes)
-    
-    total_informes = count
-    items = {}
-    return render_template("listar_reportes.j2", **context, reports=reports, request=request, total_informes=total_informes, items=items)
+
+    # # Obtener la recomendación/reporte
+    # report = Recommendation.query.get_or_404(report_id)
+    # report_creator = ReportView() 
+    # # Verificar acceso
+    # if not check_resource_access(report.lot.farm, claims):
+    #      raise Forbidden("No tienes acceso a este reporte.")
+
+    # # --- Deserializar los datos guardados ---
+    # # Es crucial que la estructura coincida con lo que espera 'ver_reporte.j2'
+    # try:
+    #     # Asume que estos campos guardan JSON strings
+    #     foliar_details = json.loads(report.foliar_analysis_details or '{}')
+    #     soil_details = json.loads(report.soil_analysis_details or '{}')
+    #     optimal_levels_json = json.loads(report.optimal_comparison or '{}')
+
+    #     # Reconstruir analysisData (necesitarás el common_analysis asociado)
+    #     common_analysis = CommonAnalysis.query.get(foliar_details.get('common_analysis_id') or soil_details.get('common_analysis_id')) # O buscarlo de otra forma si no está en los detalles
+    #     if not common_analysis:
+    #         raise ValueError("No se encontró el CommonAnalysis asociado.")
+
+        
+    #     analysisData = {
+    #         "common": {
+    #             "id": common_analysis.id,
+    #             "fechaAnalisis": common_analysis.date.isoformat(),
+    #             "finca": common_analysis.lot.farm.name if common_analysis.lot and common_analysis.lot.farm else 'N/A',
+    #             "lote": common_analysis.lot.name if common_analysis.lot else 'N/A',
+    #             "proteinas": common_analysis.protein,
+    #             "descanso": common_analysis.rest,
+    #             "diasDescanso": common_analysis.rest_days,
+    #             "mes": common_analysis.month
+    #         },
+    #         "foliar": foliar_details, # Usar directamente si la estructura coincide
+    #         "soil": soil_details # Usar directamente si la estructura coincide
+    #     }
+
+    #     # Reconstruir optimalLevels
+    #     optimalLevels = optimal_levels_json # Asume que la estructura ya es correcta
+
+    #     # Reconstruir datos para los gráficos (si no están ya en el formato adecuado)
+    #     # Ejemplo para foliarChartData (ajusta según tu serialización)
+    #     foliarChartData = []
+    #     if optimalLevels and 'nutrientes' in optimalLevels and analysisData.get('foliar'):
+    #         for nutrient_key, levels in optimalLevels['nutrientes'].items():
+    #             # Necesitas mapear nutrient_key (ej. 'nitrogeno') al nombre corto (ej. 'N')
+    #             # y obtener el valor actual de analysisData.foliar
+    #             # Esto requiere un mapeo o una lógica más robusta
+    #             # Ejemplo simplificado:
+    #             nutrient_name_map = {"nitrogeno": "N", "fosforo": "P", "potasio": "K", "calcio": "Ca", "magnesio": "Mg", "azufre": "S"} # etc.
+    #             short_name = nutrient_name_map.get(nutrient_key)
+    #             actual_value = analysisData['foliar'].get(nutrient_key)
+    #             if short_name is not None and actual_value is not None and isinstance(levels, dict) and 'min' in levels and 'max' in levels:
+    #                  foliarChartData.append({
+    #                      "name": short_name,
+    #                      "actual": actual_value,
+    #                      "min": levels['min'],
+    #                      "max": levels['max']
+    #                  })
+
+    #     # Ejemplo para soilChartData (similar a foliar)
+    #     soilChartData = []
+    #     if optimalLevels and 'nutrientes' in optimalLevels and analysisData.get('soil'):
+    #          # ... lógica similar para soil ...
+    #          pass # Implementar lógica de mapeo y extracción
+
+    #     # Datos históricos (esto requeriría una consulta separada o estar almacenado)
+    #     historicalData = [] # Obtener o generar estos datos dinámicamente si es necesario
+
+    #     # Recomendaciones automáticas (del campo del modelo)
+    #     recommendations_list = []
+    #     if report.automatic_recommendations:
+    #         # Si guardaste una lista JSON, deserialízala. Si es texto, procésalo.
+    #         try:
+    #             # Intenta cargar como JSON si guardaste una estructura
+    #             recommendations_list = json.loads(report.automatic_recommendations)
+    #             if not isinstance(recommendations_list, list): # Asegurar que sea una lista
+    #                  # Si es texto simple, crea una estructura básica
+    #                  recommendations_list = [{"title": "Recomendación Automática", "description": report.automatic_recommendations, "priority": "media", "action": "Revisar"}]
+    #         except json.JSONDecodeError:
+    #             # Si es solo texto, crea una estructura básica
+    #              recommendations_list = [{"title": "Recomendación Automática", "description": report.automatic_recommendations, "priority": "media", "action": "Revisar"}]
+
+
+    #     # Nutriente limitante (si lo guardaste)
+    #     limitingNutrientData = None
+    #     if report.limiting_nutrient_id:
+    #         # Necesitarías recuperar los valores asociados a este nutriente
+    #         # para reconstruir la estructura que espera la plantilla.
+    #         # Esto es un placeholder, ajusta según cómo guardes la info.
+    #          limitingNutrientData = {"name": report.limiting_nutrient_id, "percentage": 50, "type": "foliar/soil"} # Datos ficticios
+
+
+    # except (json.JSONDecodeError, ValueError, AttributeError) as e:
+    #     current_app.logger.error(f"Error al procesar datos del reporte {report_id}: {e}", exc_info=True)
+    #     # Manejar el error, quizás mostrar un mensaje en la plantilla
+    #     analysisData = {}
+    #     optimalLevels = {}
+    #     foliarChartData = []
+    #     soilChartData = []
+    #     historicalData = []
+    #     recommendations_list = []
+    #     limitingNutrientData = None
+    #     # Podrías añadir un mensaje de error al contexto
+
+    # Pasar los datos dinámicos a la plantilla
+    analysisData = {}
+    optimalLevels = {}
+    foliarChartData = []
+    soilChartData = []
+    historicalData = []
+    recommendations_list = []
+    limitingNutrientData = None
+    # report_creator = ReportView() 
+    return render_template(
+        'ver_reporte.j2',
+        report_id=report_id,
+        
+        **context,
+        request=request,
+        analysisData=analysisData,
+        optimalLevels=optimalLevels,
+        foliarChartData=foliarChartData,
+        soilChartData=soilChartData,
+        historicalData=historicalData,
+      #   nutrientNames=report_creator._get_nutrient_name_map(), # Reutilizar o definir mapeo
+        limitingNutrient=limitingNutrientData,
+        recommendations=recommendations_list
+    )
 
 
 
-
-
-
-@web.route("/vista_reporte")
+@web.route("/vista_report")
 @login_required
-def vista_reporte():
+def vista_report():
     context = {
         "dashboard": True,
         "title": "Dashboard TecnoAgro",
@@ -272,7 +449,7 @@ def vista_reporte():
     limitingNutrient = findLimitingNutrient()
     recommendations = generateRecommendations()
 
-    return render_template('ver_reporte.j2', **context, 
+    return render_template('ver_reporte2.j2', **context, 
             request=request,  analysisData=analysisData, optimalLevels=optimalLevels, foliarChartData=foliarChartData, soilChartData=soilChartData, historicalData=historicalData, nutrientNames=nutrientNames, limitingNutrient=limitingNutrient, recommendations=recommendations)
 
 

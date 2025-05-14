@@ -231,8 +231,36 @@ def profile():
     """
     Página: Renderiza la vista de perfil de usuario
     """
-    context = {}
-    return render_template("dashboard/profile.j2", **context)
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        # Handle case where user might not be found (though JWT ensures they exist)
+        return redirect(url_for('core.logout'))
+
+    # Prepare data for the template
+    context = {
+        "dashboard": True,
+        "title": "Mi Perfil",
+        "description": "Gestiona tu información personal y contraseña.",
+        "author": "Johnny De Castro",
+        "site_title": "Mi Perfil",
+        "data_menu": get_dashboard_menu(), # Ensure get_dashboard_menu is accessible
+        # Pass user data explicitly
+        "user_id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "email": user.email,
+        "role": user.role.description, # Use the description
+        # Handle organizations - pass a list of names or IDs/names
+        "organizations": [{"id": org.id, "name": org.name} for org in user.organizations.all()]
+    }
+    # Note: The 'client' variable in the template is ambiguous.
+    # We now pass 'organizations'. You'll need to adjust the template.
+    # If you only want the *first* org name for simplicity in the template:
+    # context["client_org_name"] = user.organizations.first().name if user.organizations.first() else "N/A"
+
+    return render_template("dashboard/profile.j2", **context, request=request)
 
 
 web.add_url_rule("/install", view_func=InstallationView.as_view("install"))

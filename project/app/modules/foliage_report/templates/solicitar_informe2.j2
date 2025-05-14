@@ -1,0 +1,210 @@
+{% extends "base.j2" %}
+{% block content %}
+
+<div class="flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold">Configuración del Informe</h1>
+    {# Botones opcionales #}
+</div>
+
+<form id="generateReportForm">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2 space-y-4">
+            {# Filtro Finca/Lote/Fechas #}
+            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow">
+                <h2 class="text-lg font-semibold mb-2">1. Selección de Datos</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block font-medium mb-1" for="farm-select">Finca</label>
+                        <select class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="farm-select" name="farm_id" required>
+                            <option value="" disabled selected>Seleccione una finca...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1" for="lot-select">Lote</label>
+                        <select class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="lot-select" name="lot_id" required disabled>
+                            <option value="" disabled selected>Seleccione un lote...</option>
+                        </select>
+                    </div>
+                </div>
+                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-medium mb-1" for="start-date-filter">Fecha de Inicio Análisis</label>
+                        <input type="date" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="start-date-filter" name="start_date" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1" for="end-date-filter">Fecha Fin Análisis</label>
+                        <input type="date" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="end-date-filter" name="end_date" required>
+                    </div>
+                </div>
+                 <p class="text-sm text-gray-500 mt-2">Seleccione el rango de fechas para buscar el análisis más reciente a incluir en el reporte.</p>
+            </div>
+             {# Podrías añadir aquí la tabla de análisis disponibles si quieres que se actualice #}
+             {# <div class="bg-gray-50 p-4 rounded-lg shadow"> ... </div> #}
+        </div>
+
+        {# Opciones del Informe #}
+        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
+            <h2 class="text-lg font-semibold mb-2">2. Opciones del Informe</h2>
+            <div>
+                <label class="block font-medium mb-1" for="report-title">Título del Informe</label>
+                <input type="text" id="report-title" name="report_title" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" value="Informe de Análisis Finca/Lote">
+            </div>
+
+            {# Más opciones si son necesarias (Secciones, Visualizaciones) #}
+            {# <div> ... </div> #}
+
+            <button type="submit" id="generateBtn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full disabled:opacity-50">
+                Generar Informe
+            </button>
+             <div id="loadingMessage" class="hidden text-center mt-4 text-blue-600">
+                 Generando reporte...
+             </div>
+             <div id="errorMessage" class="hidden text-center mt-4 text-red-600"></div>
+             <div id="successMessage" class="hidden text-center mt-4 text-green-600"></div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Función para obtener CSRF token de las cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrfToken = getCookie('csrf_access_token'); // O 'csrf_refresh_token' si es necesario
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const farmSelect = document.getElementById('farm-select');
+        const lotSelect = document.getElementById('lot-select');
+        const form = document.getElementById('generateReportForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        // Cargar fincas
+        fetch('{{ url_for("foliage_report_api.get_farms") }}')
+            .then(response => {
+                if (!response.ok) throw new Error('Error al cargar fincas');
+                return response.json();
+            })
+            .then(farms => {
+                farms.forEach(farm => {
+                    const option = new Option(farm.name, farm.id);
+                    farmSelect.add(option);
+                });
+            })
+            .catch(error => {
+                 console.error(error);
+                 errorMessage.textContent = 'Error al cargar fincas.';
+                 errorMessage.classList.remove('hidden');
+            });
+
+        // Actualizar lotes cuando cambia la finca
+        farmSelect.addEventListener('change', function() {
+            const farmId = this.value;
+            lotSelect.innerHTML = '<option value="" disabled selected>Cargando lotes...</option>';
+            lotSelect.disabled = true;
+
+            if (!farmId) {
+                 lotSelect.innerHTML = '<option value="" disabled selected>Seleccione un lote...</option>';
+                 return;
+            }
+
+            fetch(`{{ url_for('foliage_report_api.get_lots') }}?farm_id=${farmId}`)
+                .then(response => {
+                     if (!response.ok) throw new Error('Error al cargar lotes');
+                     return response.json();
+                 })
+                .then(lots => {
+                    lotSelect.innerHTML = '<option value="" disabled selected>Seleccione un lote...</option>';
+                    lots.forEach(lot => {
+                        const option = new Option(lot.name, lot.id);
+                        lotSelect.add(option);
+                    });
+                    lotSelect.disabled = false;
+                })
+                .catch(error => {
+                    console.error(error);
+                    lotSelect.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
+                    errorMessage.textContent = 'Error al cargar lotes.';
+                    errorMessage.classList.remove('hidden');
+                });
+        });
+
+        // Enviar formulario para generar reporte
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            generateBtn.disabled = true;
+            loadingMessage.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Validar que las fechas no estén vacías (aunque 'required' debería hacerlo)
+            if (!data.start_date || !data.end_date) {
+                 errorMessage.textContent = 'Por favor, seleccione un rango de fechas.';
+                 errorMessage.classList.remove('hidden');
+                 loadingMessage.classList.add('hidden');
+                 generateBtn.disabled = false;
+                 return;
+             }
+             // Validar que la fecha de inicio no sea posterior a la fecha de fin
+             if (data.start_date > data.end_date) {
+                 errorMessage.textContent = 'La fecha de inicio no puede ser posterior a la fecha fin.';
+                 errorMessage.classList.remove('hidden');
+                 loadingMessage.classList.add('hidden');
+                 generateBtn.disabled = false;
+                 return;
+             }
+
+            fetch('{{ url_for("foliage_report_api.generate_report") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken // Incluir el token CSRF
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json().then(body => ({ ok: response.ok, status: response.status, body })))
+            .then(({ ok, status, body }) => {
+                loadingMessage.classList.add('hidden');
+                if (ok) {
+                    successMessage.textContent = `Reporte ${body.report_id} generado con éxito. Redirigiendo...`;
+                    successMessage.classList.remove('hidden');
+                    // Redirigir a la vista del reporte generado
+                    setTimeout(() => {
+                         window.location.href = `{{ url_for('foliage_report.vista_reporte', report_id=0) }}`.replace('/0', `/${body.report_id}`);
+                    }, 1500);
+                } else {
+                    errorMessage.textContent = `Error ${status}: ${body.error || body.message || 'No se pudo generar el reporte.'}`;
+                    errorMessage.classList.remove('hidden');
+                    generateBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error al generar reporte:', error);
+                loadingMessage.classList.add('hidden');
+                errorMessage.textContent = 'Error de red al generar el reporte.';
+                errorMessage.classList.remove('hidden');
+                generateBtn.disabled = false;
+            });
+        });
+    });
+</script>
+{% endblock%}

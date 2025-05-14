@@ -1,25 +1,22 @@
-from . import foliage_report_api as api
-from .helpers import ReportView
-from app.core.controller import login_required, check_resource_access
-from app.core.models import Organization
+from datetime import datetime
+
 from flask import jsonify, request
 from flask_jwt_extended import get_jwt
+
+from . import foliage_report_api as api
+from app.core.controller import login_required, check_resource_access
+from app.core.models import Organization
 from app.modules.foliage.models import Farm, Lot, CommonAnalysis, Nutrient
 from app.extensions import db
-from datetime import datetime
+from .controller import RecommendationGenerator
+from .helpers import ReportView
 
 
 report_view = ReportView.as_view("report_view")
 api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])
 
-
-@api.route('/prueba', methods=['GET'])
-def get_prueba():
-    atributos = dir(request)
-    atributos_str = '<br>'.join(atributos)
-
-    return f'Métdos y atributos del objeto request: <br>{atributos_str} <br>Se encuentra activado el modo debug'
-
+report_generator_view = RecommendationGenerator.as_view("generate_report")
+api.add_url_rule("/generate", view_func=report_generator_view, methods=["POST"])
 
 @api.route('/get-farms')
 @login_required

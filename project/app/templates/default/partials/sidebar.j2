@@ -66,7 +66,7 @@
         "menu": sidebar_menu.menu + [foliar_menu]
     } %}
 {% endif %}
-
+{# "name": "Ver reporte", "url": url_for('foliage_report.vista_reporte') #},
 {% set reportes = {
     "name": "Análisis de datos",
     "url": "#",
@@ -75,7 +75,6 @@
     "submenu": [
         {"name": "Recomendaciones", "url": url_for('foliage_report.listar_reportes') },
         {"name": "Generar reporte", "url": url_for('foliage_report.generar_informe') },
-        {"name": "Ver reporte", "url": url_for('foliage_report.vista_reporte') },
     ]
 } %}
 {% set sidebar_menu = {

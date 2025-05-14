@@ -2,7 +2,10 @@
 {% set form_id = 'loginForm' %}
 {% set button_text = 'Iniciar Sesión' %}
 {% set api_url = url_for('core_api.login') %}
-
+{% set extra_links = [
+ {'text': 'Olvidé mi contraseña', 'url': "#"},
+ {'text': 'Registrarse', 'url': "#"}
+] %}
 {% include 'layouts/access_form.j2' %}
 
 {% block extra_js %}

@@ -7,7 +7,7 @@ import json
 
 # Third party imports
 from scipy.optimize import linprog
-from flask import jsonify
+from flask import jsonify, current_app 
 from flask.views import MethodView
 from flask_jwt_extended import jwt_required, get_jwt
 from werkzeug.exceptions import Forbidden
@@ -615,16 +615,69 @@ class ReportView(MethodView):
         Genera reporte completo de análisis con niveles óptimos
         Args:
             common_analysis_id (int): ID del análisis común a reportar
+            (NOTA: La ruta lo llama 'id', pero la lógica parece asumir que es un Recommendation ID)
         Returns:
             JSON: Estructura con datos de análisis y niveles óptimos
         """
-        common_analysis_id = id
-        common_analysis = self._get_common_analysis(common_analysis_id)
-        self._check_access(common_analysis)
+        recommendation_id = id # Asumiendo que el ID es de Recommendation
+        report = Recommendation.query.get_or_404(recommendation_id)
+        self._check_access(report) # Pasar el objeto 'report' para verificar acceso
+
+        # --- Deserializar datos del reporte ---
+        try:
+            # Usar .get('{}') para evitar errores si el campo es None
+            foliar_details_str = report.foliar_analysis_details or '{}'
+            soil_details_str = report.soil_analysis_details or '{}'
+            optimal_levels_str = report.optimal_comparison or '{}'
+            recommendations_str = report.automatic_recommendations or '[]' # Asumir lista JSON
+
+            foliar_details = json.loads(foliar_details_str)
+            soil_details = json.loads(soil_details_str)
+            optimal_levels = json.loads(optimal_levels_str)
+            recommendations_list = json.loads(recommendations_str)
+
+            # Reconstruir analysisData (Necesita el CommonAnalysis)
+            # Tratar de obtener el common_analysis_id de los detalles deserializados
+            common_analysis_id_foliar = foliar_details.get('common_analysis_id') if isinstance(foliar_details, dict) else None
+            common_analysis_id_soil = soil_details.get('common_analysis_id') if isinstance(soil_details, dict) else None
+            # O obtenerlo desde el lote/fecha del reporte si no está en los detalles
+            common_analysis = None
+            if common_analysis_id_foliar:
+                 common_analysis = self._get_common_analysis(common_analysis_id_foliar)
+            elif common_analysis_id_soil:
+                 common_analysis = self._get_common_analysis(common_analysis_id_soil)
+            # Fallback: buscar por lote y fecha si es necesario (puede ser impreciso)
+            # if not common_analysis and report.lot_id and report.date:
+            #      common_analysis = CommonAnalysis.query.filter_by(lot_id=report.lot_id, date=report.date).first()
+
+            if not common_analysis:
+                 raise ValueError("No se pudo determinar el CommonAnalysis asociado al reporte.")
+
+            analysisData = {
+                "common": self._serialize_common(common_analysis),
+                "foliar": foliar_details,
+                "soil": soil_details
+            }
+
+            # Datos históricos (esto podría necesitar una consulta separada)
+            historicalData = self._get_historical_data(report.lot_id, report.date)
+
+            # Nutriente limitante
+            limitingNutrientData = self._get_limiting_nutrient_data(report.limiting_nutrient_id, analysisData, optimal_levels)
+
+
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+             current_app.logger.error(f"Error deserializando datos del reporte {recommendation_id}: {e}", exc_info=True)
+             # Retornar un error o datos vacíos/predeterminados
+             return jsonify({"error": "Error procesando datos del reporte"}), 500
 
         report_data = {
-            "analysisData": self._build_analysis_data(common_analysis),
-            "optimalLevels": self._get_optimal_levels(common_analysis)
+            "analysisData": analysisData,
+            "optimalLevels": optimal_levels,
+            "historicalData": historicalData,
+            "recommendations": recommendations_list,
+            "limitingNutrient": limitingNutrientData,
+            "nutrientNames": self._get_nutrient_name_map() # Mapa de nombres para la plantilla
         }
 
         return jsonify(report_data), 200
@@ -759,6 +812,65 @@ class ReportView(MethodView):
                 targets[key] = on.target_value  # Usamos el target_value de objective_nutrients directamente
 
         return targets
+
+    def _get_historical_data(self, lot_id, current_date):
+         """Obtiene datos históricos de análisis foliares para el lote (simplificado)."""
+         # Consulta los últimos N análisis para el lote antes de la fecha actual
+         historical_analyses = LeafAnalysis.query.join(CommonAnalysis)\
+             .filter(CommonAnalysis.lot_id == lot_id, CommonAnalysis.date < current_date)\
+             .order_by(CommonAnalysis.date.desc())\
+             .limit(5).all() # Limita a 5 análisis históricos, por ejemplo
+
+         data = []
+         for analysis in reversed(historical_analyses): # Invertir para orden cronológico
+             nutrients = db.session.query(leaf_analysis_nutrients)\
+                 .filter_by(leaf_analysis_id=analysis.id).all()
+             entry = {"fecha": analysis.common_analysis.date.strftime('%b %Y')} # Formato Mes Año
+             for nv in nutrients:
+                 nutrient = Nutrient.query.get(nv.nutrient_id)
+                 if nutrient and nutrient.name.lower() in ['nitrogeno', 'fosforo', 'potasio']: # Solo algunos para el ejemplo
+                      entry[nutrient.name.lower()] = nv.value
+             data.append(entry)
+         return data
+
+    def _get_limiting_nutrient_data(self, limiting_name, analysisData, optimalLevels):
+         """Intenta reconstruir los datos del nutriente limitante."""
+         if not limiting_name or not analysisData or not optimalLevels:
+             return None
+
+         # Buscar en foliar
+         for key, value in analysisData.get('foliar', {}).items():
+             if nutrient_names_map.get(key, key).lower() == limiting_name.lower():
+                 levels = optimalLevels.get('nutrientes', {}).get(key)
+                 if levels and isinstance(levels, dict) and 'min' in levels and 'max' in levels:
+                      optimalMid = (levels['min'] + levels['max']) / 2
+                      percentage = (value / optimalMid * 100) if optimalMid != 0 else 0
+                      return {"name": key, "value": value, "percentage": percentage, "type": "foliar"}
+
+         # Buscar en suelo (excluyendo pH)
+         for key, value in analysisData.get('soil', {}).items():
+              if key != 'ph' and nutrient_names_map.get(key, key).lower() == limiting_name.lower():
+                   levels = optimalLevels.get('nutrientes', {}).get(key)
+                   if levels and isinstance(levels, dict) and 'min' in levels and 'max' in levels:
+                        optimalMid = (levels['min'] + levels['max']) / 2
+                        percentage = (value / optimalMid * 100) if optimalMid != 0 else 0
+                        return {"name": key, "value": value, "percentage": percentage, "type": "soil"}
+
+         return {"name": limiting_name, "percentage": None, "type": "unknown"} # Si no se encuentran los detalles
+
+    def _get_nutrient_name_map(self):
+         """Genera un mapa de claves internas a nombres legibles."""
+         # Este mapa debe ser consistente con cómo se generan las claves en analysisData
+         return {
+             "nitrogeno": "Nitrógeno", "fosforo": "Fósforo", "potasio": "Potasio",
+             "calcio": "Calcio", "magnesio": "Magnesio", "azufre": "Azufre",
+             "hierro": "Hierro", "manganeso": "Manganeso", "zinc": "Zinc",
+             "cobre": "Cobre", "boro": "Boro", "ph": "pH",
+             "materiaOrganica": "Materia Orgánica", "cic": "CIC",
+             # Añade mapeos para todas las claves que uses
+         }
+         
+nutrient_names_map = ReportView()._get_nutrient_name_map()
 
 #  Título	Finca / Lote	Cultivo	Fecha	Tipo	Autor
 """

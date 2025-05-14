@@ -1,138 +1,63 @@
 {% extends "base.j2" %}
-{# identificadores de entidad #}
-{% set entity_name = "Usuarios" %}
-{% set entity_name_lower = "usuario" %}
-{% set show_select_box = False %}
+{# Variables específicas para esta vista de listado #}
+{% set dashboard = true %}
+{% set title = "Informes de Análisis" %}
+{% set reports = True %} {# Para mostrar el botón "+ Crear Nuevo Informe" #}
 
-{# Mostrar la grid de ítems #}
-{% set table_headers = ["ID", "Título", "Finca / Lote", "Cultivo", "Fecha", "Autor"]%}
+{# Importar estilos y macros necesarios #}
+{% from "settings/_ui_class.j2" import bg_color, border_color, hover_bg_color, text_color, base_button_classes, table_header_class, table_cell_class %}
+{% from "macros/_button.j2" import button %}
+
+{# Definir cabeceras y campos para la tabla de reportes #}
+{% set table_headers = ["ID", "Título", "Finca / Lote", "Cultivo", "Fecha", "Autor"] %}
 {% set item_fields = ["id", "title", "finca_lote", "crop", "date", "autor" ] %}
 
-
-{# formulario de editar y add #}
-{% set form_fields = {
-    'username': {'type': 'text', 'label': 'Nombre de usuario', 'required': True, 'disabled_in_edit': True},
-    'full_name': {'type': 'text', 'label': 'Nombre completo', 'required': True},
-    'email': {'type': 'email', 'label': 'Correo electrónico', 'required': True},
-    'role': {'type': 'select', 'label': 'Roles', 'options': {'Administrador': 'administrator', 'Reseller': 'reseller', 'Org Admin': 'org_admin','Org Editor': 'org_editor', 'Usuario Básico': 'org_viewer'}, 'required': True, 'new_value': False},    
-
-    'password': {'type': 'password', 'label': 'Clave', 'required': True},
-    'password_confirm': {'type': 'password', 'label': 'Confirmar Clave', 'required': True}
-} %}
-{% set api_url = url_for('core_api.user_view') %}
-
-
-{# declaracion de variables #}
-{% set dashboard = true %}
-{% from "settings/_ui_class.j2" import input_bg_color, 
-border_color, hover_bg_color, focus_ring_color, button_bg_color,
-delete_button_bg_color, input_focus_bg_color, base_button_classes, 
-base_input_classes, table_header_class, table_cell_class %}
-
-
-{# Macro - > dropdown de acciones #}
-{% macro action_dropdown(item_id) %}
+{# Macro para el dropdown de acciones (simplificado para solo ver) #}
+{% macro report_action_dropdown(item_id) %}
 <div class="relative inline-block text-left">
-    <div>
-        <button type="button" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}" id="options-menu-{{ item_id }}" aria-haspopup="true" aria-expanded="true" onclick="toggleDropdown('{{ item_id }}')">
-            ...
-        </button>
-    </div>
-    <div class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg {{ bg_color }} ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-[9999] dark:divide-gray-600" role="menu" aria-orientation="vertical" aria-labelledby="options-menu-{{ item_id }}" id="dropdown-{{ item_id }}">
+    <button type="button" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} focus:ring-indigo-500" id="options-menu-{{ item_id }}" aria-haspopup="true" aria-expanded="false" onclick="toggleDropdown('{{ item_id }}', event)">
+        Acciones
+        <svg class="-mr-1 ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+    </button>
+    <div class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg {{ bg_color }} ring-1 ring-black ring-opacity-5 z-50" role="menu" aria-orientation="vertical" aria-labelledby="options-menu-{{ item_id }}" id="dropdown-{{ item_id }}">
         <div class="py-1" role="none">
-            {% if show_view_button %}
-            <a href="#" class="{{ text_color }} block px-4 py-2 text-sm {{ hover_bg_color }}" role="menuitem" onclick="showModal('view', '{{ item_id }}')">Ver</a>
-            {% endif %}
-            <a href="#" class="{{ text_color }} block px-4 py-2 text-sm {{ hover_bg_color }}" role="menuitem" onclick="showModal('edit', '{{ item_id }}')">Editar</a>
-            <a href="#" class="{{ text_color }} block px-4 py-2 text-sm {{ hover_bg_color }}" role="menuitem" onclick="showModal('delete', '{{ item_id }}')">Borrar</a>
+            <a href="{{ url_for('foliage_report.vista_reporte', report_id=item_id) }}" class="{{ text_color }} block px-4 py-2 text-sm {{ hover_bg_color }}" role="menuitem">
+                Ver Reporte
+            </a>
+            {# Añadir más acciones si es necesario (ej. Borrar) #}
+            {# <a href="#" class="{{ text_color }} block px-4 py-2 text-sm hover:bg-red-100 dark:hover:bg-red-700 text-red-700 dark:text-red-300" role="menuitem" onclick="confirmDelete('{{ item_id }}', event)">Borrar</a> #}
         </div>
     </div>
 </div>
 {% endmacro %}
 
-
-{################## INICIO  MODAL ##################}
-{# Macro - > Generador de modales #}
-{% macro modal(modal_id, modal_label, modal_content, modal_actions) %}
-<div id="{{ modal_id }}" class="fixed z-10 inset-0 overflow-y-auto hidden" aria-labelledby="{{ modal_id }}Label" role="dialog" aria-modal="true">
-    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom {{ bg_color }} rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <div class="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <h3 class="text-lg leading-6 font-medium {{ text_color }}" id="{{ modal_id }}Label">{{ modal_label }}</h3>
-                <div class="mt-2">
-                    {{ modal_content }}
-                </div>
-            </div>
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse dark:bg-gray-700">
-                {{ modal_actions }}
-            </div>
-        </div>
-    </div>
-</div>
-{% endmacro %}
-{################## FIN MODAL ##################}
-
-{% macro info_card(title, value, description) %}
-    <div class="bg-gray-50 p-4 rounded-lg shadow text-center">
-        <p class="text-lg font-semibold">{{ title }}</p>
-        <p class="text-2xl font-bold">{{ value }}</p>
-        <p class="text-gray-500">{{ description }}</p>
-    </div>
-{% endmacro %}
-
-{# Inicio de contenido para el formulario #}
-{################# Inicio block content #################}
 {% block content %}
-{# title #}
-<div class="sm:px-6 lg:px-8 flex justify-between items-center mb-0">
-    <h1 class="text-2xl mt-0 pt-0 font-bold">{{ title }}</h1>
+{# Título y botón de crear #}
+<div class="sm:px-6 lg:px-8 flex justify-between items-center mb-4">
+    <h1 class="text-2xl font-bold">{{ title }}</h1>
     {% if reports %}
-        <div>
-            <button class="bg-blue-600 text-white px-4 py-2 rounded">+ Crear Nuevo Informe</button>
-        </div>
+        <a href="{{ url_for('foliage_report.generar_informe') }}" class="{{ base_button_classes }} bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500">
+            + Crear Nuevo Informe
+        </a>
     {% endif %}
 </div>
 
-{# Contenido genérico de la página crud #}
-<div class="mx-auto max-w-8xl pt-0 pb-6 sm:px-6 lg:px-8">
+{# Cards de Información (Opcional) #}
+{# <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6"> ... </div> #}
+
+{# Tabla de Reportes #}
+<div class="mx-auto max-w-8xl pb-6 sm:px-6 lg:px-8">
     <div class="px-4 py-2 sm:px-0">
-    {# Selector dinámico #}
-{% if filter_field %}
-<div class="px-0 py-4 bg-white dark:bg-gray-900 flex flex-col sm:flex-row sm:items-end gap-3 w-full max-w-md">
-<form action="{{ select_url }}" method="get" class="w-full flex flex-col sm:flex-row gap-3">
-        <select id="filter_{{ filter_field }}" name="filter_value" class="flex-grow w-full pl-4 pr-10 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 shadow-sm">
-            <option value="">Todos</option>
-            {% for option in filter_options %}
-                <option value="{{ option.id }}" {% if option.id == filter_value %}selected{% endif %}>{{ option.name }}</option>
-            {% endfor %}
-        </select>
-    <button type="submit" class="px-5 py-2.5 rounded-lg font-medium text-sm shadow-sm transition-all duration-200 ease-in-out {{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">
-        Filtrar
-    </button>
-</form>
-</div>
-{% endif %}
-{# fin Selector dinámico #}
+        {# Aquí podrías añadir filtros si fueran necesarios #}
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
-{{ info_card(title="Total de Informes", value=total_informes, description="Informes almacenados" ) }}
-{{ info_card(title="Análisis reciente", value="Último análisis", description="" ) }}
-{{ info_card(title="Mi cajilla", value="valor", description="esta descripcion" ) }}
-</div>
-
-<div>
+        <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border rounded">
-                <thead class="{{ bg_color }} dark:bg-gray-900 hidden sm:table-header-group">
-                    <tr class="bg-gray-200 dark:bg-gray-900 hidden sm:table-row">
-                        {% if show_select_box %}
-                        <th scope="col" class="{{ table_header_class }}">
-                            <input type="checkbox" id="select-all" onclick="toggleSelectAll()">
-                        </th>
-                        {% endif %}
+                <thead class="{{ bg_color }} dark:bg-gray-900">
+                    <tr>
                         {% for header in table_headers %}
-                        <th scope="col" class="{{ table_header_class }} text-gray-800">
+                        <th scope="col" class="{{ table_header_class }} text-gray-800 dark:text-gray-100">
                             {{ header }}
                         </th>
                         {% endfor %}
@@ -141,502 +66,77 @@ base_input_classes, table_header_class, table_cell_class %}
                         </th>
                     </tr>
                 </thead>
-                <tbody class="{{ bg_color }} divide-y divide-gray-200 dark:divide-gray-700"
-                    id="{{ entity_name_lower }}-table-body">
-                    {% for item in items %}
-                    <tr class="{{ hover_bg_color }} hidden sm:table-row">
-                        {% if show_select_box %}
-                        <td class="{{ table_cell_class }} {{ text_color }}">
-                            <input type="checkbox" class="item-checkbox" value="{{ item.id }}">
-                        </td>
-                        {% endif %}
-                        {% for field in item_fields %}
-                        <td class="{{ table_cell_class }} {{ text_color }}">
-                            {% if field == 'active' %}
-                                {{ "Activo" if item[field] else "Inactivo" }}
-                            {% else %}
+                <tbody class="{{ bg_color }} divide-y divide-gray-200 dark:divide-gray-700">
+                    {% if items %}
+                        {% for item in items %}
+                        <tr class="{{ hover_bg_color }}">
+                            {% for field in item_fields %}
+                            <td class="{{ table_cell_class }} {{ text_color }}">
                                 {{ item[field] }}
-                            {% endif %}
-                        </td>
+                            </td>
+                            {% endfor %}
+                            <td class="{{ table_cell_class }} font-medium text-right">
+                                {{ report_action_dropdown(item.id) }}
+                            </td>
+                        </tr>
                         {% endfor %}
-                        <td class="{{ table_cell_class }} font-medium sm:table-cell">
-                            {{ action_dropdown(item.id) }}
-                        </td>
-                    </tr>
-    <!-- Vista móvil en formato de tarjeta -->
-                <tr class="block sm:hidden border-b p-4">
-                    <td class="px-4 py-3">
-                        {% if show_select_box %}
-                        <input type="checkbox" class="item-checkbox mb-2" value="{{ item.id }}">
-                        {% endif %}
-                        {% for field in item_fields %}
-                        <div class="text-xs text-gray-500">
-                            <span class="font-bold">{{ table_headers[loop.index0] }}:</span> 
-                            {% if field == 'active' %}
-                                {{ "Activo" if item[field] else "Inactivo" }}
-                            {% else %}
-                                {{ item[field] }}
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </td>
-                </tr>
-
-                    {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="{{ table_headers|length + 1 }}" class="px-4 py-4 text-center {{ text_color }}">
+                                No hay reportes disponibles.
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
-
     </div>
 </div>
 
-{# Contenido del formulario dentro de un modal para crear/editar/ver elementos #}
-{################ Formulario que se presenta en los modales ################}
-{% set form_content %}
-<form id="{{ entity_name_lower }}Form">
-    <input type="hidden" id="{{ entity_name_lower }}Id">
-    {% for field_name, field_info in form_fields.items() %}
-    <div class="mb-4">
-        <label for="{{ field_name }}" class="block text-sm font-medium {{ text_color }}">{{ field_info.label }}</label>
-        {% if field_info.type == 'select' %}
-{# selector variable #}
-{% set allowed_new_value = field_info.get('new_value', False) %}
-
-<div class="relative">
-    <select id="{{ field_name }}" name="{{ field_name }}"
-        class="{{ base_input_classes }} {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }} {{ focus_ring_color }} {{ text_color }}"
-        {% if field_info.required %}required{% endif %} {% if allowed_new_value %} onchange="handleSelectChange(this, '{{ field_name }}')" {% endif %} >
-        {% for display, value in field_info.options.items() %}
-        <option value="{{ value }}">{{ display }}</option>
-        {% endfor %}
-        {% if allowed_new_value %} 
-        <option value="other">Otro</option>
-        {% endif %}
-    </select>
-    {% if allowed_new_value %}
-    <input 
-        type="text" 
-        id="{{ field_name }}_custom" 
-        name="{{ field_name }}_custom" 
-        class="mt-2 hidden w-full rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed" 
-        disabled
-        placeholder="Especifique otro valor"
-    >
-    {% endif %}
-</div>
-{# fin selector variable #}
-
-        {% elif field_info.type == 'radio' %}
-        {% for display, value in field_info.options.items() %}
-        <div class="flex items-center">
-            <input type="radio" id="{{ field_name }}_{{ value }}" name="{{ field_name }}" value="{{ value }}"
-                class="{{ base_input_classes }}" {% if field_info.required %}required{% endif %}>
-            <label for="{{ field_name }}_{{ value }}" class="ml-2 text-sm {{ text_color }}">{{ display }}</label>
-        </div>
-        {% endfor %}
-        {% elif field_info.type == 'checkbox' %}
-        <input type="checkbox" id="{{ field_name }}" name="{{ field_name }}" class="{{ base_input_classes }}">
-        {% elif field_info.type in ['text', 'password', 'email', 'date', 'datetime-local', 'tel', 'url', 'number',
-        'color', 'month', 'week', 'time', 'search', 'range', 'file', 'image', 'hidden'] %}
-        <input type="{{ field_info.type }}" id="{{ field_name }}" name="{{ field_name }}"
-            class="{{ base_input_classes }} {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }} {{ focus_ring_color }} {{ text_color }}"
-            {% if field_info.required %}required{% endif %} {% if field_info.placeholder
-            %}placeholder="{{ field_info.placeholder }}" {% endif %} {% if field_info.min is defined
-            %}min="{{ field_info.min }}" {% endif %} {% if field_info.max is defined %}max="{{ field_info.max }}" {%
-            endif %}>
-        {% endif %}
-    </div>
-    {% endfor %}
-</form>
-{% endset %}
-
-{# Acciones del formulario dentro del modal #}
-{% set form_actions %}
-<button type="button" id="saveButton" onclick="save{{ entity_name }}()"
-    class="w-full sm:w-auto {{ base_button_classes }} {{ button_bg_color }} text-white {{ focus_ring_color }} sm:ml-3">
-    Guardar
-</button>
-<button type="button" onclick="closeModal()"
-    class="mt-3 w-full sm:w-auto {{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }} sm:mt-0 sm:ml-3">
-    Cerrar
-</button>
-{% endset %}
-
-{# Renderizado del modal para crear/editar/ver elementos #}
-{{ modal(entity_name_lower ~ 'Modal', '', form_content, form_actions) }}
-
-{# Contenido del modal para confirmar la eliminación #}
-{% set delete_content %}
-<p class="text-sm {{ text_color }}">
-    ¿Está seguro de que desea eliminar este {{ entity_name_lower }}?
-</p>
-{% endset %}
-
-{# Acciones del modal de eliminación #}
-{% set delete_actions %}
-<button type="button" onclick="delete{{ entity_name }}()"
-    class="w-full sm:w-auto {{ base_button_classes }} {{ delete_button_bg_color }} text-white {{ focus_ring_color }} sm:ml-3">
-    Eliminar
-</button>
-<button type="button" onclick="closeDeleteModal()"
-    class="mt-3 w-full sm:w-auto {{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }} sm:mt-0 sm:ml-3">
-    Cancelar
-</button>
-{% endset %}
-
-{# Renderizado del modal para confirmar la eliminación #}
-{{ modal('deleteModal', 'Confirmar Eliminación', delete_content, delete_actions) }}
-{% if DEBUG %}
-<pre class="w-[800px] max-w-4xl p-6 bg-gray-800 text-gray-200 rounded-lg shadow-lg font-mono text-sm leading-relaxed whitespace-pre-wrap break-words border border-gray-700 my-4 mx-auto">
-mensajes  de depuracion 
-{{ items }}
-</pre>
-{% endif %}
+{# Modales (si implementas borrado u otras acciones modales) #}
+{# ... #}
 
 {% endblock %}
-{################# Fin block content #################}
 
 {% block extra_js %}
 <script>
-
-    // Función para obtener un valor de cookie
-    function getCookie(name) {
-        let cookieValue = null;
-        let nameEQ = name + "=";
-        let cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            let cookie = cookies[i];
-            while (cookie.charAt(0) === ' ') {
-                cookie = cookie.substring(1, cookie.length);
-            }
-            if (cookie.indexOf(nameEQ) === 0) {
-                cookieValue = decodeURIComponent(cookie.substring(nameEQ.length));
-                break;
-            }
-        }
-        return cookieValue;
-    }
-
-    let currentAction = '';
-    let current{{ entity_name }}Id = null;
-    let activeDropdown = null;
-
     // Función para alternar la visibilidad del dropdown
-    function toggleDropdown(id) {
+    function toggleDropdown(id, event) {
+        event.stopPropagation(); // Previene que el clic cierre inmediatamente el dropdown
         const dropdown = document.getElementById(`dropdown-${id}`);
         const allDropdowns = document.querySelectorAll('.origin-top-right');
+        // Cierra otros dropdowns abiertos
         allDropdowns.forEach(d => {
-            if (d !== dropdown) d.classList.add('hidden');
+            if (d !== dropdown && !d.classList.contains('hidden')) {
+                d.classList.add('hidden');
+            }
         });
+        // Alterna el dropdown actual
         dropdown.classList.toggle('hidden');
-        activeDropdown = dropdown.classList.contains('hidden') ? null : dropdown;
     }
 
     // Cierra todos los dropdowns si se hace clic fuera de ellos
-    window.onclick = function (event) {
-        if (!event.target.closest('.origin-top-right') && !event.target.matches('[aria-haspopup="true"]')) {
+    window.addEventListener('click', function (event) {
+        // Verifica si el clic no fue dentro de un botón que abre dropdown o dentro de un dropdown
+        if (!event.target.closest('[aria-haspopup="true"]') && !event.target.closest('.origin-top-right')) {
             document.querySelectorAll('.origin-top-right').forEach(dropdown => {
-                dropdown.classList.add('hidden');
-            });
-            activeDropdown = null;
-        }
-    };
-
-    // Muestra el modal de creación/edición/vista
-    function showModal(action, id = null) {
-        currentAction = action;
-        current{{ entity_name }}Id = id;
-        const modal = document.getElementById('{{ entity_name_lower }}Modal');
-        const form = document.getElementById('{{ entity_name_lower }}Form');
-        const title = document.getElementById('{{ entity_name_lower }}ModalLabel');
-        const saveButton = document.getElementById('saveButton');
-
-        form.reset();
-        
-        // Primero habilitamos todos los campos (independientemente de la acción)
-        const inputs = form.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => {
-            input.disabled = false;
-        });
-
-        switch (action) {
-            case 'create':
-                title.textContent = 'Crear Nuevo {{ entity_name }}';
-                saveButton.style.display = 'inline-flex';
-                break;
-            case 'edit':
-                title.textContent = 'Editar {{ entity_name }}';
-                saveButton.style.display = 'inline-flex';
-                fillFormWithData(id);
-                disableFieldsInEdit();
-                break;
-            case 'view':
-                title.textContent = 'Ver {{ entity_name }}';
-                saveButton.style.display = 'none';
-                fillFormWithData(id);
-                disableAllFields(); 
-                break;
-            case 'delete':
-                document.getElementById('deleteModal').classList.remove('hidden');
-                return;
-        }
-        modal.classList.remove('hidden');
-    }
-
-/////////////////////////////
-// Cierra los modales si se hace clic fuera de ellos
-window.addEventListener('click', function(event) {
-    const modals = [
-        document.getElementById('{{ entity_name_lower }}Modal'),
-        document.getElementById('deleteModal')
-    ];
-    
-    modals.forEach(modal => {
-        if (modal && !modal.classList.contains('hidden')) {
-            // Verifica si el clic fue fuera del contenido del modal
-            // El contenido del modal es el div dentro del modal que contiene el formulario
-            const modalContent = modal.querySelector('.inline-block');
-            if (modalContent && !modalContent.contains(event.target) && modal.contains(event.target)) {
-                // Si el clic fue dentro del modal pero fuera del contenido del modal (en el overlay)
-                if (modal.id === '{{ entity_name_lower }}Modal') {
-                    closeModal();
-                } else if (modal.id === 'deleteModal') {
-                    closeDeleteModal();
+                if (!dropdown.classList.contains('hidden')) {
+                    dropdown.classList.add('hidden');
                 }
-            }
+            });
         }
     });
-});
-/////////////////////////////
 
-    // Cierra el modal de creación/edición/vista
-    function closeModal() {
-        document.getElementById('{{ entity_name_lower }}Modal').classList.add('hidden');
-    }
-
-    // Cierra el modal de confirmación de eliminación
-    function closeDeleteModal() {
-        document.getElementById('deleteModal').classList.add('hidden');
-    }
-
-    // Rellena el formulario con los datos del elemento seleccionado
-    function fillFormWithData(id) {
-        // const item = {{ items | tojson | safe }}.find(f => f.id === id);
-        // const item = {{ items | tojson | safe }}.find(f => f.id === parseInt(id));
-        const item = {{ items | tojson | safe }}.find(f => String(f.id) === String(id));
-
-        if (item) {
-            document.getElementById('{{ entity_name_lower }}Id').value = item.id;
-    {% for field_name, field_info in form_fields.items() %}
-            
-            {% if field_info.type == 'select' %}
-            document.getElementById('{{ field_name }}').value = item.{{ field_name }} || '';
-            
-            {% elif field_info.type == 'checkbox' %}
-            document.getElementById('{{ field_name }}').checked = item.{{ field_name }} === true || item.{{ field_name }} === 'true';
-            {% elif field_info.type == 'radio' %}
-            const radioValue = item.{{ field_name }};
-        if (radioValue) {
-            document.querySelector(`input[name="{{ field_name }}"][value="${radioValue}"]`).checked = true;
-        }
-    {% elif field_info.type == 'file' or field_info.type == 'image' %}
-        // Los campos de archivo/imagen no se pueden rellenar por seguridad, omitir
-    {% else %}
-        document.getElementById('{{ field_name }}').value = item.{{ field_name }} || '';
-    {% endif %}
-    {% endfor %}
-    }
-        
-    }
-    // Deshabilita los campos que tienen la propiedad disabled_in_edit cuando currentAction es 'edit'
-    function disableFieldsInEdit() {
-        {% for field_name, field_info in form_fields.items() %}
-        {% if field_info.disabled_in_edit %}
-        document.getElementById('{{ field_name }}').disabled = currentAction === 'edit';
-        {% endif %}
-        {% endfor %}
-    }
-    // Deshabilita todos los campos del formulario cuando se visualiza un elemento
-
-    function disableAllFields() {
-        if (currentAction === 'view') {
-            const form = document.getElementById('{{ entity_name_lower }}Form');
-            const inputs = form.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-                input.disabled = true;
-            });
+    // (Opcional) Función para confirmar borrado
+    function confirmDelete(id, event) {
+        event.preventDefault(); // Previene la navegación si es un enlace
+        if (confirm(`¿Está seguro de que desea eliminar el reporte ${id}?`)) {
+            // Lógica para llamar a la API de borrado
+            console.log(`Eliminar reporte ${id}`);
+            // fetch(`/api/foliage/report/delete/${id}`, { method: 'DELETE', ... })
+            // .then(...)
+            // .catch(...);
         }
     }
-    function handleSelectChange(select, fieldId) {
-        const customInput = document.getElementById(`${fieldId}_custom`);
-        if (customInput) {
-            if (select.value === 'other') {
-                customInput.classList.remove('hidden');
-                customInput.disabled = false;
-            } else {
-                customInput.classList.add('hidden');
-                customInput.disabled = true;
-                customInput.value = ''; // Limpiar el valor cuando no está seleccionado "Otro"
-            }
-        }
-    }
-
-
-    {# Guarda o actualiza un {{ entity_name_lower }} #}
-    async function save{{ entity_name }}() {
-        const data = {
-            {% for field_name, field_info in form_fields.items() %}
-                {% if field_info.type == 'checkbox' %}
-                {{ field_name }}: document.getElementById('{{ field_name }}').checked,
-                {% elif field_info.type == 'select' %}
-                {{ field_name }}: (function() {
-                    const selectValue = document.getElementById('{{ field_name }}').value;
-                    {% if allowed_new_value %}
-                    const customInput = document.getElementById('{{ field_name }}_custom').value;
-                    {% endif %}
-                    return (selectValue === 'other' && customInput && !customInput.disabled) ? customInput : selectValue;
-                })(),
-                {% elif field_info.type == 'radio' %}
-                {{ field_name }}: document.querySelector('input[name="{{ field_name }}"]:checked') ? document.querySelector('input[name="{{ field_name }}"]:checked').value : '',
-                {% elif field_info.type == 'file' or field_info.type == 'image' %}
-                // Los campos de archivo/imagen requieren manejo especial (por ejemplo, FormData)
-                {{ field_name }}: document.getElementById('{{ field_name }}').files[0] || null,
-                {% else %}
-                {{ field_name }}: document.getElementById('{{ field_name }}').value,
-                {% endif %}
-            {% endfor %}
-        };
-
-        let url = '{{ api_url }}';
-        let method = 'POST';
-
-        if (currentAction === 'edit') {
-            method = 'PUT';
-            data.id = current{{ entity_name }}Id;
-            url = `{{ api_url }}${current{{ entity_name }}Id.toString()}`;
-        }
-
-        {# Si hay campos de archivo/imagen, usar FormData #}
-        const hasFiles = {% for field_name, field_info in form_fields.items() %}
-            {% if field_info.type == 'file' or field_info.type == 'image' %}
-            data.{{ field_name }} !== null ||
-            {% endif %}
-            {% endfor %} false;
-
-        if (hasFiles) {
-            const formData = new FormData();
-            for (const key in data) {
-                if (data[key] !== null) {
-                    formData.append(key, data[key]);
-                }
-            }
-            try {
-                const response = await fetch(url, {
-                    method: method,
-                    credentials: 'include',
-                    headers: {
-                        "X-CSRF-TOKEN": getCookie("csrf_access_token"),
-                    },
-                    body: formData,
-                });
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Error al guardar el {{ entity_name_lower }}');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al guardar el {{ entity_name_lower }}');
-            }
-        } else {
-            try {
-                const response = await fetch(url, {
-                    method: method,
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        "X-CSRF-TOKEN": getCookie("csrf_access_token"),
-                    },
-                    body: JSON.stringify(data),
-                });
-                if (response.ok) {
-                     location.reload();
-                } else {
-                    alert('Error al guardar el {{ entity_name_lower }}');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al guardar el {{ entity_name_lower }}');
-            }
-        }
-    }
-
-    // Elimina un {{ entity_name_lower }}
-    async function delete{{ entity_name }}() {
-        let url = `{{ api_url }}${current{{ entity_name }}Id.toString()}`;
-        let method = 'DELETE';
-        try {
-            const response = await fetch(url, {
-                method: method,
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                    "X-CSRF-TOKEN": getCookie("csrf_access_token"),
-                },
-                body: JSON.stringify({ id: current{{ entity_name }}Id.toString() }),
-        });
-
-        if (response.ok) {
-            location.reload();
-        } else {
-            alert('Error al eliminar el {{ entity_name_lower }}');
-        }
-            } catch (error) {
-            console.error('Error:', error);
-            alert('Error al eliminar el {{ entity_name_lower }}');
-        }
-    }
-
-    // Alternar la selección de todos los checkboxes en la tabla
-    function toggleSelectAll() {
-        const checkboxes = document.querySelectorAll('.item-checkbox');
-        const selectAll = document.getElementById('select-all').checked;
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAll;
-        });
-    }
-
-    // Manejar acciones en bulk (eliminación de múltiples elementos)
-    async function handleBulkAction() {
-        const selectedItems = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(checkbox => checkbox.value);
-
-        if (selectedItems.length === 0) {
-            alert('Por favor seleccione al menos un elemento.');
-            return;
-        }
-        if (confirm('¿Está seguro de que desea eliminar los elementos seleccionados?')) {
-            try {
-                const response = await fetch('{{ api_url }}', {
-                    method: 'DELETE',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        "X-CSRF-TOKEN": getCookie("csrf_access_token"),
-                    },
-                    body: JSON.stringify({ "ids": selectedItems }),
-                });
-
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Error al eliminar los elementos seleccionados');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al eliminar los elementos seleccionados');
-            }
-        }
-    }
-    
 </script>
 {% endblock %}

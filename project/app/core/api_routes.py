@@ -10,6 +10,8 @@ from .controller import (
     RefreshView,
     UserView,
     OrgView,
+    ProfileView,
+    ChangePasswordView 
 )
 
 #############################################
@@ -55,6 +57,12 @@ api.add_url_rule(
     "/org/<int:org_id>", view_func=org_view, methods=["GET", "PUT", "DELETE"]
 )
 
+
+profile_view = ProfileView.as_view("profile_view")
+api.add_url_rule("/profile", view_func=profile_view, methods=["GET", "PUT"])
+
+change_password_view = ChangePasswordView.as_view("change_password_view")
+api.add_url_rule("/profile/change-password", view_func=change_password_view, methods=["POST"])
 
 # # Registro de rutas
 # def register_routes(api):
