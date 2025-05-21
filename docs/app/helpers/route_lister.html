@@ -39,6 +39,15 @@
                         <li>
                                 <a class="variable" href="#RouteLister.methods">methods</a>
                         </li>
+                        <li>
+                                <a class="variable" href="#RouteLister.List">List</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#RouteLister.Dict">Dict</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#RouteLister.Tuple">Tuple</a>
+                        </li>
                 </ul>
 
             </li>
@@ -64,7 +73,7 @@ module for Yet Another Flask Survival Kit (YAFSK)</p>
 <h6 id="author">Author:</h6>
 
 <blockquote>
-  <p>Johnny De Castro <a href="m&#x61;&#x69;&#108;&#116;&#111;&#58;&#x6a;&#x40;j&#x64;&#99;&#97;&#115;&#x74;&#x72;&#x6f;&#x2e;&#99;&#111;">&#x6a;&#x40;j&#x64;&#99;&#97;&#115;&#x74;&#x72;&#x6f;&#x2e;&#99;&#111;</a></p>
+  <p>Johnny De Castro <a href="&#x6d;&#97;&#x69;&#108;&#x74;&#x6f;&#58;&#106;&#64;&#106;&#x64;&#x63;&#97;&#x73;&#116;&#x72;&#x6f;&#x2e;&#99;&#x6f;">&#106;&#64;&#106;&#x64;&#x63;&#97;&#x73;&#116;&#x72;&#x6f;&#x2e;&#99;&#x6f;</a></p>
 </blockquote>
 
 <h6 id="copyright">Copyright:</h6>
@@ -186,64 +195,62 @@ module for Yet Another Flask Survival Kit (YAFSK)</p>
 </span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>        <span class="n">docstring</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="vm">__doc__</span>
 </span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a>        <span class="k">return</span> <span class="n">docstring</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">docstring</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
 </span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a>    <span class="nd">@staticmethod</span>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_docstring</span><span class="p">(</span>
-</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a>        <span class="n">docstring</span><span class="p">,</span>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]):</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">        Parses the docstring for general and method-specific documentation</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="sd">        :param docstring: Raw docstring</span>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">        :return: Tuple with parsed general description, parameters, response codes, and method documentation</span>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>        <span class="n">lines</span> <span class="o">=</span> <span class="n">docstring</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>        <span class="n">general_description</span><span class="p">,</span> <span class="n">general_params</span><span class="p">,</span> <span class="n">general_responses</span><span class="p">,</span> <span class="n">method_docs</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>            <span class="p">[],</span>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>            <span class="p">[],</span>
-</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>            <span class="p">[],</span>
-</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a>            <span class="p">{},</span>
+</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>
+</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a>    <span class="nd">@staticmethod</span>
+</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_docstring</span><span class="p">(</span>
+</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>        <span class="n">docstring</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]:</span>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="sd">        Parses the docstring for general and method-specific documentation.</span>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="sd">        </span>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="sd">        :param docstring: Raw docstring</span>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="sd">        :return: Tuple with parsed general description, parameters, response codes, and method documentation.</span>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>        <span class="n">lines</span> <span class="o">=</span> <span class="n">docstring</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>        <span class="n">general_description</span><span class="p">,</span> <span class="n">general_params</span><span class="p">,</span> <span class="n">general_responses</span><span class="p">,</span> <span class="n">method_docs</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a>            <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">{}</span>
 </span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a>        <span class="p">)</span>
-</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a>        <span class="n">current_section</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a>
-</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a>        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
-</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a>            <span class="n">line_stripped</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>            <span class="k">if</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">):</span>
-</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a>                <span class="n">general_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
-</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>            <span class="k">elif</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">):</span>
-</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a>                <span class="n">general_responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
-</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>            <span class="k">else</span><span class="p">:</span>
-</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>                <span class="k">if</span> <span class="n">current_section</span> <span class="o">!=</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span>
-</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>                    <span class="n">current_section</span> <span class="o">=</span> <span class="s2">&quot;description&quot;</span>
-</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>                    <span class="n">general_description</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="p">)</span>
-</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a>
-</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a>            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">general_description</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
-</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>            <span class="n">general_params</span><span class="p">,</span>
-</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>            <span class="n">general_responses</span><span class="p">,</span>
-</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a>            <span class="n">method_docs</span><span class="p">,</span>
-</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a>        <span class="p">)</span>
-</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a>
-</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_get_method_docs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_class</span><span class="p">,</span> <span class="n">methods</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
-</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a><span class="sd">        Retrieves documentation for each method in a view class</span>
-</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="sd">        :param view_class: View class</span>
-</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a><span class="sd">        :param methods: List of HTTP methods</span>
-</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a><span class="sd">        :return: Dictionary with method documentation</span>
-</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a>        <span class="n">method_docs</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a>        <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">:</span>
-</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a>            <span class="n">method_lower</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a>            <span class="n">method_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">view_class</span><span class="p">,</span> <span class="n">method_lower</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a>            <span class="k">if</span> <span class="n">method_func</span><span class="p">:</span>
-</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a>                <span class="n">method_docstring</span> <span class="o">=</span> <span class="n">method_func</span><span class="o">.</span><span class="vm">__doc__</span>
-</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a>                <span class="k">if</span> <span class="n">method_docstring</span><span class="p">:</span>
-</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a>                    <span class="n">_</span><span class="p">,</span> <span class="n">method_params</span><span class="p">,</span> <span class="n">method_responses</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_docstring</span><span class="p">(</span>
-</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a>                        <span class="n">method_docstring</span>
-</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a>                    <span class="p">)</span>
-</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>                    <span class="n">method_docs</span><span class="p">[</span><span class="n">method</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a>                        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">method_params</span><span class="p">,</span>
-</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a>                        <span class="s2">&quot;response_codes&quot;</span><span class="p">:</span> <span class="n">method_responses</span><span class="p">,</span>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a>                    <span class="p">}</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a>        <span class="k">return</span> <span class="n">method_docs</span>
+</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a>
+</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a>        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a>            <span class="n">line_stripped</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a>            <span class="k">if</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">):</span>
+</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>                <span class="n">general_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a>            <span class="k">elif</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">):</span>
+</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>                <span class="n">general_responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>                <span class="n">general_description</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="p">)</span>
+</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>
+</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">general_description</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a>            <span class="n">general_params</span><span class="p">,</span>
+</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a>            <span class="n">general_responses</span><span class="p">,</span>
+</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a>            <span class="n">method_docs</span><span class="p">,</span>
+</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>        <span class="p">)</span>
+</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>
+</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a>
+</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_get_method_docs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_class</span><span class="p">,</span> <span class="n">methods</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
+</span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a><span class="sd">        Retrieves documentation for each method in a view class</span>
+</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="sd">        :param view_class: View class</span>
+</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a><span class="sd">        :param methods: List of HTTP methods</span>
+</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="sd">        :return: Dictionary with method documentation</span>
+</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a>        <span class="n">method_docs</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a>        <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">:</span>
+</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a>            <span class="n">method_lower</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+</span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a>            <span class="n">method_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">view_class</span><span class="p">,</span> <span class="n">method_lower</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a>            <span class="k">if</span> <span class="n">method_func</span><span class="p">:</span>
+</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a>                <span class="n">method_docstring</span> <span class="o">=</span> <span class="n">method_func</span><span class="o">.</span><span class="vm">__doc__</span>
+</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a>                <span class="k">if</span> <span class="n">method_docstring</span><span class="p">:</span>
+</span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a>                    <span class="n">_</span><span class="p">,</span> <span class="n">method_params</span><span class="p">,</span> <span class="n">method_responses</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_docstring</span><span class="p">(</span>
+</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a>                        <span class="n">method_docstring</span>
+</span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a>                    <span class="p">)</span>
+</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a>                    <span class="n">method_docs</span><span class="p">[</span><span class="n">method</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a>                        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">method_params</span><span class="p">,</span>
+</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>                        <span class="s2">&quot;response_codes&quot;</span><span class="p">:</span> <span class="n">method_responses</span><span class="p">,</span>
+</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a>                    <span class="p">}</span>
+</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a>        <span class="k">return</span> <span class="n">method_docs</span>
 </span></pre></div>
 
 
@@ -338,64 +345,62 @@ module for Yet Another Flask Survival Kit (YAFSK)</p>
 </span><span id="RouteLister-101"><a href="#RouteLister-101"><span class="linenos">101</span></a>        <span class="n">docstring</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="vm">__doc__</span>
 </span><span id="RouteLister-102"><a href="#RouteLister-102"><span class="linenos">102</span></a>        <span class="k">return</span> <span class="n">docstring</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">docstring</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
 </span><span id="RouteLister-103"><a href="#RouteLister-103"><span class="linenos">103</span></a>
-</span><span id="RouteLister-104"><a href="#RouteLister-104"><span class="linenos">104</span></a>    <span class="nd">@staticmethod</span>
-</span><span id="RouteLister-105"><a href="#RouteLister-105"><span class="linenos">105</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_docstring</span><span class="p">(</span>
-</span><span id="RouteLister-106"><a href="#RouteLister-106"><span class="linenos">106</span></a>        <span class="n">docstring</span><span class="p">,</span>
-</span><span id="RouteLister-107"><a href="#RouteLister-107"><span class="linenos">107</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]):</span>
-</span><span id="RouteLister-108"><a href="#RouteLister-108"><span class="linenos">108</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="RouteLister-109"><a href="#RouteLister-109"><span class="linenos">109</span></a><span class="sd">        Parses the docstring for general and method-specific documentation</span>
-</span><span id="RouteLister-110"><a href="#RouteLister-110"><span class="linenos">110</span></a><span class="sd">        :param docstring: Raw docstring</span>
-</span><span id="RouteLister-111"><a href="#RouteLister-111"><span class="linenos">111</span></a><span class="sd">        :return: Tuple with parsed general description, parameters, response codes, and method documentation</span>
-</span><span id="RouteLister-112"><a href="#RouteLister-112"><span class="linenos">112</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="RouteLister-113"><a href="#RouteLister-113"><span class="linenos">113</span></a>        <span class="n">lines</span> <span class="o">=</span> <span class="n">docstring</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="RouteLister-114"><a href="#RouteLister-114"><span class="linenos">114</span></a>        <span class="n">general_description</span><span class="p">,</span> <span class="n">general_params</span><span class="p">,</span> <span class="n">general_responses</span><span class="p">,</span> <span class="n">method_docs</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="RouteLister-115"><a href="#RouteLister-115"><span class="linenos">115</span></a>            <span class="p">[],</span>
-</span><span id="RouteLister-116"><a href="#RouteLister-116"><span class="linenos">116</span></a>            <span class="p">[],</span>
-</span><span id="RouteLister-117"><a href="#RouteLister-117"><span class="linenos">117</span></a>            <span class="p">[],</span>
-</span><span id="RouteLister-118"><a href="#RouteLister-118"><span class="linenos">118</span></a>            <span class="p">{},</span>
+</span><span id="RouteLister-104"><a href="#RouteLister-104"><span class="linenos">104</span></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span id="RouteLister-105"><a href="#RouteLister-105"><span class="linenos">105</span></a>
+</span><span id="RouteLister-106"><a href="#RouteLister-106"><span class="linenos">106</span></a>    <span class="nd">@staticmethod</span>
+</span><span id="RouteLister-107"><a href="#RouteLister-107"><span class="linenos">107</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_docstring</span><span class="p">(</span>
+</span><span id="RouteLister-108"><a href="#RouteLister-108"><span class="linenos">108</span></a>        <span class="n">docstring</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="RouteLister-109"><a href="#RouteLister-109"><span class="linenos">109</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]:</span>
+</span><span id="RouteLister-110"><a href="#RouteLister-110"><span class="linenos">110</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="RouteLister-111"><a href="#RouteLister-111"><span class="linenos">111</span></a><span class="sd">        Parses the docstring for general and method-specific documentation.</span>
+</span><span id="RouteLister-112"><a href="#RouteLister-112"><span class="linenos">112</span></a><span class="sd">        </span>
+</span><span id="RouteLister-113"><a href="#RouteLister-113"><span class="linenos">113</span></a><span class="sd">        :param docstring: Raw docstring</span>
+</span><span id="RouteLister-114"><a href="#RouteLister-114"><span class="linenos">114</span></a><span class="sd">        :return: Tuple with parsed general description, parameters, response codes, and method documentation.</span>
+</span><span id="RouteLister-115"><a href="#RouteLister-115"><span class="linenos">115</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="RouteLister-116"><a href="#RouteLister-116"><span class="linenos">116</span></a>        <span class="n">lines</span> <span class="o">=</span> <span class="n">docstring</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="RouteLister-117"><a href="#RouteLister-117"><span class="linenos">117</span></a>        <span class="n">general_description</span><span class="p">,</span> <span class="n">general_params</span><span class="p">,</span> <span class="n">general_responses</span><span class="p">,</span> <span class="n">method_docs</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="RouteLister-118"><a href="#RouteLister-118"><span class="linenos">118</span></a>            <span class="p">[],</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">{}</span>
 </span><span id="RouteLister-119"><a href="#RouteLister-119"><span class="linenos">119</span></a>        <span class="p">)</span>
-</span><span id="RouteLister-120"><a href="#RouteLister-120"><span class="linenos">120</span></a>        <span class="n">current_section</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span id="RouteLister-121"><a href="#RouteLister-121"><span class="linenos">121</span></a>
-</span><span id="RouteLister-122"><a href="#RouteLister-122"><span class="linenos">122</span></a>        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
-</span><span id="RouteLister-123"><a href="#RouteLister-123"><span class="linenos">123</span></a>            <span class="n">line_stripped</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-</span><span id="RouteLister-124"><a href="#RouteLister-124"><span class="linenos">124</span></a>            <span class="k">if</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">):</span>
-</span><span id="RouteLister-125"><a href="#RouteLister-125"><span class="linenos">125</span></a>                <span class="n">general_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
-</span><span id="RouteLister-126"><a href="#RouteLister-126"><span class="linenos">126</span></a>            <span class="k">elif</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">):</span>
-</span><span id="RouteLister-127"><a href="#RouteLister-127"><span class="linenos">127</span></a>                <span class="n">general_responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
-</span><span id="RouteLister-128"><a href="#RouteLister-128"><span class="linenos">128</span></a>            <span class="k">else</span><span class="p">:</span>
-</span><span id="RouteLister-129"><a href="#RouteLister-129"><span class="linenos">129</span></a>                <span class="k">if</span> <span class="n">current_section</span> <span class="o">!=</span> <span class="s2">&quot;description&quot;</span><span class="p">:</span>
-</span><span id="RouteLister-130"><a href="#RouteLister-130"><span class="linenos">130</span></a>                    <span class="n">current_section</span> <span class="o">=</span> <span class="s2">&quot;description&quot;</span>
-</span><span id="RouteLister-131"><a href="#RouteLister-131"><span class="linenos">131</span></a>                    <span class="n">general_description</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="p">)</span>
-</span><span id="RouteLister-132"><a href="#RouteLister-132"><span class="linenos">132</span></a>
-</span><span id="RouteLister-133"><a href="#RouteLister-133"><span class="linenos">133</span></a>        <span class="k">return</span> <span class="p">(</span>
-</span><span id="RouteLister-134"><a href="#RouteLister-134"><span class="linenos">134</span></a>            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">general_description</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
-</span><span id="RouteLister-135"><a href="#RouteLister-135"><span class="linenos">135</span></a>            <span class="n">general_params</span><span class="p">,</span>
-</span><span id="RouteLister-136"><a href="#RouteLister-136"><span class="linenos">136</span></a>            <span class="n">general_responses</span><span class="p">,</span>
-</span><span id="RouteLister-137"><a href="#RouteLister-137"><span class="linenos">137</span></a>            <span class="n">method_docs</span><span class="p">,</span>
-</span><span id="RouteLister-138"><a href="#RouteLister-138"><span class="linenos">138</span></a>        <span class="p">)</span>
-</span><span id="RouteLister-139"><a href="#RouteLister-139"><span class="linenos">139</span></a>
-</span><span id="RouteLister-140"><a href="#RouteLister-140"><span class="linenos">140</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_get_method_docs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_class</span><span class="p">,</span> <span class="n">methods</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
-</span><span id="RouteLister-141"><a href="#RouteLister-141"><span class="linenos">141</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="RouteLister-142"><a href="#RouteLister-142"><span class="linenos">142</span></a><span class="sd">        Retrieves documentation for each method in a view class</span>
-</span><span id="RouteLister-143"><a href="#RouteLister-143"><span class="linenos">143</span></a><span class="sd">        :param view_class: View class</span>
-</span><span id="RouteLister-144"><a href="#RouteLister-144"><span class="linenos">144</span></a><span class="sd">        :param methods: List of HTTP methods</span>
-</span><span id="RouteLister-145"><a href="#RouteLister-145"><span class="linenos">145</span></a><span class="sd">        :return: Dictionary with method documentation</span>
-</span><span id="RouteLister-146"><a href="#RouteLister-146"><span class="linenos">146</span></a><span class="sd">        &quot;&quot;&quot;</span>
-</span><span id="RouteLister-147"><a href="#RouteLister-147"><span class="linenos">147</span></a>        <span class="n">method_docs</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="RouteLister-148"><a href="#RouteLister-148"><span class="linenos">148</span></a>        <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">:</span>
-</span><span id="RouteLister-149"><a href="#RouteLister-149"><span class="linenos">149</span></a>            <span class="n">method_lower</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-</span><span id="RouteLister-150"><a href="#RouteLister-150"><span class="linenos">150</span></a>            <span class="n">method_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">view_class</span><span class="p">,</span> <span class="n">method_lower</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span id="RouteLister-151"><a href="#RouteLister-151"><span class="linenos">151</span></a>            <span class="k">if</span> <span class="n">method_func</span><span class="p">:</span>
-</span><span id="RouteLister-152"><a href="#RouteLister-152"><span class="linenos">152</span></a>                <span class="n">method_docstring</span> <span class="o">=</span> <span class="n">method_func</span><span class="o">.</span><span class="vm">__doc__</span>
-</span><span id="RouteLister-153"><a href="#RouteLister-153"><span class="linenos">153</span></a>                <span class="k">if</span> <span class="n">method_docstring</span><span class="p">:</span>
-</span><span id="RouteLister-154"><a href="#RouteLister-154"><span class="linenos">154</span></a>                    <span class="n">_</span><span class="p">,</span> <span class="n">method_params</span><span class="p">,</span> <span class="n">method_responses</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_docstring</span><span class="p">(</span>
-</span><span id="RouteLister-155"><a href="#RouteLister-155"><span class="linenos">155</span></a>                        <span class="n">method_docstring</span>
-</span><span id="RouteLister-156"><a href="#RouteLister-156"><span class="linenos">156</span></a>                    <span class="p">)</span>
-</span><span id="RouteLister-157"><a href="#RouteLister-157"><span class="linenos">157</span></a>                    <span class="n">method_docs</span><span class="p">[</span><span class="n">method</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="RouteLister-158"><a href="#RouteLister-158"><span class="linenos">158</span></a>                        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">method_params</span><span class="p">,</span>
-</span><span id="RouteLister-159"><a href="#RouteLister-159"><span class="linenos">159</span></a>                        <span class="s2">&quot;response_codes&quot;</span><span class="p">:</span> <span class="n">method_responses</span><span class="p">,</span>
-</span><span id="RouteLister-160"><a href="#RouteLister-160"><span class="linenos">160</span></a>                    <span class="p">}</span>
-</span><span id="RouteLister-161"><a href="#RouteLister-161"><span class="linenos">161</span></a>        <span class="k">return</span> <span class="n">method_docs</span>
+</span><span id="RouteLister-120"><a href="#RouteLister-120"><span class="linenos">120</span></a>
+</span><span id="RouteLister-121"><a href="#RouteLister-121"><span class="linenos">121</span></a>        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+</span><span id="RouteLister-122"><a href="#RouteLister-122"><span class="linenos">122</span></a>            <span class="n">line_stripped</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="RouteLister-123"><a href="#RouteLister-123"><span class="linenos">123</span></a>            <span class="k">if</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">):</span>
+</span><span id="RouteLister-124"><a href="#RouteLister-124"><span class="linenos">124</span></a>                <span class="n">general_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:param&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+</span><span id="RouteLister-125"><a href="#RouteLister-125"><span class="linenos">125</span></a>            <span class="k">elif</span> <span class="n">line_stripped</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">):</span>
+</span><span id="RouteLister-126"><a href="#RouteLister-126"><span class="linenos">126</span></a>                <span class="n">general_responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:status&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+</span><span id="RouteLister-127"><a href="#RouteLister-127"><span class="linenos">127</span></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="RouteLister-128"><a href="#RouteLister-128"><span class="linenos">128</span></a>                <span class="n">general_description</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line_stripped</span><span class="p">)</span>
+</span><span id="RouteLister-129"><a href="#RouteLister-129"><span class="linenos">129</span></a>
+</span><span id="RouteLister-130"><a href="#RouteLister-130"><span class="linenos">130</span></a>        <span class="k">return</span> <span class="p">(</span>
+</span><span id="RouteLister-131"><a href="#RouteLister-131"><span class="linenos">131</span></a>            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">general_description</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+</span><span id="RouteLister-132"><a href="#RouteLister-132"><span class="linenos">132</span></a>            <span class="n">general_params</span><span class="p">,</span>
+</span><span id="RouteLister-133"><a href="#RouteLister-133"><span class="linenos">133</span></a>            <span class="n">general_responses</span><span class="p">,</span>
+</span><span id="RouteLister-134"><a href="#RouteLister-134"><span class="linenos">134</span></a>            <span class="n">method_docs</span><span class="p">,</span>
+</span><span id="RouteLister-135"><a href="#RouteLister-135"><span class="linenos">135</span></a>        <span class="p">)</span>
+</span><span id="RouteLister-136"><a href="#RouteLister-136"><span class="linenos">136</span></a>
+</span><span id="RouteLister-137"><a href="#RouteLister-137"><span class="linenos">137</span></a>
+</span><span id="RouteLister-138"><a href="#RouteLister-138"><span class="linenos">138</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_get_method_docs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">view_class</span><span class="p">,</span> <span class="n">methods</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
+</span><span id="RouteLister-139"><a href="#RouteLister-139"><span class="linenos">139</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="RouteLister-140"><a href="#RouteLister-140"><span class="linenos">140</span></a><span class="sd">        Retrieves documentation for each method in a view class</span>
+</span><span id="RouteLister-141"><a href="#RouteLister-141"><span class="linenos">141</span></a><span class="sd">        :param view_class: View class</span>
+</span><span id="RouteLister-142"><a href="#RouteLister-142"><span class="linenos">142</span></a><span class="sd">        :param methods: List of HTTP methods</span>
+</span><span id="RouteLister-143"><a href="#RouteLister-143"><span class="linenos">143</span></a><span class="sd">        :return: Dictionary with method documentation</span>
+</span><span id="RouteLister-144"><a href="#RouteLister-144"><span class="linenos">144</span></a><span class="sd">        &quot;&quot;&quot;</span>
+</span><span id="RouteLister-145"><a href="#RouteLister-145"><span class="linenos">145</span></a>        <span class="n">method_docs</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="RouteLister-146"><a href="#RouteLister-146"><span class="linenos">146</span></a>        <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">methods</span><span class="p">:</span>
+</span><span id="RouteLister-147"><a href="#RouteLister-147"><span class="linenos">147</span></a>            <span class="n">method_lower</span> <span class="o">=</span> <span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+</span><span id="RouteLister-148"><a href="#RouteLister-148"><span class="linenos">148</span></a>            <span class="n">method_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">view_class</span><span class="p">,</span> <span class="n">method_lower</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span id="RouteLister-149"><a href="#RouteLister-149"><span class="linenos">149</span></a>            <span class="k">if</span> <span class="n">method_func</span><span class="p">:</span>
+</span><span id="RouteLister-150"><a href="#RouteLister-150"><span class="linenos">150</span></a>                <span class="n">method_docstring</span> <span class="o">=</span> <span class="n">method_func</span><span class="o">.</span><span class="vm">__doc__</span>
+</span><span id="RouteLister-151"><a href="#RouteLister-151"><span class="linenos">151</span></a>                <span class="k">if</span> <span class="n">method_docstring</span><span class="p">:</span>
+</span><span id="RouteLister-152"><a href="#RouteLister-152"><span class="linenos">152</span></a>                    <span class="n">_</span><span class="p">,</span> <span class="n">method_params</span><span class="p">,</span> <span class="n">method_responses</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_docstring</span><span class="p">(</span>
+</span><span id="RouteLister-153"><a href="#RouteLister-153"><span class="linenos">153</span></a>                        <span class="n">method_docstring</span>
+</span><span id="RouteLister-154"><a href="#RouteLister-154"><span class="linenos">154</span></a>                    <span class="p">)</span>
+</span><span id="RouteLister-155"><a href="#RouteLister-155"><span class="linenos">155</span></a>                    <span class="n">method_docs</span><span class="p">[</span><span class="n">method</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="RouteLister-156"><a href="#RouteLister-156"><span class="linenos">156</span></a>                        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="n">method_params</span><span class="p">,</span>
+</span><span id="RouteLister-157"><a href="#RouteLister-157"><span class="linenos">157</span></a>                        <span class="s2">&quot;response_codes&quot;</span><span class="p">:</span> <span class="n">method_responses</span><span class="p">,</span>
+</span><span id="RouteLister-158"><a href="#RouteLister-158"><span class="linenos">158</span></a>                    <span class="p">}</span>
+</span><span id="RouteLister-159"><a href="#RouteLister-159"><span class="linenos">159</span></a>        <span class="k">return</span> <span class="n">method_docs</span>
 </span></pre></div>
 
 
@@ -451,6 +456,42 @@ module for Yet Another Flask Survival Kit (YAFSK)</p>
         
     </div>
     <a class="headerlink" href="#RouteLister.methods"></a>
+    
+    
+
+                            </div>
+                            <div id="RouteLister.List" class="classattr">
+                                <div class="attr variable">
+            <span class="name">List</span>        =
+<span class="default_value">typing.List</span>
+
+        
+    </div>
+    <a class="headerlink" href="#RouteLister.List"></a>
+    
+    
+
+                            </div>
+                            <div id="RouteLister.Dict" class="classattr">
+                                <div class="attr variable">
+            <span class="name">Dict</span>        =
+<span class="default_value">typing.Dict</span>
+
+        
+    </div>
+    <a class="headerlink" href="#RouteLister.Dict"></a>
+    
+    
+
+                            </div>
+                            <div id="RouteLister.Tuple" class="classattr">
+                                <div class="attr variable">
+            <span class="name">Tuple</span>        =
+<span class="default_value">typing.Tuple</span>
+
+        
+    </div>
+    <a class="headerlink" href="#RouteLister.Tuple"></a>
     
     
 

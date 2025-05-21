@@ -49,6 +49,12 @@
                     <a class="class" href="#Config">Config</a>
                             <ul class="memberlist">
                         <li>
+                                <a class="variable" href="#Config.CORE">CORE</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Config.MODULES">MODULES</a>
+                        </li>
+                        <li>
                                 <a class="variable" href="#Config.THEME">THEME</a>
                         </li>
                         <li>
@@ -180,7 +186,7 @@
 <h6 id="author">Author:</h6>
 
 <blockquote>
-  <p>Johnny De Castro <a href="&#x6d;&#x61;&#105;&#108;&#x74;&#111;&#58;&#x6a;&#x40;&#106;&#100;&#x63;&#x61;&#x73;&#116;&#x72;&#111;&#x2e;&#x63;o">&#x6a;&#x40;&#106;&#100;&#x63;&#x61;&#x73;&#116;&#x72;&#111;&#x2e;&#x63;o</a></p>
+  <p>Johnny De Castro <a href="m&#x61;&#x69;&#108;&#116;&#x6f;&#x3a;&#x6a;&#64;&#106;&#x64;&#x63;&#x61;&#x73;&#x74;r&#x6f;&#x2e;&#x63;o">&#x6a;&#64;&#106;&#x64;&#x63;&#x61;&#x73;&#x74;r&#x6f;&#x2e;&#x63;o</a></p>
 </blockquote>
 
 <h6 id="copyright">Copyright:</h6>
@@ -272,8 +278,8 @@
 </span><span id="L-70"><a href="#L-70"><span class="linenos"> 70</span></a><span class="sd">    Handles environment variables, database settings, mail configuration, and JWT settings.</span>
 </span><span id="L-71"><a href="#L-71"><span class="linenos"> 71</span></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="L-72"><a href="#L-72"><span class="linenos"> 72</span></a>
-</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a>    <span class="c1">#    CORE = True</span>
-</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a>    <span class="c1">#    MODULES = [&quot;foliage&quot;, &quot;foliage_web&quot;]</span>
+</span><span id="L-73"><a href="#L-73"><span class="linenos"> 73</span></a>    <span class="n">CORE</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="L-74"><a href="#L-74"><span class="linenos"> 74</span></a>    <span class="n">MODULES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;foliage&quot;</span><span class="p">,</span> <span class="s2">&quot;foliage_report&quot;</span><span class="p">]</span>
 </span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a>    <span class="n">THEME</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
 </span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>    <span class="n">TITLE</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;TITLE&quot;</span><span class="p">)</span>
 </span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a>    <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;SECRET_KEY&quot;</span><span class="p">)</span>
@@ -474,8 +480,8 @@
 </span><span id="Config-71"><a href="#Config-71"><span class="linenos"> 71</span></a><span class="sd">    Handles environment variables, database settings, mail configuration, and JWT settings.</span>
 </span><span id="Config-72"><a href="#Config-72"><span class="linenos"> 72</span></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="Config-73"><a href="#Config-73"><span class="linenos"> 73</span></a>
-</span><span id="Config-74"><a href="#Config-74"><span class="linenos"> 74</span></a>    <span class="c1">#    CORE = True</span>
-</span><span id="Config-75"><a href="#Config-75"><span class="linenos"> 75</span></a>    <span class="c1">#    MODULES = [&quot;foliage&quot;, &quot;foliage_web&quot;]</span>
+</span><span id="Config-74"><a href="#Config-74"><span class="linenos"> 74</span></a>    <span class="n">CORE</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="Config-75"><a href="#Config-75"><span class="linenos"> 75</span></a>    <span class="n">MODULES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;foliage&quot;</span><span class="p">,</span> <span class="s2">&quot;foliage_report&quot;</span><span class="p">]</span>
 </span><span id="Config-76"><a href="#Config-76"><span class="linenos"> 76</span></a>    <span class="n">THEME</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
 </span><span id="Config-77"><a href="#Config-77"><span class="linenos"> 77</span></a>    <span class="n">TITLE</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;TITLE&quot;</span><span class="p">)</span>
 </span><span id="Config-78"><a href="#Config-78"><span class="linenos"> 78</span></a>    <span class="n">SECRET_KEY</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;SECRET_KEY&quot;</span><span class="p">)</span>
@@ -547,6 +553,30 @@ Handles environment variables, database settings, mail configuration, and JWT se
 </div>
 
 
+                            <div id="Config.CORE" class="classattr">
+                                <div class="attr variable">
+            <span class="name">CORE</span>        =
+<span class="default_value">True</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Config.CORE"></a>
+    
+    
+
+                            </div>
+                            <div id="Config.MODULES" class="classattr">
+                                <div class="attr variable">
+            <span class="name">MODULES</span>        =
+<span class="default_value">[&#39;foliage&#39;, &#39;foliage_report&#39;]</span>
+
+        
+    </div>
+    <a class="headerlink" href="#Config.MODULES"></a>
+    
+    
+
+                            </div>
                             <div id="Config.THEME" class="classattr">
                                 <div class="attr variable">
             <span class="name">THEME</span>        =

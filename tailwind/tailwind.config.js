@@ -1,5 +1,5 @@
 module.exports = {
-  content: ["../project/app/templates/default/**/*.j2", "../project/app/core/**/*.j2", "../project/app/modules/**/*.j2"],
+  content: ["../project/app/**/templates/**/*.j2"],
   darkMode: 'class',
   theme: {
     extend: {

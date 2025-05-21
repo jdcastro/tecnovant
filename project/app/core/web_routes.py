@@ -106,6 +106,10 @@ def logout():
     """Página de cierre de sesión. Implementa core_api.logout"""
     return render_template("logout.j2")
 
+@web.route("/forgot_password")
+def forgot_password():
+    return render_template("forgot_password.j2")
+
 
 __doc__ = """
 Paginas de dashboard y administracion
