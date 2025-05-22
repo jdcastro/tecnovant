@@ -11,6 +11,7 @@ from flask import (
     current_app,
     Response,
     stream_with_context,
+    flash
 )
 from flask.views import MethodView
 from flask_jwt_extended import (
@@ -29,9 +30,11 @@ from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized, I
 from werkzeug.security import check_password_hash
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 
 # Local application imports
 from app.extensions import db
+from app.helpers.mail import send_email
 from .models import (
     User,
     Organization,
@@ -825,6 +828,169 @@ class OrgView(MethodView):
             "created_at": org.created_at.isoformat(),
             "updated_at": org.updated_at.isoformat(),
         }
+
+
+class ForgotPasswordRequestView(MethodView):
+    """Handles the request for password reset."""
+
+    def post(self):
+        """
+        Handles POST request to initiate password reset.
+        Expects an email in the JSON payload.
+        """
+        try:
+            data = request.get_json()
+            email = None
+
+            if data and "email" in data:
+                email = data.get("email", "").strip()
+            
+            # Even if email is missing or empty, log it but proceed to generic response
+            # to prevent an attacker from distinguishing between bad request and non-existent email.
+            if not email:
+                current_app.logger.info("Password reset attempt with missing or empty email.")
+                # Fall through to the generic response
+
+            # Only proceed with email logic if an email was actually provided
+            if email:
+                user = User.get_by_email(email)
+
+                if user and user.active:
+                    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+                    # Salt is recommended for tokens that are not one-time use or have other security implications.
+                    # For a password reset token, it adds an extra layer of security.
+                    token = serializer.dumps(user.email, salt="password-reset-salt")
+                    # base_url = request.host_url.rstrip("/") 
+                    # reset_url = f"{base_url}{url_for('core.reset_password_form', token=token, _external=True)}"
+                    reset_url = url_for(
+                        "core.reset_password_form", token=token, _external=True
+                    )
+
+                    subject = "Password Reset Request"
+                    body = (
+                        f"Hello {user.username},\n\n"
+                        f"You requested a password reset. Click the link below to reset your password:\n"
+                        f"{reset_url}\n\n"
+                        f"This link will expire in 1 hour (3600 seconds).\n\n"
+                        f"If you did not request this, please ignore this email.\n\n"
+                        f"Thanks,\nThe Support Team"
+                    )
+                    
+                    try:
+                        send_email(
+                            recipients=user.email, subject=subject, message=body
+                        )
+                        current_app.logger.info(f"Password reset email sent to {user.email}")
+                    except Exception as e:
+                        current_app.logger.error(f"Failed to send password reset email to {user.email}: {e}")
+                        # Do not re-raise, fall through to generic response
+
+            # Generic response to prevent email enumeration and other leaks
+            return jsonify({"msg": "If your email is registered, you will receive a password reset link."}), 200
+
+        except Exception as e:
+            # Log any other unexpected errors during the process
+            current_app.logger.error(f"Unexpected error in ForgotPasswordRequestView: {e}", exc_info=True)
+            # Still return the generic success message to the client
+            return jsonify({"msg": "If your email is registered, you will receive a password reset link."}), 200
+
+
+class ResetPasswordFormView(MethodView):
+    """Handles rendering the password reset form after token validation."""
+
+    def get(self, token):
+        """
+        Validates the password reset token and renders the reset form.
+        """
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+        try:
+            # max_age is 3600 seconds (1 hour), matching token generation
+            email = serializer.loads(token, salt="password-reset-salt", max_age=3600)
+        except SignatureExpired:
+            flash("The password reset link has expired. Please request a new one.", "error")
+            return redirect(url_for("core.forgot_password"))
+        except BadTimeSignature:  # This catches BadSignature, BadHeader, BadPayload
+            flash("The password reset link is invalid or has been tampered with.", "error")
+            return redirect(url_for("core.forgot_password"))
+        except Exception as e:
+            current_app.logger.error(f"Unexpected error during password reset token decoding: {e}")
+            flash("An unexpected error occurred with the reset link. Please try again.", "error")
+            return redirect(url_for("core.forgot_password"))
+
+        user = User.get_by_email(email)
+        if not user or not user.active:
+            flash("Invalid user or reset link. The user may not exist or may be inactive.", "error")
+            return redirect(url_for("core.forgot_password"))
+
+        # If token is valid and user exists, render the form to reset the password
+        # The 'token' is passed to the form so it can be submitted along with the new password
+        return render_template("reset_password_form.j2", token=token)
+
+
+class ResetPasswordSubmitView(MethodView):
+    """Handles the submission of the new password."""
+
+    def post(self, token):
+        """
+        Handles POST request to reset the password using the provided token
+        and new password data from the form.
+        """
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+        try:
+            email = serializer.loads(token, salt="password-reset-salt", max_age=3600)
+        except SignatureExpired:
+            # Flash message for UI, JSON for API-like response
+            flash("The password reset link has expired. Please request a new one.", "error")
+            return jsonify({"error": "The password reset link has expired."}), 400
+        except BadTimeSignature:
+            flash("The password reset link is invalid or has been tampered with.", "error")
+            return jsonify({"error": "The password reset link is invalid."}), 400
+        except Exception as e:
+            current_app.logger.error(f"Unexpected error during password reset token decoding (submission): {e}")
+            flash("An unexpected error occurred with the reset link. Please try again.", "error")
+            return jsonify({"error": "An unexpected error occurred with the reset link."}), 400
+
+        user = User.get_by_email(email)
+        if not user or not user.active:
+            flash("Invalid user or reset link. The user may not exist or may be inactive.", "error")
+            return jsonify({"error": "Invalid user or reset link."}), 400
+
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or not confirm_password:
+            flash("New password and confirmation are required.", "error")
+            return jsonify({"error": "New password and confirmation are required."}), 400
+        
+        if new_password != confirm_password:
+            flash("Passwords do not match. Please try again.", "error")
+            return jsonify({"error": "Passwords do not match."}), 400
+        
+        if len(new_password) < 8: # Basic length check
+            flash("Password must be at least 8 characters long.", "error")
+            return jsonify({"error": "Password must be at least 8 characters long."}), 400
+        
+        # Optional: Check if the new password is the same as the old one
+        # This might be desirable for security to ensure they actually change it.
+        if user.check_password(new_password):
+            flash("New password cannot be the same as the current password.", "error")
+            return jsonify({"error": "New password cannot be the same as the current password."}), 400
+
+        try:
+            user.set_password(new_password)
+            db.session.add(user) # Ensure changes are staged
+            db.session.commit()
+            
+            flash("Your password has been reset successfully. Please log in.", "success")
+            # The client-side JS will handle redirection based on this response.
+            return jsonify({"message": "Password reset successfully. You can now log in.", "redirect_url": url_for("core.login")}), 200
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error saving new password for user {user.email}: {e}")
+            flash("An error occurred while saving your new password. Please try again.", "error")
+            return jsonify({"error": "Failed to update password due to a server error."}), 500
+
+
 
 class ProfileView(MethodView):
     """Handles fetching and updating the current user's profile."""

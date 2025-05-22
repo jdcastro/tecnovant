@@ -11,7 +11,9 @@ from .controller import (
     UserView,
     OrgView,
     ProfileView,
-    ChangePasswordView 
+    ChangePasswordView,
+    ForgotPasswordRequestView,
+    ResetPasswordSubmitView
 )
 
 #############################################
@@ -36,6 +38,12 @@ def logout():
 
 
 api.add_url_rule("/refresh", view_func=RefreshView.as_view("refresh"), methods=["POST"])
+
+forgot_password_request_view = ForgotPasswordRequestView.as_view("forgot_password_request")
+api.add_url_rule("/forgot-password-request", view_func=forgot_password_request_view, methods=["POST"])
+
+reset_password_submit_view = ResetPasswordSubmitView.as_view("reset_password_submit")
+api.add_url_rule("/reset-password-submit/<token>", view_func=reset_password_submit_view, methods=["POST"])
 
 ################################
 # Endpoints for the User model #

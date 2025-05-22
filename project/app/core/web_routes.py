@@ -13,7 +13,7 @@ from flask_jwt_extended import (
 
 # Local application imports
 from . import core as web
-from .controller import UserView, OrgView, InstallationView, login_required
+from .controller import UserView, OrgView, InstallationView, login_required, ResetPasswordFormView
 from .models import User, get_clients_for_user, RoleEnum
 
 __doc__ = """
@@ -110,6 +110,11 @@ def logout():
 def forgot_password():
     return render_template("forgot_password.j2")
 
+web.add_url_rule(
+    "/reset-password/<token>",
+    view_func=ResetPasswordFormView.as_view("reset_password_form"),
+    methods=["GET"],
+)
 
 __doc__ = """
 Paginas de dashboard y administracion
