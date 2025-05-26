@@ -309,3 +309,84 @@ class RecommendationGenerator(MethodView):
             db.session.rollback()
             current_app.logger.error(f"Error guardando recomendación: {str(e)}", exc_info=True)
             raise InternalServerError("No se pudo guardar el reporte.")
+        
+
+class RecommendationFilterView(MethodView):
+    def get(self):
+        try:
+            farm_id = int(request.args.get('farm_id', 0))
+            lot_id = int(request.args.get('lot_id', 0))
+            
+            # Query para filtrar las recomendaciones
+            query = Recommendation.query.options(
+                db.joinedload(Recommendation.lot),
+                db.joinedload(Recommendation.crop)
+            ).filter(
+                Recommendation.lot_id == lot_id if lot_id else Recommendation.lot.has(farm_id=farm_id)
+            )
+            
+            recommendations = query.all()
+            
+            # Convertir a lista para serializar
+            recommendations_list = list(recommendations)
+            
+            return jsonify([{
+                'id': rec.id,
+                'lot_id': rec.lot_id,
+                'crop_id': rec.crop_id,
+                'date': rec.date.isoformat(),
+                'author': rec.author,
+                'title': rec.title,
+                'limiting_nutrient_id': rec.limiting_nutrient_id,
+                'automatic_recommendations': rec.automatic_recommendations,
+                'text_recommendations': rec.text_recommendations,
+                'optimal_comparison': rec.optimal_comparison,
+                'minimum_law_analyses': rec.minimum_law_analyses,
+                'soil_analysis_details': rec.soil_analysis_details,
+                'foliar_analysis_details': rec.foliar_analysis_details,
+                'applied': rec.applied,
+                'active': rec.active,
+                'created_at': rec.created_at.isoformat(),
+                'updated_at': rec.updated_at.isoformat(),
+                'lot': {
+                    'id': rec.lot.id,
+                    'name': rec.lot.name,
+                    'farm_id': rec.lot.farm_id
+                },
+                'crop': {
+                    'id': rec.crop.id,
+                    'name': rec.crop.name
+                }
+            } for rec in recommendations_list])
+            
+        except ValueError:
+            return jsonify({'error': 'Invalid farm_id or lot_id'}), 400
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+class DeleteRecommendationView(MethodView):
+    @jwt_required()
+    def delete(self, report_id):
+        # Verificar autenticación y permisos (ajusta según tu lógica)
+        claims = get_jwt()  # Asume que tienes una función get_jwt() para obtener claims
+        if not claims or not claims.get("rol") in ["administrator", "reseller", "org_admin", "org_editor"]:
+            return jsonify({"error": "No autorizado"}), 403
+
+        # Buscar el reporte
+        report = Recommendation.query.get(report_id)
+        if not report:
+            return jsonify({"error": "Reporte no encontrado"}), 404
+
+        # Verificar acceso al recurso
+        if not check_resource_access(report.lot.farm, claims):
+            return jsonify({"error": "No tienes acceso a este reporte"}), 403
+
+        try:
+            # Eliminación lógica (soft delete)
+            report.active = False
+            db.session.commit()
+            return jsonify({"message": "Reporte eliminado exitosamente"}), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": str(e)}), 500
+

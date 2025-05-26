@@ -29,6 +29,11 @@ def get_dashboard_menu():
 def listar_reportes():
     claims = get_jwt()
     user_role = claims.get("rol")
+    
+    # Obtener parámetros de filtro de la URL
+    farm_id = request.args.get('farm_id', type=int)
+    lot_id = request.args.get('lot_id', type=int)
+    
     context = {
         "dashboard": True,
         "title": "Informes de Análisis",
@@ -36,21 +41,31 @@ def listar_reportes():
         "author": "Johnny De Castro",
         "site_title": "Listado de Informes",
         "data_menu": get_dashboard_menu(),
-        "entity_name": "Reportes", # Añadido para la plantilla
-        "entity_name_lower": "reporte" # Añadido para la plantilla
+        "entity_name": "Reportes",
+        "entity_name_lower": "reporte",
+        "selected_farm_id": farm_id,  # Para mantener la selección
+        "selected_lot_id": lot_id     # Para mantener la selección
     }
 
-    # Filtrar reportes según el rol y acceso
+    # Query base
     query = Recommendation.query.options(
         db.joinedload(Recommendation.lot).joinedload(Lot.farm).joinedload(Farm.organization),
         db.joinedload(Recommendation.crop)
-    ).filter(Recommendation.active == True) # Opcional: mostrar solo activos
+    ).filter(Recommendation.active == True)
+    
+    # APLICAR FILTROS AQUÍ
+    if lot_id:
+        # Si se especifica un lote, filtrar por ese lote específico
+        query = query.filter(Recommendation.lot_id == lot_id)
+    elif farm_id:
+        # Si solo se especifica finca, filtrar por todos los lotes de esa finca
+        query = query.join(Lot).filter(Lot.farm_id == farm_id)
 
     accessible_recommendations = []
     all_recommendations = query.all()
 
     for rec in all_recommendations:
-        if check_resource_access(rec.lot.farm, claims): # Verificar acceso a la finca del lote
+        if check_resource_access(rec.lot.farm, claims):
              accessible_recommendations.append(rec)
 
     # Serializar solo los datos necesarios para la tabla
@@ -467,8 +482,8 @@ def generar_informe():
         "twitter_image": "/img/twitter-image.jpg",
         "data_menu": get_dashboard_menu(),
     }
-    return render_template("solicitar_informe.j2", **context, request=request)
-
+    return render_template("solicitar_informe2.j2", **context, request=request)
+# return render_template("solicitar_informe.j2", **context, request=request)
 
 
 
@@ -517,3 +532,41 @@ def cv_nutrientes():
     limitante = optimizador.identificar_limitante()
     recomendacion = optimizador.generar_recomendacion(lot_id=1)
     return f"Nutriente limitante: {limitante}\n{recomendacion}"
+
+
+###########################
+# example
+@web.route("/reportes_demo")
+def reports_dashboard():
+    context = {
+        "role": "ORG_ADMIN",  # Cambia a ORG_EDITOR o ORG_VIEWER para testear
+        "farms": [
+            {"id": 1, "name": "Finca El Sol"},
+            {"id": 2, "name": "Finca La Esperanza"},
+        ],
+        "lots": [
+            {"id": 1, "name": "Lote 1"},
+            {"id": 2, "name": "Lote 2"},
+        ],
+        "reports": [
+            {
+                "id": 101,
+                "date": "2025-05-20",
+                "farm": "Finca El Sol",
+                "lot": "Lote 1",
+                "type": "foliar",
+                "crop": "Café",
+                "status": "Listo"
+            },
+            {
+                "id": 102,
+                "date": "2025-05-22",
+                "farm": "Finca La Esperanza",
+                "lot": "Lote 2",
+                "type": "suelo",
+                "crop": "Cacao",
+                "status": "En análisis"
+            }
+        ]
+    }
+    return render_template("reports.j2", **context)

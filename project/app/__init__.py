@@ -129,8 +129,8 @@ def create_app():
     view = RouteLister.as_view("list_routes")
     app.add_url_rule("/list_endpoints", view_func=view)
 
-    @app.route("/about")
-    def about():
+    @app.route("/info")
+    def info():
         """Página: Información general del proyecto
         :param None: No requiere parámetros
         :status 200: Retorna el contenido

@@ -8,7 +8,7 @@ from app.core.controller import login_required, check_resource_access
 from app.core.models import Organization
 from app.modules.foliage.models import Farm, Lot, CommonAnalysis, Nutrient
 from app.extensions import db
-from .controller import RecommendationGenerator
+from .controller import RecommendationGenerator, RecommendationView, RecommendationFilterView, DeleteRecommendationView
 from .helpers import ReportView
 
 
@@ -17,6 +17,13 @@ api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])
 
 report_generator_view = RecommendationGenerator.as_view("generate_report")
 api.add_url_rule("/generate", view_func=report_generator_view, methods=["POST"])
+
+report_filter_view = RecommendationFilterView.as_view("get_filtered_reports")
+api.add_url_rule("/get_filtered_reports", view_func=report_filter_view, methods=["GET"])
+
+# Registrar la ruta en tu API
+delete_report_view = DeleteRecommendationView.as_view("delete_report")
+api.add_url_rule("/delete_report/<int:report_id>", view_func=delete_report_view, methods=["DELETE"])
 
 @api.route('/get-farms')
 @login_required
@@ -119,3 +126,4 @@ def get_analyses():
         analyses.append(analysis_data)
     
     return jsonify(analyses)
+

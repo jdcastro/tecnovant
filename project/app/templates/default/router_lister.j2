@@ -6,210 +6,195 @@
     {% from "settings/_ui_class.j2" import body_classes %}
 </head>
 <body class="{{ body_classes }} home">
-            {# contenido del tab2 #}
-            <div class="flex h-screen">
-                <!-- Lateral del menú -->
-                <nav class="w-64 h-screen bg-gray-200 p-4 overflow-y-auto fixed top-0 left-0">
-                    <h2 class="text-xl font-semibold mb-4">Endpoints</h2>
-                    <div id="navEndpoints" class="space-y-2">
-                        <!-- Aquí se insertarán los enlaces a cada endpoint -->
-                    </div>
-                </nav>
-                <!-- Contenido principal -->
-                <main class="flex-1 p-4 ml-64">
-                    <h1 class="text-3xl font-bold mb-6">API Documentation</h1>
-                    <div id="endpoints" class="space-y-8">
-                        <!-- Aquí se insertarán las tarjetas de cada endpoint -->
-                    </div>
-                </main>
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <nav class="w-64 h-screen bg-gray-200 p-4 overflow-y-auto fixed top-0 left-0">
+            <h2 class="text-xl font-semibold mb-4">Endpoints</h2>
+            <div class="space-y-4">
+                <button id="toggleViewBtn" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition">
+                    Cambiar vista
+                </button>
+                <div id="navEndpoints" class="space-y-2">
+                    <!-- Endpoints -->
+                </div>
             </div>
+        </nav>
 
-            <script>
+        <!-- Main content -->
+        <main class="flex-1 p-4 ml-64">
+            <h1 class="text-3xl font-bold mb-6">API Documentation</h1>
+            <pre id="jsonView" class="hidden bg-gray-900 text-green-400 p-4 rounded overflow-auto text-sm"></pre>
+            <div id="endpoints" class="space-y-8"></div>
+        </main>
+    </div>
 
-                {# manejo de la presentación del API #}
-                document.addEventListener('DOMContentLoaded', function() {
-                    const endpointsContainer = document.getElementById('endpoints');
-                    const navEndpoints = document.getElementById('navEndpoints');
-                    fetch('/list_endpoints')
-                        .then(response => response.json())
-                        .then(data => {
-                            // Función para crear la tarjeta de un endpoint
-                            const createEndpointCard = (route, isActive) => {
-                                const endpointDiv = document.createElement('div');
-                                endpointDiv.className = `bg-white rounded-lg shadow-md p-6 ${isActive ? 'ring-2 ring-blue-500' : ''}`;
-                                endpointDiv.id = route.endpoint;
-                                const endpointHeader = document.createElement('div');
-                                endpointHeader.className = 'flex justify-between items-center mb-4';
-                                const endpointUrl = document.createElement('h2');
-                                endpointUrl.className = 'text-2xl font-bold text-gray-800';
-                                endpointUrl.textContent = route.url;
-                                const endpointROUTE = document.createElement('h3');
-                                endpointROUTE.className = 'text-1xl font-bold text-gray-700';
-                                endpointROUTE.textContent = route.endpoint;
-                                const endpointMethods = document.createElement('div');
-                                endpointMethods.className = 'flex space-x-2';
-                                route.methods.split(',').forEach(method => {
-                                    const methodSpan = document.createElement('span');
-                                    methodSpan.className = `px-2 py-1 rounded text-sm font-medium 
-                                        ${method === 'GET' ? 'bg-green-100 text-green-800' : 
-                                         method === 'POST' ? 'bg-blue-100 text-blue-800' : 
-                                         method === 'PUT' ? 'bg-yellow-100 text-yellow-800' : 
-                                         method === 'DELETE' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`;
-                                    methodSpan.textContent = method;
-                                    endpointMethods.appendChild(methodSpan);
-                                });
-                                endpointHeader.appendChild(endpointUrl);
-                                endpointHeader.appendChild(endpointROUTE);
-                                endpointHeader.appendChild(endpointMethods);
-                                
-                                const documentation = document.createElement('div');
-                                documentation.className = 'mb-6';
-                                if (route.documentation) {
-                                    const docParagraph = document.createElement('p');
-                                    docParagraph.className = 'text-gray-600';
-                                    docParagraph.textContent = route.documentation;
-                                    documentation.appendChild(docParagraph);
-                                }
-                                // Parámetros
-                                if (route.parameters && route.parameters.length > 0) {
-                                    const parameters = document.createElement('div');
-                                    parameters.className = 'mb-6';
-                                    const paramTitle = document.createElement('h3');
-                                    paramTitle.className = 'text-lg font-semibold mb-2 text-gray-800';
-                                    paramTitle.textContent = 'Parameters';
-                                    const paramList = document.createElement('ul');
-                                    paramList.className = 'grid grid-cols-1 md:grid-cols-2 gap-2';
-                                    route.parameters.forEach(param => {
-                                        const paramItem = document.createElement('li');
-                                        paramItem.className = 'text-gray-600';
-                                        paramItem.textContent = param;
-                                        paramList.appendChild(paramItem);
-                                    });
-                                    parameters.appendChild(paramTitle);
-                                    parameters.appendChild(paramList);
-                                    endpointDiv.appendChild(parameters);
-                                }
-                                // Response Codes
-                                if (route.response_codes && route.response_codes.length > 0) {
-                                    const responses = document.createElement('div');
-                                    responses.className = 'mb-6';
-                                    const responseTitle = document.createElement('h3');
-                                    responseTitle.className = 'text-lg font-semibold mb-2 text-gray-800';
-                                    responseTitle.textContent = 'Response Codes';
-                                    const responseList = document.createElement('ul');
-                                    responseList.className = 'grid grid-cols-1 md:grid-cols-2 gap-2';
-                                    route.response_codes.forEach(code => {
-                                        const codeItem = document.createElement('li');
-                                        codeItem.className = 'text-gray-600';
-                                        codeItem.textContent = code;
-                                        responseList.appendChild(codeItem);
-                                    });
-                                    responses.appendChild(responseTitle);
-                                    responses.appendChild(responseList);
-                                    endpointDiv.appendChild(responses);
-                                }
-                                // Method Documentation
-                                if (route.method_docs && Object.keys(route.method_docs).length > 0) {
-                                    const methodDocs = document.createElement('div');
-                                    methodDocs.className = 'mt-6';
-                                    Object.entries(route.method_docs).forEach(([method, docs]) => {
-                                        const methodSection = document.createElement('div');
-                                        methodSection.className = 'mb-4 border-l-4 border-blue-500 pl-4';
-                                        const methodTitle = document.createElement('h3');
-                                        methodTitle.className = 'text-lg font-semibold mb-2 text-gray-800';
-                                        methodTitle.textContent = `${method.toUpperCase()} Documentation`;
-                                        if (docs.parameters && docs.parameters.length > 0) {
-                                            const methodParams = document.createElement('div');
-                                            methodParams.className = 'mb-2';
-                                            const paramTitle = document.createElement('h4');
-                                            paramTitle.className = 'font-medium mb-1 text-gray-700';
-                                            paramTitle.textContent = 'Parameters';
-                                            methodParams.appendChild(paramTitle);
-                                            const paramList = document.createElement('ul');
-                                            paramList.className = 'list-disc list-inside text-gray-600';
-                                            docs.parameters.forEach(param => {
-                                                const paramItem = document.createElement('li');
-                                                paramItem.textContent = param;
-                                                paramList.appendChild(paramItem);
-                                            });
-                                            methodParams.appendChild(paramList);
-                                            methodSection.appendChild(methodParams);
-                                        }
-                                        if (docs.response_codes && docs.response_codes.length > 0) {
-                                            const methodResponses = document.createElement('div');
-                                            methodResponses.className = 'mb-2';
-                                            const responseTitle = document.createElement('h4');
-                                            responseTitle.className = 'font-medium mb-1 text-gray-700';
-                                            responseTitle.textContent = 'Response Codes';
-                                            methodResponses.appendChild(responseTitle);
-                                            const responseList = document.createElement('ul');
-                                            responseList.className = 'list-disc list-inside text-gray-600';
-                                            docs.response_codes.forEach(code => {
-                                                const codeItem = document.createElement('li');
-                                                codeItem.textContent = code;
-                                                responseList.appendChild(codeItem);
-                                            });
-                                            methodResponses.appendChild(responseList);
-                                            methodSection.appendChild(methodResponses);
-                                        }
-                                        methodSection.appendChild(methodTitle);
-                                        methodDocs.appendChild(methodSection);
-                                    });
-                                    endpointDiv.appendChild(methodDocs);
-                                }
-                                endpointDiv.appendChild(endpointHeader);
-                                endpointDiv.appendChild(documentation);
-                                return endpointDiv;
-                            };
-                            data.forEach((route, index) => {
-                                // Crea la tarjeta del endpoint
-                                const endpointCard = createEndpointCard(route, index === 0);
-                                // Crea el enlace en la sidebar
-                                const navItem = document.createElement('div');
-                                navItem.className = 'block mb-1';
-                                const navLink = document.createElement('a');
-                                navLink.className = `text-gray-600 hover:text-blue-500 transition-colors cursor-pointer ${
-                                    index === 0 ? 'font-medium' : ''
-                                }`;
-                                navLink.textContent = route.endpoint;
-                                navLink.href = `#${route.endpoint}`;
-                                navLink.dataset.target = route.endpoint;
-                                navItem.appendChild(navLink);
-                                navEndpoints.appendChild(navItem);
-                                endpointsContainer.appendChild(endpointCard);
-                            });
-                            // Agrega un evento de clic a la sidebar
-                            navEndpoints.addEventListener('click', (e) => {
-                                if (e.target.tagName === 'A') {
-                                    const targetId = e.target.dataset.target;
-                                    document.querySelectorAll('#endpoints > div').forEach(card => {
-                                        card.classList.remove('ring-2', 'ring-blue-500');
-                                    });
-                                    document.querySelectorAll('#navEndpoints a').forEach(link => {
-                                        link.classList.remove('font-medium');
-                                    });
-                                    const targetElement = document.getElementById(targetId);
-                                    if (targetElement) {
-                                        targetElement.classList.add('ring-2', 'ring-blue-500');
-                                        e.target.classList.add('font-medium');
-                                        const yOffset = targetElement.offsetTop - 80;
-                                        window.scrollTo({
-                                            top: yOffset,
-                                            behavior: 'smooth'
-                                        });
-                                    }
-                                }
-                            });
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'text-red-500 text-center py-4';
-                            errorDiv.textContent = 'Error al cargar la documentación';
-                            endpointsContainer.appendChild(errorDiv);
+    <script>
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function setQueryParam(param, value) {
+            const url = new URL(window.location);
+            if (value === null) {
+                url.searchParams.delete(param);
+            } else {
+                url.searchParams.set(param, value);
+            }
+            window.location.href = url.toString();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const viewMode = getQueryParam('view') || 'pretty';
+            const jsonView = document.getElementById('jsonView');
+            const endpointsContainer = document.getElementById('endpoints');
+            const navEndpoints = document.getElementById('navEndpoints');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+
+            toggleBtn.addEventListener('click', () => {
+                const nextView = viewMode === 'json' ? 'pretty' : 'json';
+                setQueryParam('view', nextView);
+            });
+
+            fetch('/list_endpoints')
+                .then(response => response.json())
+                .then(data => {
+                    if (viewMode === 'json') {
+                        jsonView.classList.remove('hidden');
+                        endpointsContainer.classList.add('hidden');
+                        navEndpoints.classList.add('hidden');
+                        jsonView.textContent = JSON.stringify(data, null, 4);
+                        return;
+                    }
+
+                    jsonView.classList.add('hidden');
+                    endpointsContainer.classList.remove('hidden');
+                    navEndpoints.classList.remove('hidden');
+
+                    const createEndpointCard = (route, isActive) => {
+                        const endpointDiv = document.createElement('div');
+                        endpointDiv.className = `bg-white rounded-lg shadow-md p-6 ${isActive ? 'ring-2 ring-blue-500' : ''}`;
+                        endpointDiv.id = route.endpoint;
+
+                        const endpointHeader = document.createElement('div');
+                        endpointHeader.className = 'flex justify-between items-center mb-4';
+
+                        const endpointUrl = document.createElement('h2');
+                        endpointUrl.className = 'text-2xl font-bold text-gray-800';
+                        endpointUrl.textContent = route.url;
+
+                        const endpointROUTE = document.createElement('h3');
+                        endpointROUTE.className = 'text-1xl font-bold text-gray-700';
+                        endpointROUTE.textContent = route.endpoint;
+
+                        const endpointMethods = document.createElement('div');
+                        endpointMethods.className = 'flex space-x-2';
+                        route.methods.split(',').forEach(method => {
+                            const methodSpan = document.createElement('span');
+                            methodSpan.className = `px-2 py-1 rounded text-sm font-medium 
+                                ${method === 'GET' ? 'bg-green-100 text-green-800' : 
+                                 method === 'POST' ? 'bg-blue-100 text-blue-800' : 
+                                 method === 'PUT' ? 'bg-yellow-100 text-yellow-800' : 
+                                 method === 'DELETE' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`;
+                            methodSpan.textContent = method;
+                            endpointMethods.appendChild(methodSpan);
                         });
-                });
-            </script>
 
+                        endpointHeader.appendChild(endpointUrl);
+                        endpointHeader.appendChild(endpointROUTE);
+                        endpointHeader.appendChild(endpointMethods);
+                        endpointDiv.appendChild(endpointHeader);
+
+                        if (route.documentation) {
+                            const doc = document.createElement('p');
+                            doc.className = 'text-gray-600 mb-4';
+                            doc.textContent = route.documentation;
+                            endpointDiv.appendChild(doc);
+                        }
+
+                        if (route.parameters?.length) {
+                            const section = document.createElement('div');
+                            const title = document.createElement('h3');
+                            title.className = 'text-lg font-semibold mb-2 text-gray-800';
+                            title.textContent = 'Parameters';
+                            section.appendChild(title);
+                            const list = document.createElement('ul');
+                            list.className = 'grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600';
+                            route.parameters.forEach(p => {
+                                const item = document.createElement('li');
+                                item.textContent = p;
+                                list.appendChild(item);
+                            });
+                            section.appendChild(list);
+                            endpointDiv.appendChild(section);
+                        }
+
+                        if (route.response_codes?.length) {
+                            const section = document.createElement('div');
+                            const title = document.createElement('h3');
+                            title.className = 'text-lg font-semibold mb-2 text-gray-800';
+                            title.textContent = 'Response Codes';
+                            section.appendChild(title);
+                            const list = document.createElement('ul');
+                            list.className = 'grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600';
+                            route.response_codes.forEach(p => {
+                                const item = document.createElement('li');
+                                item.textContent = p;
+                                list.appendChild(item);
+                            });
+                            section.appendChild(list);
+                            endpointDiv.appendChild(section);
+                        }
+
+                        endpointsContainer.appendChild(endpointDiv);
+
+                        const navItem = document.createElement('div');
+                        navItem.className = 'block mb-1';
+                        const navLink = document.createElement('a');
+                        navLink.className = `text-gray-600 hover:text-blue-500 transition-colors cursor-pointer ${
+                            isActive ? 'font-medium' : ''
+                        }`;
+                        navLink.textContent = route.endpoint;
+                        navLink.href = `#${route.endpoint}`;
+                        navLink.dataset.target = route.endpoint;
+                        navItem.appendChild(navLink);
+                        navEndpoints.appendChild(navItem);
+                    };
+
+                    data.forEach((route, index) => {
+                        createEndpointCard(route, index === 0);
+                    });
+
+                    navEndpoints.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'A') {
+                            const targetId = e.target.dataset.target;
+                            document.querySelectorAll('#endpoints > div').forEach(card => {
+                                card.classList.remove('ring-2', 'ring-blue-500');
+                            });
+                            document.querySelectorAll('#navEndpoints a').forEach(link => {
+                                link.classList.remove('font-medium');
+                            });
+                            const targetElement = document.getElementById(targetId);
+                            if (targetElement) {
+                                targetElement.classList.add('ring-2', 'ring-blue-500');
+                                e.target.classList.add('font-medium');
+                                const yOffset = targetElement.offsetTop - 80;
+                                window.scrollTo({
+                                    top: yOffset,
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'text-red-500 text-center py-4';
+                    errorDiv.textContent = 'Error al cargar la documentación';
+                    endpointsContainer.appendChild(errorDiv);
+                });
+        });
+    </script>
 </body>
 </html>

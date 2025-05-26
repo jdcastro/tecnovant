@@ -214,7 +214,7 @@ function getCookie(name) {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     // Include CSRF token if needed
-                    // 'X-CSRF-TOKEN': getCookie('csrf_access_token')
+                    'X-CSRF-TOKEN': getCookie('csrf_access_token')
                 },
                 body: JSON.stringify(formData)
             });

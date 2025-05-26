@@ -1,7 +1,8 @@
+{# listar_reportes.j2 #}
 {% extends "base.j2" %}
 {# Variables específicas para esta vista de listado #}
 {% set dashboard = true %}
-{% set title = "Informes de Análisis" %}
+{% set title = "Informes de Análisis - listar_reportes.j2" %}
 {% set reports = True %} {# Para mostrar el botón "+ Crear Nuevo Informe" #}
 
 {# Importar estilos y macros necesarios #}
@@ -27,7 +28,7 @@
                 Ver Reporte
             </a>
             {# Añadir más acciones si es necesario (ej. Borrar) #}
-            {# <a href="#" class="{{ text_color }} block px-4 py-2 text-sm hover:bg-red-100 dark:hover:bg-red-700 text-red-700 dark:text-red-300" role="menuitem" onclick="confirmDelete('{{ item_id }}', event)">Borrar</a> #}
+            <a href="#" class="{{ text_color }} block px-4 py-2 text-sm hover:bg-red-100 dark:hover:bg-red-700 text-red-700 dark:text-red-300" role="menuitem" onclick="confirmDelete('{{ item_id }}', event)">Borrar</a>
         </div>
     </div>
 </div>
@@ -47,12 +48,50 @@
 {# Cards de Información (Opcional) #}
 {# <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6"> ... </div> #}
 
+
+
 {# Tabla de Reportes #}
 <div class="mx-auto max-w-8xl pb-6 sm:px-6 lg:px-8">
     <div class="px-4 py-2 sm:px-0">
-        {# Aquí podrías añadir filtros si fueran necesarios #}
-
-        <div class="overflow-x-auto">
+        {# Filtros #}
+<div class="bg-gray-50 p-4 rounded-lg shadow">
+    <h2 class="text-lg font-semibold mb-2">Filtros de Selección</h2>
+    <div class="grid grid-cols-4 gap-4">
+        <div>
+            <label class="block font-medium mb-2">Finca</label>
+            <select class="w-full border p-2 rounded" id="farm-select">
+                <option value="">Todas las fincas</option>
+            </select>
+        </div>
+        <div>
+            <label class="block font-medium mb-2">Lote</label>
+            <select class="w-full border p-2 rounded" id="lot-select">
+                <option value="">Todos los lotes</option>
+            </select>
+        </div>
+        <div class="flex flex-col justify-end">
+            <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onclick="filtrarReportes()">
+                Filtrar
+            </button>
+        </div>
+        <div class="flex flex-col justify-end">
+            <button class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600" onclick="limpiarFiltros()">
+                Limpiar
+            </button>
+        </div>
+    </div>
+</div>
+{% if selected_farm_id or selected_lot_id %}
+<div class="bg-blue-50 p-3 rounded-lg mb-4">
+    <p class="text-sm text-blue-800">
+        <strong>Filtros activos:</strong>
+        {% if selected_farm_id %}Finca seleccionada{% endif %}
+        {% if selected_lot_id %}{% if selected_farm_id %}, {% endif %}Lote específico{% endif %}
+    </p>
+</div>
+{% endif %}
+{# reportes #}
+        <div class="">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border rounded">
                 <thead class="{{ bg_color }} dark:bg-gray-900">
                     <tr>
@@ -93,50 +132,166 @@
     </div>
 </div>
 
-{# Modales (si implementas borrado u otras acciones modales) #}
-{# ... #}
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // Función para alternar la visibilidad del dropdown
-    function toggleDropdown(id, event) {
-        event.stopPropagation(); // Previene que el clic cierre inmediatamente el dropdown
-        const dropdown = document.getElementById(`dropdown-${id}`);
-        const allDropdowns = document.querySelectorAll('.origin-top-right');
-        // Cierra otros dropdowns abiertos
-        allDropdowns.forEach(d => {
-            if (d !== dropdown && !d.classList.contains('hidden')) {
-                d.classList.add('hidden');
+    
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar fincas
+    fetch('{{ url_for('foliage_report_api.get_farms') }}')
+    .then(response => response.json())
+    .then(farms => {
+        const select = document.getElementById('farm-select');
+        farms.forEach(farm => {
+            const option = document.createElement('option');
+            option.value = farm.id;
+            option.textContent = farm.name;
+            // Mantener selección si existe
+            if (farm.id == {{ selected_farm_id or 'null' }}) {
+                option.selected = true;
             }
+            select.appendChild(option);
         });
-        // Alterna el dropdown actual
-        dropdown.classList.toggle('hidden');
-    }
-
-    // Cierra todos los dropdowns si se hace clic fuera de ellos
-    window.addEventListener('click', function (event) {
-        // Verifica si el clic no fue dentro de un botón que abre dropdown o dentro de un dropdown
-        if (!event.target.closest('[aria-haspopup="true"]') && !event.target.closest('.origin-top-right')) {
-            document.querySelectorAll('.origin-top-right').forEach(dropdown => {
-                if (!dropdown.classList.contains('hidden')) {
-                    dropdown.classList.add('hidden');
-                }
-            });
+        
+        // Si hay una finca seleccionada, cargar sus lotes
+        if ({{ selected_farm_id or 'null' }}) {
+            loadLots({{ selected_farm_id }});
         }
     });
 
-    // (Opcional) Función para confirmar borrado
-    function confirmDelete(id, event) {
-        event.preventDefault(); // Previene la navegación si es un enlace
-        if (confirm(`¿Está seguro de que desea eliminar el reporte ${id}?`)) {
-            // Lógica para llamar a la API de borrado
-            console.log(`Eliminar reporte ${id}`);
-            // fetch(`/api/foliage/report/delete/${id}`, { method: 'DELETE', ... })
-            // .then(...)
-            // .catch(...);
-        }
+    // Actualizar lotes cuando cambia la finca
+    document.getElementById('farm-select').addEventListener('change', function() {
+        const farmId = this.value;
+        loadLots(farmId);
+    });
+});
+
+// Función para cargar lotes
+function loadLots(farmId) {
+    const lotSelect = document.getElementById('lot-select');
+    lotSelect.innerHTML = '<option value="">Todos los lotes</option>';
+    
+    if (farmId) {
+        fetch(`{{ url_for('foliage_report_api.get_lots') }}?farm_id=${farmId}`)
+        .then(response => response.json())
+        .then(lots => {
+            lots.forEach(lot => {
+                const option = document.createElement('option');
+                option.value = lot.id;
+                option.textContent = lot.name;
+                // Mantener selección si existe
+                if (lot.id == {{ selected_lot_id or 'null' }}) {
+                    option.selected = true;
+                }
+                lotSelect.appendChild(option);
+            });
+        });
     }
+}
+
+// Función para filtrar reportes (recarga la página con parámetros)
+function filtrarReportes() {
+    const farmId = document.getElementById('farm-select').value;
+    const lotId = document.getElementById('lot-select').value;
+    
+    // Construir URL con parámetros
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.delete('farm_id');
+    currentUrl.searchParams.delete('lot_id');
+    
+    if (farmId) {
+        currentUrl.searchParams.set('farm_id', farmId);
+    }
+    if (lotId) {
+        currentUrl.searchParams.set('lot_id', lotId);
+    }
+    
+    // Recargar la página con los nuevos parámetros
+    window.location.href = currentUrl.toString();
+}
+
+// Función para limpiar filtros
+function limpiarFiltros() {
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.delete('farm_id');
+    currentUrl.searchParams.delete('lot_id');
+    window.location.href = currentUrl.toString();
+}
+
+// 
+// Variable para controlar el dropdown activo
+let activeDropdown = null;
+
+// Función para alternar la visibilidad del dropdown
+function toggleDropdown(id) {
+    const dropdown = document.getElementById(`dropdown-${id}`);
+    const allDropdowns = document.querySelectorAll('.origin-top-right');
+    
+    // Cerrar todos los otros dropdowns
+    allDropdowns.forEach(d => {
+        if (d !== dropdown) d.classList.add('hidden');
+    });
+    
+    // Alternar el dropdown actual
+    dropdown.classList.toggle('hidden');
+    activeDropdown = dropdown.classList.contains('hidden') ? null : dropdown;
+}
+
+// Cierra todos los dropdowns si se hace clic fuera de ellos
+window.onclick = function (event) {
+    if (!event.target.closest('.origin-top-right') && !event.target.matches('[aria-haspopup="true"]')) {
+        document.querySelectorAll('.origin-top-right').forEach(dropdown => {
+            dropdown.classList.add('hidden');
+        });
+        activeDropdown = null;
+    }
+};
+    function getCookie(name) {
+        let cookieValue = null;
+        let nameEQ = name + "=";
+        let cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            let cookie = cookies[i];
+            while (cookie.charAt(0) === ' ') {
+                cookie = cookie.substring(1, cookie.length);
+            }
+            if (cookie.indexOf(nameEQ) === 0) {
+                cookieValue = decodeURIComponent(cookie.substring(nameEQ.length));
+                break;
+            }
+        }
+        return cookieValue;
+    }
+
+function confirmDelete(reportId, event) {
+    event.preventDefault();  // Evitar comportamiento por defecto del enlace
+    if (confirm("¿Estás seguro de que deseas eliminar este reporte?")) {
+
+        const deleteUrl = `/api/foliage/report/delete_report/${reportId}`;
+        
+        fetch(deleteUrl, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": getCookie("csrf_access_token"), // Ajusta según tu sistema de autenticación
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert("Reporte eliminado exitosamente");
+            location.reload();  // Recargar la página para reflejar los cambios
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("No se pudo eliminar el reporte. " + error.message);
+        });
+    }
+}
 </script>
 {% endblock %}

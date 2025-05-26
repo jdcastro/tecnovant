@@ -273,3 +273,4 @@ def profile():
 
 
 web.add_url_rule("/install", view_func=InstallationView.as_view("install"))
+
