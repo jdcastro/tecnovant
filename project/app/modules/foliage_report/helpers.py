@@ -178,6 +178,9 @@ class NutrientOptimizer:
         
         :return: Diccionario con las cantidades de productos y los nutrientes aportados.
         """
+        if not self.productos:
+            raise ValueError("No products available for optimization. Cannot generate recommendation.")
+        
         ajustes = self.calcular_ajustes()
         
         # Coeficientes de la función objetivo (minimizar la suma de productos)

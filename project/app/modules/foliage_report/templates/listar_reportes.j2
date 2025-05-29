@@ -131,6 +131,14 @@
         </div>
     </div>
 </div>
+{% if DEBUG %}
+<div class="my-4 p-4 bg-gray-100 dark:bg-gray-900 rounded-lg shadow">
+    <h2 class="text-xl font-semibold mb-3">Datos de Depuración (JSON)</h2>
+    <pre class="w-full max-w-4xl p-6 bg-gray-800 text-gray-200 rounded-lg shadow-lg font-mono text-sm leading-relaxed whitespace-pre-wrap break-words border border-gray-700 my-4 mx-auto">
+{{ items | tojson(indent=2) if items else "No items data available." }}
+    </pre>
+</div>
+{% endif %}
 
 {% endblock %}
 

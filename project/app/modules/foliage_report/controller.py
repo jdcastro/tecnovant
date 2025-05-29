@@ -294,6 +294,13 @@ class RecommendationGenerator(MethodView):
             )
             recomendacion_texto = optimizer.generar_recomendacion(lot_id=lot_id)
             limitante_nombre = optimizer.identificar_limitante()
+        except ValueError as ve:
+            if "No products available for optimization" in str(ve):
+                current_app.logger.error(f"ValueError en optimización para lote {lot_id} con objetivo {objective_id}: {str(ve)}", exc_info=True)
+                raise BadRequest("No hay productos de fertilización configurados o disponibles que coincidan con los nutrientes requeridos. No se puede generar una recomendación.")
+            # Re-raise other ValueErrors to be caught by the generic Exception handler or handled differently if needed
+            raise
+        
         except Exception as e:
             current_app.logger.error(f"Error en optimización para lote {lot_id} con objetivo {objective_id}: {str(e)}", exc_info=True)
             raise BadRequest(f"Error al generar recomendación con optimizador: {str(e)}")
