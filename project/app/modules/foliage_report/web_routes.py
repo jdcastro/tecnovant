@@ -211,27 +211,206 @@ def vista_reporte(report_id):
     #     limitingNutrientData = None
     #     # Podrías añadir un mensaje de error al contexto
 
-    # Pasar los datos dinámicos a la plantilla
-    analysisData = {}
-    optimalLevels = {}
+
+
+    # # Pasar los datos dinámicos a la plantilla
+    # analysisData = {}
+    # optimalLevels = {}
+    # foliarChartData = []
+    # soilChartData = []
+    # historicalData = []
+    # recommendations_list = []
+    # limitingNutrientData = None
+    # # report_creator = ReportView() 
+    # return render_template(
+    #     'ver_reporte.j2',
+    #     report_id=report_id,
+        
+    #     **context,
+    #     request=request,
+    #     analysisData=analysisData,
+    #     optimalLevels=optimalLevels,
+    #     foliarChartData=foliarChartData,
+    #     soilChartData=soilChartData,
+    #     historicalData=historicalData,
+    #   #   nutrientNames=report_creator._get_nutrient_name_map(), # Reutilizar o definir mapeo
+    #     limitingNutrient=limitingNutrientData,
+    #     recommendations=recommendations_list
+    # )
+
+
+    report = Recommendation.query.options(
+        db.joinedload(Recommendation.lot).joinedload(Lot.farm),
+        db.joinedload(Recommendation.crop)
+    ).get_or_404(report_id)
+
+    if not check_resource_access(report.lot.farm, claims):
+        raise Forbidden("No tienes acceso a este reporte.")
+
+    # Initialize variables with default values
+    analysisData = {"common": {}, "foliar": {}, "soil": {}}
+    optimalLevels = {"foliar": {}, "soil": {}}
+
     foliarChartData = []
     soilChartData = []
-    historicalData = []
+    historicalData = [] # Per requirement, leave as empty list
     recommendations_list = []
     limitingNutrientData = None
-    # report_creator = ReportView() 
-    return render_template(
-        'ver_reporte.j2',
-        report_id=report_id,
+
+    nutrient_name_map_full_to_short = {
+        "nitrogeno": "N", "fosforo": "P", "potasio": "K", "calcio": "Ca", "magnesio": "Mg", "azufre": "S",
+        "hierro": "Fe", "manganeso": "Mn", "zinc": "Zn", "cobre": "Cu", "boro": "B"
+        # Add other mappings if necessary, especially for soil nutrients like pH, M.O., CIC
+    }
+    nutrient_name_map_key_to_display = {
+        "nitrogeno": "Nitrógeno", "fosforo": "Fósforo", "potasio": "Potasio", "calcio": "Calcio",
+        "magnesio": "Magnesio", "azufre": "Azufre", "hierro": "Hierro", "manganeso": "Manganeso",
+        "zinc": "Zinc", "cobre": "Cobre", "boro": "Boro",
+        "ph": "pH", "materiaOrganica": "Materia Orgánica", "cic": "CIC"
+        # Add other mappings as they appear in foliar_details or soil_details keys
+    }
+
+    try:
+        foliar_details = json.loads(report.foliar_analysis_details or '{}')
+        soil_details = json.loads(report.soil_analysis_details or '{}')
+        optimal_levels_json = json.loads(report.optimal_comparison or '{}') # This is optimalLevels
+
+        # Reconstruct analysisData
+        analysisData['foliar'] = foliar_details
+        analysisData['soil'] = soil_details
+        analysisData['common'] = {
+            # 'id': foliar_details.get('common_analysis_id'), # Assuming common_analysis_id was stored
+            'fechaAnalisis': report.date.isoformat(), # Use report date as analysis date
+            'finca': report.lot.farm.name if report.lot and report.lot.farm else 'N/A',
+            'lote': report.lot.name if report.lot else 'N/A',
+            'cultivo': report.crop.name if report.crop else 'N/A',
+            # Other common fields like proteinas, descanso can be added if they are in foliar_details
+        }
+        # Update nutrient_name_map_key_to_display with keys from actual data
+        for key in foliar_details.keys():
+            if key not in nutrient_name_map_key_to_display:
+                nutrient_name_map_key_to_display[key] = key.replace("_", " ").title()
+        for key in soil_details.keys():
+            if key not in nutrient_name_map_key_to_display:
+                nutrient_name_map_key_to_display[key] = key.replace("_", " ").title()
+
+
+        # Reconstruct optimalLevels (already done by optimal_levels_json)
+        # The structure from Recommendation.optimal_comparison should be:
+        # {'NutrientName': {'min': X, 'max': Y, 'ideal': Z, 'unit': 'unit'}, ...}
+        # The template expects optimalLevels.foliar and optimalLevels.soil,
+        # but our optimal_comparison is flat. We need to adapt or assume template changes.
+        # For now, assume optimal_levels_json can be directly used if it matches template's needs,
+        # or we might need to restructure it if it's flat.
+        # Based on ver_reporte2.j2, it expects optimalLevels.foliar and optimalLevels.soil.
+        # The optimal_comparison from previous step is flat: {'NutrientName': {'min': X, ...}}
+        # We need to segregate this into foliar and soil based on known nutrient types or by inspecting analysisData.
         
+        optimalLevels = {"foliar": {}, "soil": {}}
+        for nutrient_key, levels_data in optimal_levels_json.items():
+            if nutrient_key in analysisData['foliar']:
+                optimalLevels['foliar'][nutrient_key] = levels_data
+            elif nutrient_key in analysisData['soil']:
+                optimalLevels['soil'][nutrient_key] = levels_data
+            else: # Fallback if nutrient not in foliar or soil data, put in foliar by default or log
+                optimalLevels['foliar'][nutrient_key] = levels_data 
+                current_app.logger.warning(f"Nutrient {nutrient_key} from optimal_comparison not found in foliar or soil analysisData. Added to foliar optimalLevels by default.")
+
+
+        # Reconstruct foliarChartData
+        if analysisData.get('foliar') and optimalLevels.get('foliar'):
+            for nutrient_key, actual_value in analysisData['foliar'].items():
+                if isinstance(actual_value, (int, float)): # Ensure it's a plottable value
+                    levels = optimalLevels['foliar'].get(nutrient_key)
+                    short_name = nutrient_name_map_full_to_short.get(nutrient_key.lower(), nutrient_key[:3].upper())
+                    if levels and 'min' in levels and 'max' in levels:
+                        foliarChartData.append({
+                            "name": short_name,
+                            "actual": float(actual_value),
+                            "min": float(levels['min']),
+                            "max": float(levels['max'])
+                        })
+        
+        # Reconstruct soilChartData
+        if analysisData.get('soil') and optimalLevels.get('soil'):
+            for nutrient_key, actual_value in analysisData['soil'].items():
+                if isinstance(actual_value, (int, float)): # Ensure it's a plottable value
+                    levels = optimalLevels['soil'].get(nutrient_key)
+                    # Soil chart names might be direct keys like 'pH', 'M.O.'
+                    short_name = nutrient_name_map_full_to_short.get(nutrient_key.lower(), nutrient_key.replace("_", " ").title()[:4])
+                    if levels and 'min' in levels and 'max' in levels:
+                        soilChartData.append({
+                            "name": short_name, # Or nutrient_key.title() if more appropriate
+                            "actual": float(actual_value),
+                            "min": float(levels['min']),
+                            "max": float(levels['max']),
+                            "unit": levels.get('unit', '') 
+                        })
+        
+        # Reconstruct recommendations_list
+        if report.automatic_recommendations:
+            try:
+                # Attempt to load as JSON if it's a structured list
+                parsed_recs = json.loads(report.automatic_recommendations)
+                if isinstance(parsed_recs, list):
+                    recommendations_list = parsed_recs
+                elif isinstance(parsed_recs, dict): # If it's a single recommendation dict
+                    recommendations_list = [parsed_recs]
+                else: # If it's simple text after JSON load (unlikely but possible)
+                    recommendations_list = [{"title": "Recomendación Automática", "description": str(parsed_recs), "priority": "media", "action": "Revisar"}]
+            except json.JSONDecodeError:
+                # If it's just plain text
+                recommendations_list = [{"title": "Recomendación Automática", "description": report.automatic_recommendations, "priority": "media", "action": "Revisar"}]
+        
+        # Reconstruct limitingNutrientData
+        if report.limiting_nutrient_id:
+            nutrient_name = report.limiting_nutrient_id
+            actual_value = None
+            nutrient_type = None
+            optimal_val_for_limiting = None
+
+            if nutrient_name in analysisData['foliar']:
+                actual_value = analysisData['foliar'][nutrient_name]
+                nutrient_type = 'foliar'
+                if optimalLevels['foliar'] and nutrient_name in optimalLevels['foliar']:
+                    optimal_val_for_limiting = optimalLevels['foliar'][nutrient_name].get('ideal', (optimalLevels['foliar'][nutrient_name].get('min', 0) + optimalLevels['foliar'][nutrient_name].get('max', 0)) / 2)
+            elif nutrient_name in analysisData['soil']:
+                actual_value = analysisData['soil'][nutrient_name]
+                nutrient_type = 'soil'
+                if optimalLevels['soil'] and nutrient_name in optimalLevels['soil']:
+                    optimal_val_for_limiting = optimalLevels['soil'][nutrient_name].get('ideal', (optimalLevels['soil'][nutrient_name].get('min', 0) + optimalLevels['soil'][nutrient_name].get('max', 0)) / 2)
+            
+            if actual_value is not None and optimal_val_for_limiting is not None and optimal_val_for_limiting != 0:
+                percentage = (Decimal(str(actual_value)) / Decimal(str(optimal_val_for_limiting))) * 100
+                limitingNutrientData = {
+                    "name": nutrient_name,
+                    "value": float(actual_value),
+                    "optimal": float(optimal_val_for_limiting),
+                    "percentage": float(percentage),
+                    "type": nutrient_type
+                }
+            elif actual_value is not None: # Optimal not found, but actual is
+                limitingNutrientData = { "name": nutrient_name, "value": float(actual_value), "optimal": "N/A", "percentage": "N/A", "type": nutrient_type}
+
+
+    except json.JSONDecodeError as e:
+        current_app.logger.error(f"Error deserializando JSON para reporte {report_id}: {e}")
+        # context["error_message"] = "Error al cargar detalles del reporte. Algunos datos pueden estar corruptos."
+    except Exception as e:
+        current_app.logger.error(f"Error procesando datos del reporte {report_id}: {e}", exc_info=True)
+        # context["error_message"] = "Error inesperado al procesar datos del reporte."
+
+
+    return render_template(
+        'ver_reporte2.j2', # Changed template
         **context,
-        request=request,
+        # Pass reconstructed data
         analysisData=analysisData,
         optimalLevels=optimalLevels,
         foliarChartData=foliarChartData,
         soilChartData=soilChartData,
-        historicalData=historicalData,
-      #   nutrientNames=report_creator._get_nutrient_name_map(), # Reutilizar o definir mapeo
+        historicalData=historicalData, # Empty as per instructions
+        nutrientNames=nutrient_name_map_key_to_display, # Pass the map
         limitingNutrient=limitingNutrientData,
         recommendations=recommendations_list
     )

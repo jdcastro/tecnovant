@@ -10,6 +10,7 @@
 {% set form_fields = {
     'date': {'type': 'date', 'label': 'Fecha de análisis', 'required': True},
     'lot_id': {'type': 'select', 'label': 'Lote', 'options': lots_dic, 'required': True, 'new_value': False},
+    'energy': {'type': 'number', 'label': 'Energía', 'required': True},
     'protein': {'type': 'number', 'label': 'Proteínas', 'required': True},
     'rest': {'type': 'number', 'label': 'Descanso', 'required': True},
     'rest_days': {'type': 'number', 'label': 'Días de descanso', 'required': True},

@@ -17,6 +17,9 @@
                         <label class="block font-medium mb-1" for="farm-select">Finca</label>
                         <select class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="farm-select" name="farm_id" required>
                             <option value="" disabled selected>Seleccione una finca...</option>
+                            {% for farm in farms %} {# Initial population from server if available #}
+                            <option value="{{ farm.id }}">{{ farm.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div>
@@ -26,34 +29,43 @@
                         </select>
                     </div>
                 </div>
-                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block font-medium mb-1" for="start-date-filter">Fecha de Inicio Análisis</label>
-                        <input type="date" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="start-date-filter" name="start_date" required>
-                    </div>
-                    <div>
-                        <label class="block font-medium mb-1" for="end-date-filter">Fecha Fin Análisis</label>
-                        <input type="date" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="end-date-filter" name="end_date" required>
-                    </div>
-                </div>
-                 <p class="text-sm text-gray-500 mt-2">Seleccione el rango de fechas para buscar el análisis más reciente a incluir en el reporte.</p>
+                {# Removed date filters as per original subtask, can be added back if needed for analysis filtering #}
+                {# <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"> ... date inputs ... </div> #}
+                {# <p class="text-sm text-gray-500 mt-2">Seleccione el rango de fechas para buscar el análisis más reciente...</p> #}
             </div>
-             {# Podrías añadir aquí la tabla de análisis disponibles si quieres que se actualice #}
-             {# <div class="bg-gray-50 p-4 rounded-lg shadow"> ... </div> #}
+
+            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow mt-4">
+                <h2 class="text-lg font-semibold mb-2">2. Análisis Disponibles</h2>
+                <div id="analyses-list" class="space-y-2 max-h-60 overflow-y-auto">
+                    <p class="text-gray-500">Seleccione un lote para ver análisis.</p>
+                    {# Analyses will be populated here by JavaScript #}
+                </div>
+                 <input type="hidden" id="selected_crop_id" name="selected_crop_id">
+            </div>
         </div>
 
         {# Opciones del Informe #}
         <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow space-y-4">
-            <h2 class="text-lg font-semibold mb-2">2. Opciones del Informe</h2>
+            <h2 class="text-lg font-semibold mb-2">3. Opciones del Informe</h2>
             <div>
                 <label class="block font-medium mb-1" for="report-title">Título del Informe</label>
                 <input type="text" id="report-title" name="report_title" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" value="Informe de Análisis Finca/Lote">
             </div>
 
-            {# Más opciones si son necesarias (Secciones, Visualizaciones) #}
-            {# <div> ... </div> #}
+            <div>
+                <label class="block font-medium mb-1" for="objective-select">Objetivo</label>
+                <select class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" id="objective-select" name="objective_id" required disabled>
+                    <option value="" disabled selected>Seleccione un objetivo...</option>
+                </select>
+            </div>
+            
+            <div id="intermediate-comparison-results" class="mt-4 p-3 border rounded dark:border-gray-700">
+                <h3 class="font-semibold text-md mb-1">Resultados de Comparación Intermedia:</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Esta sección se poblará después de la selección de datos y objetivos.</p>
+                {# Placeholder content, will be updated dynamically later #}
+            </div>
 
-            <button type="submit" id="generateBtn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full disabled:opacity-50">
+            <button type="submit" id="generateBtn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full">
                 Generar Informe
             </button>
              <div id="loadingMessage" class="hidden text-center mt-4 text-blue-600">
@@ -89,61 +101,171 @@
     document.addEventListener('DOMContentLoaded', function() {
         const farmSelect = document.getElementById('farm-select');
         const lotSelect = document.getElementById('lot-select');
+        const analysesListDiv = document.getElementById('analyses-list');
+        const objectiveSelect = document.getElementById('objective-select');
+        const selectedCropIdInput = document.getElementById('selected_crop_id');
         const form = document.getElementById('generateReportForm');
         const generateBtn = document.getElementById('generateBtn');
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
 
-        // Cargar fincas
-        fetch('{{ url_for("foliage_report_api.get_farms") }}')
-            .then(response => {
-                if (!response.ok) throw new Error('Error al cargar fincas');
-                return response.json();
-            })
-            .then(farms => {
-                farms.forEach(farm => {
-                    const option = new Option(farm.name, farm.id);
-                    farmSelect.add(option);
+        // Function to clear and disable a select element
+        function resetSelect(selectElement, defaultOptionText) {
+            selectElement.innerHTML = `<option value="" disabled selected>${defaultOptionText}</option>`;
+            selectElement.disabled = true;
+        }
+
+        // Function to clear analyses list
+        function clearAnalysesList() {
+            analysesListDiv.innerHTML = '<p class="text-gray-500">Seleccione un lote para ver análisis.</p>';
+        }
+        
+        // Cargar fincas (si no se poblaron desde el servidor)
+        if (farmSelect.options.length <= 1) { // Only fetch if not pre-populated
+            fetch('{{ url_for("foliage_report_api.get_farms") }}')
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al cargar fincas');
+                    return response.json();
+                })
+                .then(farms => {
+                    farms.forEach(farm => {
+                        const option = new Option(farm.name, farm.id);
+                        farmSelect.add(option);
+                    });
+                })
+                .catch(error => {
+                     console.error(error);
+                     errorMessage.textContent = 'Error al cargar fincas.';
+                     errorMessage.classList.remove('hidden');
                 });
-            })
-            .catch(error => {
-                 console.error(error);
-                 errorMessage.textContent = 'Error al cargar fincas.';
-                 errorMessage.classList.remove('hidden');
-            });
+        }
 
         // Actualizar lotes cuando cambia la finca
         farmSelect.addEventListener('change', function() {
             const farmId = this.value;
-            lotSelect.innerHTML = '<option value="" disabled selected>Cargando lotes...</option>';
-            lotSelect.disabled = true;
+            resetSelect(lotSelect, 'Cargando lotes...');
+            clearAnalysesList();
+            resetSelect(objectiveSelect, 'Seleccione un objetivo...');
+            selectedCropIdInput.value = '';
 
             if (!farmId) {
-                 lotSelect.innerHTML = '<option value="" disabled selected>Seleccione un lote...</option>';
+                 resetSelect(lotSelect, 'Seleccione un lote...');
                  return;
             }
-
+            lotSelect.disabled = false; // Enable before fetch
             fetch(`{{ url_for('foliage_report_api.get_lots') }}?farm_id=${farmId}`)
                 .then(response => {
                      if (!response.ok) throw new Error('Error al cargar lotes');
                      return response.json();
                  })
                 .then(lots => {
-                    lotSelect.innerHTML = '<option value="" disabled selected>Seleccione un lote...</option>';
+                    resetSelect(lotSelect, 'Seleccione un lote...');
                     lots.forEach(lot => {
                         const option = new Option(lot.name, lot.id);
+                        option.dataset.cropId = lot.crop_id; // Store crop_id
                         lotSelect.add(option);
                     });
                     lotSelect.disabled = false;
                 })
                 .catch(error => {
                     console.error(error);
-                    lotSelect.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
+                    resetSelect(lotSelect, 'Error al cargar lotes');
                     errorMessage.textContent = 'Error al cargar lotes.';
                     errorMessage.classList.remove('hidden');
                 });
         });
+        
+
+        // Actualizar análisis y objetivos cuando cambia el lote
+        lotSelect.addEventListener('change', function() {
+            const lotId = this.value;
+            const selectedOption = this.options[this.selectedIndex];
+            const cropId = selectedOption.dataset.cropId;
+
+            clearAnalysesList();
+            resetSelect(objectiveSelect, 'Cargando objetivos...');
+            selectedCropIdInput.value = cropId || '';
+
+
+            if (!lotId) {
+                resetSelect(objectiveSelect, 'Seleccione un objetivo...');
+                return;
+            }
+            
+            analysesListDiv.innerHTML = '<p class="text-gray-500">Cargando análisis...</p>';
+            // Fetch analyses for the selected lot
+            // Using foliage_report_api.get_analyses, which expects farm_id and lot_id
+            // We can also pass start_date and end_date if we add those filters back
+            fetch(`{{ url_for('foliage_report_api.get_analyses') }}?lot_id=${lotId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al cargar análisis');
+                    return response.json();
+                })
+                .then(analyses => {
+                    analysesListDiv.innerHTML = ''; // Clear loading message
+                    if (analyses.length === 0) {
+                        analysesListDiv.innerHTML = '<p class="text-gray-500">No hay análisis disponibles para este lote.</p>';
+                    } else {
+                        analyses.forEach(analysis => {
+                            // Assuming analysis object has 'id' and 'date'
+                            // And we want to filter for those with leaf_analysis data
+                            if (analysis.leaf_analysis && analysis.leaf_analysis.nutrients && analysis.leaf_analysis.nutrients.length > 0) {
+                                const div = document.createElement('div');
+                                div.classList.add('flex', 'items-center');
+                                const input = document.createElement('input');
+                                input.type = 'checkbox';
+                                input.id = `analysis-${analysis.id}`;
+                                input.name = 'selected_analyses';
+                                input.value = analysis.id;
+                                input.classList.add('mr-2', 'h-4', 'w-4', 'text-blue-600', 'border-gray-300', 'rounded', 'focus:ring-blue-500');
+                                const label = document.createElement('label');
+                                label.htmlFor = `analysis-${analysis.id}`;
+                                label.textContent = `Análisis del ${analysis.date}`; // Customize as needed
+                                div.appendChild(input);
+                                div.appendChild(label);
+                                analysesListDiv.appendChild(div);
+                            }
+                        });
+                         if (analysesListDiv.childElementCount === 0) { // If all analyses were filtered out
+                            analysesListDiv.innerHTML = '<p class="text-gray-500">No hay análisis de follaje disponibles para este lote.</p>';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    analysesListDiv.innerHTML = '<p class="text-red-500">Error al cargar análisis.</p>';
+                    errorMessage.textContent = 'Error al cargar análisis.';
+                    errorMessage.classList.remove('hidden');
+                });
+
+            // Fetch objectives for the crop
+            if (cropId) {
+                objectiveSelect.disabled = false; // Enable before fetch
+                fetch(`{{ url_for('foliage_report_api.get_objectives_for_crop', crop_id=0) }}`.replace('0', cropId))
+                    .then(response => {
+                        if (!response.ok) throw new Error('Error al cargar objetivos');
+                        return response.json();
+                    })
+                    .then(objectives => {
+                        resetSelect(objectiveSelect, 'Seleccione un objetivo...');
+                        objectives.forEach(obj => {
+                            const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
+                            objectiveSelect.add(option);
+                        });
+                        objectiveSelect.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error(error);
+                        resetSelect(objectiveSelect, 'Error al cargar objetivos');
+                        errorMessage.textContent = 'Error al cargar objetivos.';
+                        errorMessage.classList.remove('hidden');
+                    });
+            } else {
+                resetSelect(objectiveSelect, 'Cultivo no definido para este lote.');
+            }
+        });
+
 
         // Enviar formulario para generar reporte
         form.addEventListener('submit', function(event) {
@@ -155,44 +277,46 @@
 
             const formData = new FormData(form);
             const data = Object.fromEntries(formData.entries());
+            data.selected_analyses = formData.getAll('selected_analyses'); // Get all checked analyses
 
-            // Validar que las fechas no estén vacías (aunque 'required' debería hacerlo)
-            if (!data.start_date || !data.end_date) {
-                 errorMessage.textContent = 'Por favor, seleccione un rango de fechas.';
-                 errorMessage.classList.remove('hidden');
-                 loadingMessage.classList.add('hidden');
-                 generateBtn.disabled = false;
-                 return;
-             }
-             // Validar que la fecha de inicio no sea posterior a la fecha de fin
-             if (data.start_date > data.end_date) {
-                 errorMessage.textContent = 'La fecha de inicio no puede ser posterior a la fecha fin.';
-                 errorMessage.classList.remove('hidden');
-                 loadingMessage.classList.add('hidden');
-                 generateBtn.disabled = false;
-                 return;
-             }
+            // Basic client-side validation
+            if (!data.farm_id || !data.lot_id || !data.objective_id || data.selected_analyses.length === 0) {
+                errorMessage.textContent = 'Por favor complete todas las selecciones: Finca, Lote, al menos un Análisis y Objetivo.';
+                errorMessage.classList.remove('hidden');
+                loadingMessage.classList.add('hidden');
+                generateBtn.disabled = false;
+                return;
+            }
+
+            // ✅ Convertir a tipos esperados por el backend
+            const payload = {
+                farm_id: parseInt(data.farm_id),
+                lot_id: parseInt(data.lot_id), // <-- Aquí se convierte a entero
+                common_analysis_ids: data.selected_analyses.map(id => parseInt(id)), // <-- Convertir lista a enteros
+                objective_id: parseInt(data.objective_id),
+                title: data.report_title
+            };
 
             fetch('{{ url_for("foliage_report_api.generate_report") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken // Incluir el token CSRF
+                    'X-CSRF-TOKEN': csrfToken
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(payload)
             })
             .then(response => response.json().then(body => ({ ok: response.ok, status: response.status, body })))
             .then(({ ok, status, body }) => {
                 loadingMessage.classList.add('hidden');
-                if (ok) {
+                if (ok && body.report_id) {
                     successMessage.textContent = `Reporte ${body.report_id} generado con éxito. Redirigiendo...`;
                     successMessage.classList.remove('hidden');
-                    // Redirigir a la vista del reporte generado
+                    const reportViewUrl = form.dataset.report_view_url.replace('0', body.report_id);
                     setTimeout(() => {
-                         window.location.href = `{{ url_for('foliage_report.vista_reporte', report_id=0) }}`.replace('/0', `/${body.report_id}`);
+                        window.location.href = reportViewUrl;
                     }, 1500);
                 } else {
-                    errorMessage.textContent = `Error ${status}: ${body.error || body.message || 'No se pudo generar el reporte.'}`;
+                    errorMessage.textContent = `Error ${status}: ${body.error || body.message}`;
                     errorMessage.classList.remove('hidden');
                     generateBtn.disabled = false;
                 }
@@ -205,6 +329,15 @@
                 generateBtn.disabled = false;
             });
         });
+    });
+</script>
+<script>
+    // Pass the base URL for report viewing to the form's dataset for JavaScript access
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('generateReportForm');
+        if (form) {
+            form.dataset.reportViewUrl = "{{ url_for('foliage_report.vista_reporte', report_id=0) }}";
+        }
     });
 </script>
 {% endblock%}

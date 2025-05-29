@@ -15,7 +15,7 @@ from flask import request, jsonify, Response, current_app
 from app.extensions import db
 from app.core.controller import check_permission, check_resource_access
 from app.core.models import ResellerPackage, RoleEnum
-from app.modules.foliage.models import CommonAnalysis, LeafAnalysis, SoilAnalysis, Farm, Lot, Crop, LotCrop, Recommendation, Nutrient, Objective, objective_nutrients
+from app.modules.foliage.models import CommonAnalysis, LeafAnalysis, SoilAnalysis, Farm, Lot, Crop, LotCrop, Recommendation, Nutrient, Objective, objective_nutrients, leaf_analysis_nutrients
 from .helpers import NutrientOptimizer, determinar_coeficientes_variacion, contribuciones_de_producto, ObjectiveResource, LeafAnalysisResource, ReportView
 
 
@@ -168,89 +168,115 @@ class RecommendationGenerator(MethodView):
     def post(self):
         """
         Genera un reporte basado en los parámetros recibidos.
-        Expected JSON: {"farm_id": int, "lot_id": int, "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD"}
+        Expected JSON: {"lot_id": int, "common_analysis_ids": list[int], "objective_id": int, "title": str}
         """
         claims = get_jwt()
-        user_id = claims.get("id") # O el identificador relevante del usuario
-        author_name = claims.get("username", "Sistema") # Nombre del autor
+        author_name = claims.get("username", "Sistema")
 
         data = request.get_json()
-        if not data or not all(k in data for k in ["farm_id", "lot_id", "start_date", "end_date"]):
-            raise BadRequest("Faltan parámetros: farm_id, lot_id, start_date, end_date")
+        if not data or not all(k in data for k in ["lot_id", "common_analysis_ids", "objective_id", "title"]):
+            raise BadRequest("Faltan parámetros: lot_id, common_analysis_ids, objective_id, title")
 
-        farm_id = data.get("farm_id")
         lot_id = data.get("lot_id")
-        start_date_str = data.get("start_date")
-        end_date_str = data.get("end_date")
+        common_analysis_ids = data.get("common_analysis_ids")
+        objective_id = data.get("objective_id")
+        report_title = data.get("title")
 
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            raise BadRequest("Formato de fecha inválido. Usar YYYY-MM-DD.")
+        if not isinstance(lot_id, int):
+            raise BadRequest("lot_id debe ser un entero.")
+        if not isinstance(common_analysis_ids, list) or not all(isinstance(id, int) for id in common_analysis_ids):
+            raise BadRequest("common_analysis_ids debe ser una lista de enteros.")
+        if not common_analysis_ids:
+            raise BadRequest("common_analysis_ids no puede estar vacía.")
+        if not isinstance(objective_id, int):
+            raise BadRequest("objective_id debe ser un entero.")
+        if not isinstance(report_title, str) or not report_title.strip():
+            raise BadRequest("El título no puede estar vacío.")
 
-        # --- Lógica para obtener datos de análisis ---
-        # (Similar a la de /api/foliage/report/analyses, pero quizás solo el más reciente)
+        # --- Procesar CommonAnalysis ---
+        # Estrategia: Procesar solo el primer common_analysis_id de la lista.
+        if len(common_analysis_ids) > 1:
+            current_app.logger.warning(
+                f"Múltiples common_analysis_ids recibidos: {common_analysis_ids}. "
+                f"Solo se procesará el primero: {common_analysis_ids[0]}."
+            )
+        selected_common_analysis_id = common_analysis_ids[0]
+
         common_analysis = CommonAnalysis.query.options(
-                db.joinedload(CommonAnalysis.soil_analysis),
-                db.joinedload(CommonAnalysis.leaf_analysis),
-                db.joinedload(CommonAnalysis.lot).joinedload(Lot.farm)
-            ).filter(
-                CommonAnalysis.lot_id == lot_id,
-                CommonAnalysis.date >= start_date,
-                CommonAnalysis.date <= end_date
-            ).order_by(CommonAnalysis.date.desc()).first()
+            db.joinedload(CommonAnalysis.leaf_analysis).joinedload(LeafAnalysis.nutrients).joinedload(Nutrient.objectives), # Preload Nutrient for objectives
+            db.joinedload(CommonAnalysis.soil_analysis),
+            db.joinedload(CommonAnalysis.lot) # Para crop_id y farm access check
+        ).get(selected_common_analysis_id)
 
         if not common_analysis:
-            raise NotFound("No se encontraron análisis para los parámetros dados.")
+            raise NotFound(f"No se encontró CommonAnalysis con ID {selected_common_analysis_id}.")
+        
+        if not common_analysis.leaf_analysis:
+            raise NotFound(f"CommonAnalysis ID {selected_common_analysis_id} no tiene un LeafAnalysis asociado.")
 
         # Verificar acceso al lote/finca
-        lot = Lot.query.get(lot_id)
+        lot = common_analysis.lot
         if not lot or not check_resource_access(lot.farm, claims):
              raise Forbidden("No tienes acceso a este lote/finca.")
 
-        # --- Obtener datos necesarios para el optimizador ---
-        # 1. Niveles actuales (del LeafAnalysis más reciente)
-        leaf_analysis_resource = LeafAnalysisResource()
-        current_levels_response = leaf_analysis_resource._get_leaf_analysis_list(lot_id=lot_id, latest=True) # Necesitaría adaptar esta función
-        # Procesar current_levels_response para obtener el diccionario {Nutriente: Valor}
-        # Asegurarse de convertir a Decimal
-        # Ejemplo simplificado:
-        leaf_data_json = json.loads(current_levels_response.get_data(as_text=True))
-        # Asumiendo que leaf_data_json es una lista y tomamos el primero si existe
+        # 1. Niveles actuales (del LeafAnalysis)
         nutrientes_actuales_raw = {}
-        if leaf_data_json:
-            # Buscar análisis específico o el más reciente
-            analysis_to_use = next((a for a in leaf_data_json if a['common_analysis_id'] == common_analysis.id), leaf_data_json[0]) # O buscar el más reciente
-            for nv in analysis_to_use.get('nutrient_values', []):
-                 nutrientes_actuales_raw[nv['nutrient_name']] = nv['value']
+        # Acceder a los nutrientes a través de la relación cargada en common_analysis.leaf_analysis
+        for nutrient_assoc in common_analysis.leaf_analysis.nutrients:
+            # nutrient_assoc es una instancia de Nutrient, el valor está en la tabla de asociación
+            # Necesitamos una forma de obtener el 'value' de la tabla leaf_analysis_nutrients
+            # Esto requiere que el modelo LeafAnalysis.nutrients devuelva objetos que contengan el valor.
+            # Asumimos que la relación está configurada para esto o se hace una subconsulta.
+            # Por ahora, vamos a buscarlo directamente si no está en el objeto `nutrient_assoc`.
+            # Esto es ineficiente y debería mejorarse con una carga adecuada en el modelo.
+            
+            stmt = db.select(db.column("value")).where(
+                db.and_(
+                    leaf_analysis_nutrients.c.leaf_analysis_id == common_analysis.leaf_analysis.id,
+                    leaf_analysis_nutrients.c.nutrient_id == nutrient_assoc.id
+                )
+            )
+            result = db.session.execute(stmt).scalar_one_or_none()
+            if result is not None:
+                 nutrientes_actuales_raw[nutrient_assoc.name] = result
+            else:
+                current_app.logger.warning(f"No se encontró valor para el nutriente {nutrient_assoc.name} en LeafAnalysis {common_analysis.leaf_analysis.id}")
 
+
+        if not nutrientes_actuales_raw:
+            raise NotFound(f"LeafAnalysis ID {common_analysis.leaf_analysis.id} no tiene valores de nutrientes.")
         nutrientes_actuales = {k: Decimal(str(v)) for k, v in nutrientes_actuales_raw.items()}
 
 
-        # 2. Demandas ideales (del Objective asociado al cultivo actual del lote)
-        # Encontrar el cultivo actual del lote en la fecha del análisis
-        lot_crop = LotCrop.query.filter(
-            LotCrop.lot_id == lot_id,
-            LotCrop.start_date <= common_analysis.date,
-            db.or_(LotCrop.end_date >= common_analysis.date, LotCrop.end_date.is_(None))
-        ).first()
+        # --- Procesar Objective ---
+        objective = Objective.query.options(
+            db.joinedload(Objective.nutrients) # Asegura que los nutrientes del objetivo están cargados
+        ).get(objective_id)
+        if not objective:
+            raise NotFound(f"No se encontró Objective con ID {objective_id}.")
+        
+        crop_id = objective.crop_id # Usar el crop_id del objetivo
 
-        if not lot_crop:
-             raise NotFound(f"No se encontró un cultivo activo para el lote {lot_id} en la fecha {common_analysis.date}.")
+        # 2. Demandas ideales (del Objective)
+        demandas_ideales = {}
+        # Los nutrientes y sus target_value están en la tabla de asociación objective_nutrients
+        for nutrient_target in objective.nutrients:
+            # Similar al caso anterior, necesitamos el target_value de la tabla de asociación
+            stmt = db.select(db.column("target_value")).where(
+                db.and_(
+                    objective_nutrients.c.objective_id == objective.id,
+                    objective_nutrients.c.nutrient_id == nutrient_target.id
+                )
+            )
+            target_value = db.session.execute(stmt).scalar_one_or_none()
+            if target_value is not None:
+                demandas_ideales[nutrient_target.name] = Decimal(str(target_value))
+            else:
+                 current_app.logger.warning(f"No se encontró target_value para el nutriente {nutrient_target.name} en Objective {objective.id}")
 
-        crop_id = lot_crop.crop_id
 
-        objective_resource = ObjectiveResource()
-        # Obtener objetivos para el cultivo específico
-        objectives = Objective.query.filter_by(crop_id=crop_id).order_by(Objective.updated_at.desc()).first()
-        if not objectives:
-            raise NotFound(f"No se encontraron objetivos para el cultivo ID {crop_id}.")
-
-        # Asumiendo que usamos el objetivo más reciente
-        serialized_objective = objective_resource._serialize_objective(objectives)
-        demandas_ideales = {item['nutrient_name']: Decimal(str(item['target_value'])) for item in serialized_objective['nutrient_targets']}
-
+        if not demandas_ideales:
+             raise NotFound(f"El objetivo ID {objective_id} no tiene metas de nutrientes definidas.")
 
         # 3. Contribuciones de producto
         productos_contribuciones_data = contribuciones_de_producto()
@@ -267,36 +293,51 @@ class RecommendationGenerator(MethodView):
                 coeficientes_variacion
             )
             recomendacion_texto = optimizer.generar_recomendacion(lot_id=lot_id)
-            limitante_nombre = optimizer.identificar_limitante() # Nombre del nutriente limitante
+            limitante_nombre = optimizer.identificar_limitante()
         except Exception as e:
-            # Loggear el error detallado
-            current_app.logger.error(f"Error en optimización para lote {lot_id}: {str(e)}", exc_info=True)
-            raise BadRequest(f"Error al generar recomendación: {str(e)}")
-
+            current_app.logger.error(f"Error en optimización para lote {lot_id} con objetivo {objective_id}: {str(e)}", exc_info=True)
+            raise BadRequest(f"Error al generar recomendación con optimizador: {str(e)}")
 
         # --- Preparar datos para guardar en Recommendation ---
-        # Serializar datos de análisis, niveles óptimos, etc.
-        report_creator = ReportView() # Reutilizar la lógica de ReportView si es posible
+        report_creator = ReportView() 
+        
+        # Foliar details from the chosen common_analysis
+        # _build_analysis_data espera un common_analysis completo
         analysis_data_for_report = report_creator._build_analysis_data(common_analysis)
-        optimal_levels_for_report = report_creator._get_optimal_levels(common_analysis)
+        foliar_details_json = json.dumps(analysis_data_for_report.get("foliar"), default=str)
+        soil_details_json = json.dumps(analysis_data_for_report.get("soil"), default=str)
 
-
+        # Optimal comparison from the objective
+        # Necesitamos un método para formatear los datos del objetivo como optimal_levels
+        # Formato esperado: {'Nutriente': {'min': X, 'max': Y, 'ideal': Z, 'unit': 'unidad'}}
+        optimal_comparison_data = {}
+        for nutrient_name, ideal_value in demandas_ideales.items():
+            # Encontrar el objeto Nutrient para obtener la unidad
+            nutrient_obj = next((n for n in objective.nutrients if n.name == nutrient_name), None)
+            unit = nutrient_obj.unit if nutrient_obj else '%' # Default unit
+            optimal_comparison_data[nutrient_name] = {
+                "min": float(ideal_value), # O un rango si el objetivo lo define
+                "max": float(ideal_value),
+                "ideal": float(ideal_value),
+                "unit": unit
+            }
+        optimal_comparison_json = json.dumps(optimal_comparison_data, default=str)
+        
         # --- Crear y guardar la Recommendation ---
         try:
             new_recommendation = Recommendation(
                 lot_id=lot_id,
-                crop_id=crop_id,
-                date=datetime.now().date(), # O la fecha del análisis
+                crop_id=crop_id, 
+                date=datetime.now().date(),
                 author=author_name,
-                title=f"Reporte Lote {lot.name} ({common_analysis.date.strftime('%Y-%m-%d')})",
-                limiting_nutrient_id = limitante_nombre, # Guardar el nombre del limitante
+                title=report_title,
+                limiting_nutrient_id=limitante_nombre,
                 automatic_recommendations=recomendacion_texto,
-                text_recommendations="", # Dejar vacío para edición manual
-                # Serializar datos complejos a JSON
-                optimal_comparison=json.dumps(optimal_levels_for_report, default=str),
-                soil_analysis_details=json.dumps(analysis_data_for_report.get("soil"), default=str),
-                foliar_analysis_details=json.dumps(analysis_data_for_report.get("foliar"), default=str),
-                # Podrías añadir más campos si es necesario
+                text_recommendations="", 
+                optimal_comparison=optimal_comparison_json,
+                soil_analysis_details=soil_details_json,
+                foliar_analysis_details=foliar_details_json,
+                # Considerar añadir objective_id y common_analysis_ids_used si se modifica el modelo
                 applied=False,
                 active=True
             )
@@ -309,6 +350,7 @@ class RecommendationGenerator(MethodView):
             db.session.rollback()
             current_app.logger.error(f"Error guardando recomendación: {str(e)}", exc_info=True)
             raise InternalServerError("No se pudo guardar el reporte.")
+
         
 
 class RecommendationFilterView(MethodView):

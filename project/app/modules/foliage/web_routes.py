@@ -575,7 +575,9 @@ def amd_leaf_analyses():
 
     # Actualizar el diccionario common_analysis_options
     if analisis_comun_id:
+        # get name 
         common_analysis_options = {int(analisis_comun_id): int(analisis_comun_id)}
+    #}
     else:
         common_analysis_options = {common_analysis.id: common_analysis.id for common_analysis in common_analyses}
     

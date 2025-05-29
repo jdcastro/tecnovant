@@ -6,10 +6,11 @@ from flask_jwt_extended import get_jwt
 from . import foliage_report_api as api
 from app.core.controller import login_required, check_resource_access
 from app.core.models import Organization
-from app.modules.foliage.models import Farm, Lot, CommonAnalysis, Nutrient
+from app.modules.foliage.models import Farm, Lot, CommonAnalysis, Nutrient, Objective, LotCrop, Crop, LeafAnalysis, SoilAnalysis, leaf_analysis_nutrients
 from app.extensions import db
 from .controller import RecommendationGenerator, RecommendationView, RecommendationFilterView, DeleteRecommendationView
 from .helpers import ReportView
+
 
 
 report_view = ReportView.as_view("report_view")
@@ -53,10 +54,50 @@ def get_lots():
         
     lots = Lot.query.filter_by(farm_id=farm_id).all()
     
-    return jsonify([
-        {'id': lot.id, 'name': lot.name} 
-        for lot in lots
-    ])
+    lots_data = []
+    for lot in lots:
+        # Find the most recent active LotCrop for this lot
+        # Order by end_date descending (None means active), then start_date descending
+        # lot_crop = db.session.query(LotCrop).\
+        #     filter(LotCrop.lot_id == lot.id).\
+        #     order_by(LotCrop.end_date.desc().nullsfirst(), LotCrop.start_date.desc()).first()
+        
+        lot_crop = db.session.query(LotCrop).\
+            filter(LotCrop.lot_id == lot.id).\
+            order_by(LotCrop.end_date.desc(), LotCrop.start_date.desc()).first()
+        
+        # return jsonify([
+        #     {'id': lot.id, 'name': lot.name} 
+        #     for lot in lots
+        # ])
+        
+        # lot_crop = db.session.query(LotCrop).\
+        #     filter(LotCrop.lot_id == lot.id).\
+        #     order_by(LotCrop.end_date.desc().nullsfirst(), LotCrop.start_date.desc()).limit(1).first()
+
+            
+        current_crop_id = lot_crop.crop_id if lot_crop else None
+        lots_data.append({
+            'id': lot.id, 
+            'name': lot.name, 
+            'crop_id': current_crop_id
+        })
+    return jsonify(lots_data)
+
+@api.route('/get-objectives-for-crop/<int:crop_id>')
+@login_required
+def get_objectives_for_crop(crop_id):
+    crop = Crop.query.get_or_404(crop_id)
+    objectives = Objective.query.filter_by(crop_id=crop_id).all()
+    objectives_data = [
+        {
+            'cultivo': crop.name, 
+            'id': obj.id, 
+            'name': f"ID: {obj.id} - Target: {obj.target_value}"
+        } 
+        for obj in objectives
+    ]
+    return jsonify(objectives_data)
 
 @api.route('/analyses')
 @login_required
@@ -98,6 +139,23 @@ def get_analyses():
         soil_analysis = common_analysis.soil_analysis
         leaf_analysis = common_analysis.leaf_analysis
         
+        # Procesar los nutrientes del análisis foliar
+        leaf_nutrients = []
+        if leaf_analysis:
+            # Consultar los nutrientes y sus valores asociados a esta LeafAnalysis
+            nutrient_entries = db.session.query(Nutrient, leaf_analysis_nutrients.c.value).join(
+                leaf_analysis_nutrients, Nutrient.id == leaf_analysis_nutrients.c.nutrient_id
+            ).filter(
+                leaf_analysis_nutrients.c.leaf_analysis_id == leaf_analysis.id
+            ).all()
+
+            for nutrient, value in nutrient_entries:
+                leaf_nutrients.append({
+                    'nutrient_id': nutrient.id,
+                    'value': value,
+                    'nutrient_name': nutrient.name
+                })
+        
         analysis_data = {
             'id': common_analysis.id,
             'date': common_analysis.date.strftime('%Y-%m-%d'),
@@ -114,13 +172,7 @@ def get_analyses():
                 'grazing': soil_analysis.grazing if soil_analysis else None
             },
             'leaf_analysis': {
-                'nutrients': [
-                    {
-                        'nutrient_id': nutrient.id,
-                        'value': nutrient.value,
-                        'nutrient_name': nutrient.nutrient.name if nutrient.nutrient else None
-                    } for nutrient in (leaf_analysis.nutrients if leaf_analysis else [])
-                ]
+                'nutrients': leaf_nutrients
             }
         }
         analyses.append(analysis_data)
