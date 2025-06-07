@@ -43,6 +43,9 @@
                     <a class="function" href="#logout">logout</a>
             </li>
             <li>
+                    <a class="function" href="#forgot_password">forgot_password</a>
+            </li>
+            <li>
                     <a class="function" href="#dashboard">dashboard</a>
             </li>
             <li>
@@ -95,7 +98,7 @@
 </span><span id="L-13"><a href="#L-13"><span class="linenos"> 13</span></a>
 </span><span id="L-14"><a href="#L-14"><span class="linenos"> 14</span></a><span class="c1"># Local application imports</span>
 </span><span id="L-15"><a href="#L-15"><span class="linenos"> 15</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">core</span> <span class="k">as</span> <span class="n">web</span>
-</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">UserView</span><span class="p">,</span> <span class="n">OrgView</span><span class="p">,</span> <span class="n">InstallationView</span><span class="p">,</span> <span class="n">login_required</span>
+</span><span id="L-16"><a href="#L-16"><span class="linenos"> 16</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">UserView</span><span class="p">,</span> <span class="n">OrgView</span><span class="p">,</span> <span class="n">InstallationView</span><span class="p">,</span> <span class="n">login_required</span><span class="p">,</span> <span class="n">ResetPasswordFormView</span>
 </span><span id="L-17"><a href="#L-17"><span class="linenos"> 17</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span><span class="p">,</span> <span class="n">get_clients_for_user</span><span class="p">,</span> <span class="n">RoleEnum</span>
 </span><span id="L-18"><a href="#L-18"><span class="linenos"> 18</span></a>
 </span><span id="L-19"><a href="#L-19"><span class="linenos"> 19</span></a><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
@@ -188,136 +191,173 @@
 </span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Página de cierre de sesión. Implementa core_api.logout&quot;&quot;&quot;</span>
 </span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;logout.j2&quot;</span><span class="p">)</span>
 </span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>
-</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
-</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a><span class="s2">Paginas de dashboard y administracion</span>
-</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a><span class="s2">&quot;&quot;&quot;</span>
-</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>
-</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>
-</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard&quot;</span><span class="p">)</span>
-</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a><span class="nd">@login_required</span>
-</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="k">def</span><span class="w"> </span><span class="nf">dashboard</span><span class="p">():</span>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/forgot_password&quot;</span><span class="p">)</span>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a><span class="k">def</span><span class="w"> </span><span class="nf">forgot_password</span><span class="p">():</span>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;forgot_password.j2&quot;</span><span class="p">)</span>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a><span class="n">web</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>    <span class="s2">&quot;/reset-password/&lt;token&gt;&quot;</span><span class="p">,</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>    <span class="n">view_func</span><span class="o">=</span><span class="n">ResetPasswordFormView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s2">&quot;reset_password_form&quot;</span><span class="p">),</span>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>    <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">],</span>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a><span class="p">)</span>
 </span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a>
-</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Dashboard TecnoAgro&quot;</span><span class="p">,</span>
-</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de control.&quot;</span><span class="p">,</span>
-</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
-</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
-</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a>        <span class="s2">&quot;og_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/og-image.jpg&quot;</span><span class="p">,</span>
-</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a>        <span class="s2">&quot;twitter_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/twitter-image.jpg&quot;</span><span class="p">,</span>
-</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
-</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>    <span class="p">}</span>
-</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>
-</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a>        <span class="n">render_template</span><span class="p">(</span>
-</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a>            <span class="s2">&quot;dashboard/welcome.j2&quot;</span><span class="p">,</span>
-</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
-</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
-</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>        <span class="p">),</span>
-</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a>        <span class="mi">200</span><span class="p">,</span>
-</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a>    <span class="p">)</span>
+</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span id="L-120"><a href="#L-120"><span class="linenos">120</span></a><span class="s2">Paginas de dashboard y administracion</span>
+</span><span id="L-121"><a href="#L-121"><span class="linenos">121</span></a><span class="s2">&quot;&quot;&quot;</span>
+</span><span id="L-122"><a href="#L-122"><span class="linenos">122</span></a>
+</span><span id="L-123"><a href="#L-123"><span class="linenos">123</span></a>
+</span><span id="L-124"><a href="#L-124"><span class="linenos">124</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard&quot;</span><span class="p">)</span>
+</span><span id="L-125"><a href="#L-125"><span class="linenos">125</span></a><span class="nd">@login_required</span>
+</span><span id="L-126"><a href="#L-126"><span class="linenos">126</span></a><span class="k">def</span><span class="w"> </span><span class="nf">dashboard</span><span class="p">():</span>
+</span><span id="L-127"><a href="#L-127"><span class="linenos">127</span></a>
+</span><span id="L-128"><a href="#L-128"><span class="linenos">128</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="L-129"><a href="#L-129"><span class="linenos">129</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="L-130"><a href="#L-130"><span class="linenos">130</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Dashboard TecnoAgro&quot;</span><span class="p">,</span>
+</span><span id="L-131"><a href="#L-131"><span class="linenos">131</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de control.&quot;</span><span class="p">,</span>
+</span><span id="L-132"><a href="#L-132"><span class="linenos">132</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="L-133"><a href="#L-133"><span class="linenos">133</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
+</span><span id="L-134"><a href="#L-134"><span class="linenos">134</span></a>        <span class="s2">&quot;og_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/og-image.jpg&quot;</span><span class="p">,</span>
+</span><span id="L-135"><a href="#L-135"><span class="linenos">135</span></a>        <span class="s2">&quot;twitter_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/twitter-image.jpg&quot;</span><span class="p">,</span>
+</span><span id="L-136"><a href="#L-136"><span class="linenos">136</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
+</span><span id="L-137"><a href="#L-137"><span class="linenos">137</span></a>    <span class="p">}</span>
 </span><span id="L-138"><a href="#L-138"><span class="linenos">138</span></a>
-</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a>
-</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/home/not-authorized&quot;</span><span class="p">)</span>
-</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a><span class="k">def</span><span class="w"> </span><span class="nf">not_authorized</span><span class="p">():</span>
-</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a><span class="sd">    Página de error para usuarios no autorizados</span>
-</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/not_authorized.j2&quot;</span><span class="p">)</span>
-</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a>
+</span><span id="L-139"><a href="#L-139"><span class="linenos">139</span></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="L-140"><a href="#L-140"><span class="linenos">140</span></a>        <span class="n">render_template</span><span class="p">(</span>
+</span><span id="L-141"><a href="#L-141"><span class="linenos">141</span></a>            <span class="s2">&quot;dashboard/welcome.j2&quot;</span><span class="p">,</span>
+</span><span id="L-142"><a href="#L-142"><span class="linenos">142</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
+</span><span id="L-143"><a href="#L-143"><span class="linenos">143</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
+</span><span id="L-144"><a href="#L-144"><span class="linenos">144</span></a>        <span class="p">),</span>
+</span><span id="L-145"><a href="#L-145"><span class="linenos">145</span></a>        <span class="mi">200</span><span class="p">,</span>
+</span><span id="L-146"><a href="#L-146"><span class="linenos">146</span></a>    <span class="p">)</span>
 </span><span id="L-147"><a href="#L-147"><span class="linenos">147</span></a>
-</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/users&quot;</span><span class="p">)</span>
-</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
-</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_users</span><span class="p">():</span>
+</span><span id="L-148"><a href="#L-148"><span class="linenos">148</span></a>
+</span><span id="L-149"><a href="#L-149"><span class="linenos">149</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/home/not-authorized&quot;</span><span class="p">)</span>
+</span><span id="L-150"><a href="#L-150"><span class="linenos">150</span></a><span class="k">def</span><span class="w"> </span><span class="nf">not_authorized</span><span class="p">():</span>
 </span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a><span class="sd">    Página: Renderiza la vista de usuarios</span>
+</span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a><span class="sd">    Página de error para usuarios no autorizados</span>
 </span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">get_jwt_identity</span><span class="p">()</span>
-</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de usuarios&quot;</span><span class="p">,</span>
-</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de usuarios.&quot;</span><span class="p">,</span>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
-</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
-</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a>    <span class="p">}</span>
-</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>    <span class="n">user_view</span> <span class="o">=</span> <span class="n">UserView</span><span class="p">()</span>
-</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">user_view</span><span class="o">.</span><span class="n">_get_user_list</span><span class="p">()</span>
-</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
-</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>    <span class="n">assigned_org</span> <span class="o">=</span> <span class="n">get_clients_for_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
-</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>    <span class="n">org_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">org</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">org</span> <span class="ow">in</span> <span class="n">assigned_org</span><span class="p">}</span>
-</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a>    <span class="c1"># logging.error(&quot;Items obtenidos: %s, org_dict: %s&quot;, items, org_dict)</span>
-</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>
-</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
-</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
-</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a>        <span class="n">render_template</span><span class="p">(</span>
-</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a>            <span class="s2">&quot;dashboard/users.j2&quot;</span><span class="p">,</span>
-</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
-</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a>            <span class="n">org_dict</span><span class="o">=</span><span class="n">org_dict</span><span class="p">,</span>
-</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
-</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
-</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a>        <span class="p">),</span>
-</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a>        <span class="mi">200</span><span class="p">,</span>
-</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a>    <span class="p">)</span>
-</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a>
-</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a>
-</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/clients&quot;</span><span class="p">)</span>
-</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
-</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_clients</span><span class="p">():</span>
-</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a><span class="sd">    Página: Renderiza la vista de clientes</span>
-</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>    <span class="n">claims</span> <span class="o">=</span> <span class="n">get_jwt</span><span class="p">()</span>
-</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a>    <span class="n">user_role</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rol&quot;</span><span class="p">)</span>
-</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
-</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de clientes&quot;</span><span class="p">,</span>
-</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de clientes.&quot;</span><span class="p">,</span>
-</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
-</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
-</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
-</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a>    <span class="p">}</span>
-</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a>    <span class="n">org_view</span> <span class="o">=</span> <span class="n">OrgView</span><span class="p">()</span>
-</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">org_view</span><span class="o">.</span><span class="n">_get_org_list</span><span class="p">()</span>
-</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
-</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
-</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
-</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a>    <span class="k">if</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;administrator&quot;</span><span class="p">:</span>
-</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a>        <span class="c1"># Obtener todos los usuarios con rol reseller</span>
-</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a>        <span class="n">resellers</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">RoleEnum</span><span class="o">.</span><span class="n">RESELLER</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Sin Reseller&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
-</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a>        <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">resellers</span><span class="p">:</span>
-</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a>            <span class="n">reseller_dict</span><span class="p">[</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span>
-</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a>    <span class="k">elif</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;reseller&quot;</span><span class="p">:</span>
-</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a>        <span class="c1"># Obtener el usuario actual</span>
-</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a>        <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
-</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="p">}</span>
-</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a>        <span class="n">render_template</span><span class="p">(</span>
-</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a>            <span class="s2">&quot;dashboard/clients.j2&quot;</span><span class="p">,</span>
-</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
-</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a>            <span class="n">reseller_dict</span><span class="o">=</span><span class="n">reseller_dict</span><span class="p">,</span>
-</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
-</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
-</span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a>        <span class="p">),</span>
-</span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a>        <span class="mi">200</span><span class="p">,</span>
-</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a>    <span class="p">)</span>
-</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a>
-</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a>
-</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/profile&quot;</span><span class="p">)</span>
-</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
-</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a><span class="k">def</span><span class="w"> </span><span class="nf">profile</span><span class="p">():</span>
-</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a><span class="sd">    Página: Renderiza la vista de perfil de usuario</span>
-</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/profile.j2&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">)</span>
+</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/not_authorized.j2&quot;</span><span class="p">)</span>
+</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a>
+</span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>
+</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/users&quot;</span><span class="p">)</span>
+</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
+</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_users</span><span class="p">():</span>
+</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="sd">    Página: Renderiza la vista de usuarios</span>
+</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">get_jwt_identity</span><span class="p">()</span>
+</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de usuarios&quot;</span><span class="p">,</span>
+</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de usuarios.&quot;</span><span class="p">,</span>
+</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
+</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
+</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a>    <span class="p">}</span>
+</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a>    <span class="n">user_view</span> <span class="o">=</span> <span class="n">UserView</span><span class="p">()</span>
+</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">user_view</span><span class="o">.</span><span class="n">_get_user_list</span><span class="p">()</span>
+</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a>    <span class="n">assigned_org</span> <span class="o">=</span> <span class="n">get_clients_for_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a>    <span class="n">org_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">org</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">org</span> <span class="ow">in</span> <span class="n">assigned_org</span><span class="p">}</span>
+</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a>    <span class="c1"># logging.error(&quot;Items obtenidos: %s, org_dict: %s&quot;, items, org_dict)</span>
+</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a>
+</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
+</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a>        <span class="n">render_template</span><span class="p">(</span>
+</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a>            <span class="s2">&quot;dashboard/users.j2&quot;</span><span class="p">,</span>
+</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
+</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a>            <span class="n">org_dict</span><span class="o">=</span><span class="n">org_dict</span><span class="p">,</span>
+</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
+</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
+</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a>        <span class="p">),</span>
+</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a>        <span class="mi">200</span><span class="p">,</span>
+</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>    <span class="p">)</span>
+</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a>
+</span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>
+</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/clients&quot;</span><span class="p">)</span>
+</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
+</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_clients</span><span class="p">():</span>
+</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="sd">    Página: Renderiza la vista de clientes</span>
+</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a>    <span class="n">claims</span> <span class="o">=</span> <span class="n">get_jwt</span><span class="p">()</span>
+</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a>    <span class="n">user_role</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rol&quot;</span><span class="p">)</span>
+</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de clientes&quot;</span><span class="p">,</span>
+</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de clientes.&quot;</span><span class="p">,</span>
+</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
+</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
+</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a>    <span class="p">}</span>
+</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a>    <span class="n">org_view</span> <span class="o">=</span> <span class="n">OrgView</span><span class="p">()</span>
+</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">org_view</span><span class="o">.</span><span class="n">_get_org_list</span><span class="p">()</span>
+</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
+</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a>    <span class="k">if</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;administrator&quot;</span><span class="p">:</span>
+</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a>        <span class="c1"># Obtener todos los usuarios con rol reseller</span>
+</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a>        <span class="n">resellers</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">RoleEnum</span><span class="o">.</span><span class="n">RESELLER</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Sin Reseller&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a>        <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">resellers</span><span class="p">:</span>
+</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a>            <span class="n">reseller_dict</span><span class="p">[</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span>
+</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a>    <span class="k">elif</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;reseller&quot;</span><span class="p">:</span>
+</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a>        <span class="c1"># Obtener el usuario actual</span>
+</span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a>        <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="p">}</span>
+</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a>        <span class="n">render_template</span><span class="p">(</span>
+</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a>            <span class="s2">&quot;dashboard/clients.j2&quot;</span><span class="p">,</span>
+</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
+</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a>            <span class="n">reseller_dict</span><span class="o">=</span><span class="n">reseller_dict</span><span class="p">,</span>
+</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
+</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
+</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a>        <span class="p">),</span>
+</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a>        <span class="mi">200</span><span class="p">,</span>
+</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a>    <span class="p">)</span>
+</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>
 </span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a>
-</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a>
-</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="n">web</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s2">&quot;/install&quot;</span><span class="p">,</span> <span class="n">view_func</span><span class="o">=</span><span class="n">InstallationView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s2">&quot;install&quot;</span><span class="p">))</span>
+</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/profile&quot;</span><span class="p">)</span>
+</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
+</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a><span class="k">def</span><span class="w"> </span><span class="nf">profile</span><span class="p">():</span>
+</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a><span class="sd">    Página: Renderiza la vista de perfil de usuario</span>
+</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">get_jwt_identity</span><span class="p">()</span>
+</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a>    <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a>
+</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">user</span><span class="p">:</span>
+</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a>        <span class="c1"># Handle case where user might not be found (though JWT ensures they exist)</span>
+</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a>        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;core.logout&#39;</span><span class="p">))</span>
+</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a>
+</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a>    <span class="c1"># Prepare data for the template</span>
+</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Mi Perfil&quot;</span><span class="p">,</span>
+</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestiona tu información personal y contraseña.&quot;</span><span class="p">,</span>
+</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Mi Perfil&quot;</span><span class="p">,</span>
+</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span> <span class="c1"># Ensure get_dashboard_menu is accessible</span>
+</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a>        <span class="c1"># Pass user data explicitly</span>
+</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a>        <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a>        <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="p">,</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a>        <span class="s2">&quot;full_name&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">,</span>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a>        <span class="s2">&quot;email&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="p">,</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>        <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">role</span><span class="o">.</span><span class="n">description</span><span class="p">,</span> <span class="c1"># Use the description</span>
+</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a>        <span class="c1"># Handle organizations - pass a list of names or IDs/names</span>
+</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a>        <span class="s2">&quot;organizations&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">name</span><span class="p">}</span> <span class="k">for</span> <span class="n">org</span> <span class="ow">in</span> <span class="n">user</span><span class="o">.</span><span class="n">organizations</span><span class="o">.</span><span class="n">all</span><span class="p">()]</span>
+</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a>    <span class="p">}</span>
+</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a>    <span class="c1"># Note: The &#39;client&#39; variable in the template is ambiguous.</span>
+</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a>    <span class="c1"># We now pass &#39;organizations&#39;. You&#39;ll need to adjust the template.</span>
+</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a>    <span class="c1"># If you only want the *first* org name for simplicity in the template:</span>
+</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a>    <span class="c1"># context[&quot;client_org_name&quot;] = user.organizations.first().name if user.organizations.first() else &quot;N/A&quot;</span>
+</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a>
+</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/profile.j2&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">,</span> <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">)</span>
+</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a>
+</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a>
+</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a><span class="n">web</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s2">&quot;/install&quot;</span><span class="p">,</span> <span class="n">view_func</span><span class="o">=</span><span class="n">InstallationView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s2">&quot;install&quot;</span><span class="p">))</span>
 </span></pre></div>
 
 
@@ -479,6 +519,27 @@
 
 
                 </section>
+                <section id="forgot_password">
+                            <input id="forgot_password-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+                    <div class="decorator decorator-web.route">@web.route(&#39;/forgot_password&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">forgot_password</span><span class="signature pdoc-code condensed">(<span class="return-annotation">):</span></span>
+
+                <label class="view-source-button" for="forgot_password-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#forgot_password"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="forgot_password-110"><a href="#forgot_password-110"><span class="linenos">110</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/forgot_password&quot;</span><span class="p">)</span>
+</span><span id="forgot_password-111"><a href="#forgot_password-111"><span class="linenos">111</span></a><span class="k">def</span><span class="w"> </span><span class="nf">forgot_password</span><span class="p">():</span>
+</span><span id="forgot_password-112"><a href="#forgot_password-112"><span class="linenos">112</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;forgot_password.j2&quot;</span><span class="p">)</span>
+</span></pre></div>
+
+
+    
+
+                </section>
                 <section id="dashboard">
                             <input id="dashboard-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
 <div class="attr function">
@@ -492,29 +553,29 @@
 
     </div>
     <a class="headerlink" href="#dashboard"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="dashboard-116"><a href="#dashboard-116"><span class="linenos">116</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard&quot;</span><span class="p">)</span>
-</span><span id="dashboard-117"><a href="#dashboard-117"><span class="linenos">117</span></a><span class="nd">@login_required</span>
-</span><span id="dashboard-118"><a href="#dashboard-118"><span class="linenos">118</span></a><span class="k">def</span><span class="w"> </span><span class="nf">dashboard</span><span class="p">():</span>
-</span><span id="dashboard-119"><a href="#dashboard-119"><span class="linenos">119</span></a>
-</span><span id="dashboard-120"><a href="#dashboard-120"><span class="linenos">120</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="dashboard-121"><a href="#dashboard-121"><span class="linenos">121</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="dashboard-122"><a href="#dashboard-122"><span class="linenos">122</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Dashboard TecnoAgro&quot;</span><span class="p">,</span>
-</span><span id="dashboard-123"><a href="#dashboard-123"><span class="linenos">123</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de control.&quot;</span><span class="p">,</span>
-</span><span id="dashboard-124"><a href="#dashboard-124"><span class="linenos">124</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
-</span><span id="dashboard-125"><a href="#dashboard-125"><span class="linenos">125</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
-</span><span id="dashboard-126"><a href="#dashboard-126"><span class="linenos">126</span></a>        <span class="s2">&quot;og_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/og-image.jpg&quot;</span><span class="p">,</span>
-</span><span id="dashboard-127"><a href="#dashboard-127"><span class="linenos">127</span></a>        <span class="s2">&quot;twitter_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/twitter-image.jpg&quot;</span><span class="p">,</span>
-</span><span id="dashboard-128"><a href="#dashboard-128"><span class="linenos">128</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
-</span><span id="dashboard-129"><a href="#dashboard-129"><span class="linenos">129</span></a>    <span class="p">}</span>
-</span><span id="dashboard-130"><a href="#dashboard-130"><span class="linenos">130</span></a>
-</span><span id="dashboard-131"><a href="#dashboard-131"><span class="linenos">131</span></a>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="dashboard-132"><a href="#dashboard-132"><span class="linenos">132</span></a>        <span class="n">render_template</span><span class="p">(</span>
-</span><span id="dashboard-133"><a href="#dashboard-133"><span class="linenos">133</span></a>            <span class="s2">&quot;dashboard/welcome.j2&quot;</span><span class="p">,</span>
-</span><span id="dashboard-134"><a href="#dashboard-134"><span class="linenos">134</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
-</span><span id="dashboard-135"><a href="#dashboard-135"><span class="linenos">135</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
-</span><span id="dashboard-136"><a href="#dashboard-136"><span class="linenos">136</span></a>        <span class="p">),</span>
-</span><span id="dashboard-137"><a href="#dashboard-137"><span class="linenos">137</span></a>        <span class="mi">200</span><span class="p">,</span>
-</span><span id="dashboard-138"><a href="#dashboard-138"><span class="linenos">138</span></a>    <span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="dashboard-125"><a href="#dashboard-125"><span class="linenos">125</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard&quot;</span><span class="p">)</span>
+</span><span id="dashboard-126"><a href="#dashboard-126"><span class="linenos">126</span></a><span class="nd">@login_required</span>
+</span><span id="dashboard-127"><a href="#dashboard-127"><span class="linenos">127</span></a><span class="k">def</span><span class="w"> </span><span class="nf">dashboard</span><span class="p">():</span>
+</span><span id="dashboard-128"><a href="#dashboard-128"><span class="linenos">128</span></a>
+</span><span id="dashboard-129"><a href="#dashboard-129"><span class="linenos">129</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="dashboard-130"><a href="#dashboard-130"><span class="linenos">130</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="dashboard-131"><a href="#dashboard-131"><span class="linenos">131</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Dashboard TecnoAgro&quot;</span><span class="p">,</span>
+</span><span id="dashboard-132"><a href="#dashboard-132"><span class="linenos">132</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de control.&quot;</span><span class="p">,</span>
+</span><span id="dashboard-133"><a href="#dashboard-133"><span class="linenos">133</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="dashboard-134"><a href="#dashboard-134"><span class="linenos">134</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
+</span><span id="dashboard-135"><a href="#dashboard-135"><span class="linenos">135</span></a>        <span class="s2">&quot;og_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/og-image.jpg&quot;</span><span class="p">,</span>
+</span><span id="dashboard-136"><a href="#dashboard-136"><span class="linenos">136</span></a>        <span class="s2">&quot;twitter_image&quot;</span><span class="p">:</span> <span class="s2">&quot;/img/twitter-image.jpg&quot;</span><span class="p">,</span>
+</span><span id="dashboard-137"><a href="#dashboard-137"><span class="linenos">137</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
+</span><span id="dashboard-138"><a href="#dashboard-138"><span class="linenos">138</span></a>    <span class="p">}</span>
+</span><span id="dashboard-139"><a href="#dashboard-139"><span class="linenos">139</span></a>
+</span><span id="dashboard-140"><a href="#dashboard-140"><span class="linenos">140</span></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="dashboard-141"><a href="#dashboard-141"><span class="linenos">141</span></a>        <span class="n">render_template</span><span class="p">(</span>
+</span><span id="dashboard-142"><a href="#dashboard-142"><span class="linenos">142</span></a>            <span class="s2">&quot;dashboard/welcome.j2&quot;</span><span class="p">,</span>
+</span><span id="dashboard-143"><a href="#dashboard-143"><span class="linenos">143</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
+</span><span id="dashboard-144"><a href="#dashboard-144"><span class="linenos">144</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
+</span><span id="dashboard-145"><a href="#dashboard-145"><span class="linenos">145</span></a>        <span class="p">),</span>
+</span><span id="dashboard-146"><a href="#dashboard-146"><span class="linenos">146</span></a>        <span class="mi">200</span><span class="p">,</span>
+</span><span id="dashboard-147"><a href="#dashboard-147"><span class="linenos">147</span></a>    <span class="p">)</span>
 </span></pre></div>
 
 
@@ -533,12 +594,12 @@
 
     </div>
     <a class="headerlink" href="#not_authorized"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="not_authorized-141"><a href="#not_authorized-141"><span class="linenos">141</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/home/not-authorized&quot;</span><span class="p">)</span>
-</span><span id="not_authorized-142"><a href="#not_authorized-142"><span class="linenos">142</span></a><span class="k">def</span><span class="w"> </span><span class="nf">not_authorized</span><span class="p">():</span>
-</span><span id="not_authorized-143"><a href="#not_authorized-143"><span class="linenos">143</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="not_authorized-144"><a href="#not_authorized-144"><span class="linenos">144</span></a><span class="sd">    Página de error para usuarios no autorizados</span>
-</span><span id="not_authorized-145"><a href="#not_authorized-145"><span class="linenos">145</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="not_authorized-146"><a href="#not_authorized-146"><span class="linenos">146</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/not_authorized.j2&quot;</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="not_authorized-150"><a href="#not_authorized-150"><span class="linenos">150</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/home/not-authorized&quot;</span><span class="p">)</span>
+</span><span id="not_authorized-151"><a href="#not_authorized-151"><span class="linenos">151</span></a><span class="k">def</span><span class="w"> </span><span class="nf">not_authorized</span><span class="p">():</span>
+</span><span id="not_authorized-152"><a href="#not_authorized-152"><span class="linenos">152</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="not_authorized-153"><a href="#not_authorized-153"><span class="linenos">153</span></a><span class="sd">    Página de error para usuarios no autorizados</span>
+</span><span id="not_authorized-154"><a href="#not_authorized-154"><span class="linenos">154</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="not_authorized-155"><a href="#not_authorized-155"><span class="linenos">155</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/not_authorized.j2&quot;</span><span class="p">)</span>
 </span></pre></div>
 
 
@@ -560,40 +621,40 @@
 
     </div>
     <a class="headerlink" href="#amd_users"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="amd_users-149"><a href="#amd_users-149"><span class="linenos">149</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/users&quot;</span><span class="p">)</span>
-</span><span id="amd_users-150"><a href="#amd_users-150"><span class="linenos">150</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
-</span><span id="amd_users-151"><a href="#amd_users-151"><span class="linenos">151</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_users</span><span class="p">():</span>
-</span><span id="amd_users-152"><a href="#amd_users-152"><span class="linenos">152</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="amd_users-153"><a href="#amd_users-153"><span class="linenos">153</span></a><span class="sd">    Página: Renderiza la vista de usuarios</span>
-</span><span id="amd_users-154"><a href="#amd_users-154"><span class="linenos">154</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="amd_users-155"><a href="#amd_users-155"><span class="linenos">155</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">get_jwt_identity</span><span class="p">()</span>
-</span><span id="amd_users-156"><a href="#amd_users-156"><span class="linenos">156</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="amd_users-157"><a href="#amd_users-157"><span class="linenos">157</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="amd_users-158"><a href="#amd_users-158"><span class="linenos">158</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de usuarios&quot;</span><span class="p">,</span>
-</span><span id="amd_users-159"><a href="#amd_users-159"><span class="linenos">159</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de usuarios.&quot;</span><span class="p">,</span>
-</span><span id="amd_users-160"><a href="#amd_users-160"><span class="linenos">160</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
-</span><span id="amd_users-161"><a href="#amd_users-161"><span class="linenos">161</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
-</span><span id="amd_users-162"><a href="#amd_users-162"><span class="linenos">162</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
-</span><span id="amd_users-163"><a href="#amd_users-163"><span class="linenos">163</span></a>    <span class="p">}</span>
-</span><span id="amd_users-164"><a href="#amd_users-164"><span class="linenos">164</span></a>    <span class="n">user_view</span> <span class="o">=</span> <span class="n">UserView</span><span class="p">()</span>
-</span><span id="amd_users-165"><a href="#amd_users-165"><span class="linenos">165</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">user_view</span><span class="o">.</span><span class="n">_get_user_list</span><span class="p">()</span>
-</span><span id="amd_users-166"><a href="#amd_users-166"><span class="linenos">166</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
-</span><span id="amd_users-167"><a href="#amd_users-167"><span class="linenos">167</span></a>    <span class="n">assigned_org</span> <span class="o">=</span> <span class="n">get_clients_for_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
-</span><span id="amd_users-168"><a href="#amd_users-168"><span class="linenos">168</span></a>    <span class="n">org_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">org</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">org</span> <span class="ow">in</span> <span class="n">assigned_org</span><span class="p">}</span>
-</span><span id="amd_users-169"><a href="#amd_users-169"><span class="linenos">169</span></a>    <span class="c1"># logging.error(&quot;Items obtenidos: %s, org_dict: %s&quot;, items, org_dict)</span>
-</span><span id="amd_users-170"><a href="#amd_users-170"><span class="linenos">170</span></a>
-</span><span id="amd_users-171"><a href="#amd_users-171"><span class="linenos">171</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
-</span><span id="amd_users-172"><a href="#amd_users-172"><span class="linenos">172</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
-</span><span id="amd_users-173"><a href="#amd_users-173"><span class="linenos">173</span></a>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="amd_users-174"><a href="#amd_users-174"><span class="linenos">174</span></a>        <span class="n">render_template</span><span class="p">(</span>
-</span><span id="amd_users-175"><a href="#amd_users-175"><span class="linenos">175</span></a>            <span class="s2">&quot;dashboard/users.j2&quot;</span><span class="p">,</span>
-</span><span id="amd_users-176"><a href="#amd_users-176"><span class="linenos">176</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
-</span><span id="amd_users-177"><a href="#amd_users-177"><span class="linenos">177</span></a>            <span class="n">org_dict</span><span class="o">=</span><span class="n">org_dict</span><span class="p">,</span>
-</span><span id="amd_users-178"><a href="#amd_users-178"><span class="linenos">178</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
-</span><span id="amd_users-179"><a href="#amd_users-179"><span class="linenos">179</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
-</span><span id="amd_users-180"><a href="#amd_users-180"><span class="linenos">180</span></a>        <span class="p">),</span>
-</span><span id="amd_users-181"><a href="#amd_users-181"><span class="linenos">181</span></a>        <span class="mi">200</span><span class="p">,</span>
-</span><span id="amd_users-182"><a href="#amd_users-182"><span class="linenos">182</span></a>    <span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="amd_users-158"><a href="#amd_users-158"><span class="linenos">158</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/users&quot;</span><span class="p">)</span>
+</span><span id="amd_users-159"><a href="#amd_users-159"><span class="linenos">159</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
+</span><span id="amd_users-160"><a href="#amd_users-160"><span class="linenos">160</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_users</span><span class="p">():</span>
+</span><span id="amd_users-161"><a href="#amd_users-161"><span class="linenos">161</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="amd_users-162"><a href="#amd_users-162"><span class="linenos">162</span></a><span class="sd">    Página: Renderiza la vista de usuarios</span>
+</span><span id="amd_users-163"><a href="#amd_users-163"><span class="linenos">163</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="amd_users-164"><a href="#amd_users-164"><span class="linenos">164</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">get_jwt_identity</span><span class="p">()</span>
+</span><span id="amd_users-165"><a href="#amd_users-165"><span class="linenos">165</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="amd_users-166"><a href="#amd_users-166"><span class="linenos">166</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="amd_users-167"><a href="#amd_users-167"><span class="linenos">167</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de usuarios&quot;</span><span class="p">,</span>
+</span><span id="amd_users-168"><a href="#amd_users-168"><span class="linenos">168</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de usuarios.&quot;</span><span class="p">,</span>
+</span><span id="amd_users-169"><a href="#amd_users-169"><span class="linenos">169</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="amd_users-170"><a href="#amd_users-170"><span class="linenos">170</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
+</span><span id="amd_users-171"><a href="#amd_users-171"><span class="linenos">171</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
+</span><span id="amd_users-172"><a href="#amd_users-172"><span class="linenos">172</span></a>    <span class="p">}</span>
+</span><span id="amd_users-173"><a href="#amd_users-173"><span class="linenos">173</span></a>    <span class="n">user_view</span> <span class="o">=</span> <span class="n">UserView</span><span class="p">()</span>
+</span><span id="amd_users-174"><a href="#amd_users-174"><span class="linenos">174</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">user_view</span><span class="o">.</span><span class="n">_get_user_list</span><span class="p">()</span>
+</span><span id="amd_users-175"><a href="#amd_users-175"><span class="linenos">175</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+</span><span id="amd_users-176"><a href="#amd_users-176"><span class="linenos">176</span></a>    <span class="n">assigned_org</span> <span class="o">=</span> <span class="n">get_clients_for_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</span><span id="amd_users-177"><a href="#amd_users-177"><span class="linenos">177</span></a>    <span class="n">org_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">org</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">org</span> <span class="ow">in</span> <span class="n">assigned_org</span><span class="p">}</span>
+</span><span id="amd_users-178"><a href="#amd_users-178"><span class="linenos">178</span></a>    <span class="c1"># logging.error(&quot;Items obtenidos: %s, org_dict: %s&quot;, items, org_dict)</span>
+</span><span id="amd_users-179"><a href="#amd_users-179"><span class="linenos">179</span></a>
+</span><span id="amd_users-180"><a href="#amd_users-180"><span class="linenos">180</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+</span><span id="amd_users-181"><a href="#amd_users-181"><span class="linenos">181</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
+</span><span id="amd_users-182"><a href="#amd_users-182"><span class="linenos">182</span></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="amd_users-183"><a href="#amd_users-183"><span class="linenos">183</span></a>        <span class="n">render_template</span><span class="p">(</span>
+</span><span id="amd_users-184"><a href="#amd_users-184"><span class="linenos">184</span></a>            <span class="s2">&quot;dashboard/users.j2&quot;</span><span class="p">,</span>
+</span><span id="amd_users-185"><a href="#amd_users-185"><span class="linenos">185</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
+</span><span id="amd_users-186"><a href="#amd_users-186"><span class="linenos">186</span></a>            <span class="n">org_dict</span><span class="o">=</span><span class="n">org_dict</span><span class="p">,</span>
+</span><span id="amd_users-187"><a href="#amd_users-187"><span class="linenos">187</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
+</span><span id="amd_users-188"><a href="#amd_users-188"><span class="linenos">188</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
+</span><span id="amd_users-189"><a href="#amd_users-189"><span class="linenos">189</span></a>        <span class="p">),</span>
+</span><span id="amd_users-190"><a href="#amd_users-190"><span class="linenos">190</span></a>        <span class="mi">200</span><span class="p">,</span>
+</span><span id="amd_users-191"><a href="#amd_users-191"><span class="linenos">191</span></a>    <span class="p">)</span>
 </span></pre></div>
 
 
@@ -615,48 +676,48 @@
 
     </div>
     <a class="headerlink" href="#amd_clients"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="amd_clients-185"><a href="#amd_clients-185"><span class="linenos">185</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/clients&quot;</span><span class="p">)</span>
-</span><span id="amd_clients-186"><a href="#amd_clients-186"><span class="linenos">186</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
-</span><span id="amd_clients-187"><a href="#amd_clients-187"><span class="linenos">187</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_clients</span><span class="p">():</span>
-</span><span id="amd_clients-188"><a href="#amd_clients-188"><span class="linenos">188</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="amd_clients-189"><a href="#amd_clients-189"><span class="linenos">189</span></a><span class="sd">    Página: Renderiza la vista de clientes</span>
-</span><span id="amd_clients-190"><a href="#amd_clients-190"><span class="linenos">190</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="amd_clients-191"><a href="#amd_clients-191"><span class="linenos">191</span></a>    <span class="n">claims</span> <span class="o">=</span> <span class="n">get_jwt</span><span class="p">()</span>
-</span><span id="amd_clients-192"><a href="#amd_clients-192"><span class="linenos">192</span></a>    <span class="n">user_role</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rol&quot;</span><span class="p">)</span>
-</span><span id="amd_clients-193"><a href="#amd_clients-193"><span class="linenos">193</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
-</span><span id="amd_clients-194"><a href="#amd_clients-194"><span class="linenos">194</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="amd_clients-195"><a href="#amd_clients-195"><span class="linenos">195</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="amd_clients-196"><a href="#amd_clients-196"><span class="linenos">196</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de clientes&quot;</span><span class="p">,</span>
-</span><span id="amd_clients-197"><a href="#amd_clients-197"><span class="linenos">197</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de clientes.&quot;</span><span class="p">,</span>
-</span><span id="amd_clients-198"><a href="#amd_clients-198"><span class="linenos">198</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
-</span><span id="amd_clients-199"><a href="#amd_clients-199"><span class="linenos">199</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
-</span><span id="amd_clients-200"><a href="#amd_clients-200"><span class="linenos">200</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
-</span><span id="amd_clients-201"><a href="#amd_clients-201"><span class="linenos">201</span></a>    <span class="p">}</span>
-</span><span id="amd_clients-202"><a href="#amd_clients-202"><span class="linenos">202</span></a>    <span class="n">org_view</span> <span class="o">=</span> <span class="n">OrgView</span><span class="p">()</span>
-</span><span id="amd_clients-203"><a href="#amd_clients-203"><span class="linenos">203</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">org_view</span><span class="o">.</span><span class="n">_get_org_list</span><span class="p">()</span>
-</span><span id="amd_clients-204"><a href="#amd_clients-204"><span class="linenos">204</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
-</span><span id="amd_clients-205"><a href="#amd_clients-205"><span class="linenos">205</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
-</span><span id="amd_clients-206"><a href="#amd_clients-206"><span class="linenos">206</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
-</span><span id="amd_clients-207"><a href="#amd_clients-207"><span class="linenos">207</span></a>    <span class="k">if</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;administrator&quot;</span><span class="p">:</span>
-</span><span id="amd_clients-208"><a href="#amd_clients-208"><span class="linenos">208</span></a>        <span class="c1"># Obtener todos los usuarios con rol reseller</span>
-</span><span id="amd_clients-209"><a href="#amd_clients-209"><span class="linenos">209</span></a>        <span class="n">resellers</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">RoleEnum</span><span class="o">.</span><span class="n">RESELLER</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-</span><span id="amd_clients-210"><a href="#amd_clients-210"><span class="linenos">210</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Sin Reseller&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
-</span><span id="amd_clients-211"><a href="#amd_clients-211"><span class="linenos">211</span></a>        <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">resellers</span><span class="p">:</span>
-</span><span id="amd_clients-212"><a href="#amd_clients-212"><span class="linenos">212</span></a>            <span class="n">reseller_dict</span><span class="p">[</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span>
-</span><span id="amd_clients-213"><a href="#amd_clients-213"><span class="linenos">213</span></a>    <span class="k">elif</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;reseller&quot;</span><span class="p">:</span>
-</span><span id="amd_clients-214"><a href="#amd_clients-214"><span class="linenos">214</span></a>        <span class="c1"># Obtener el usuario actual</span>
-</span><span id="amd_clients-215"><a href="#amd_clients-215"><span class="linenos">215</span></a>        <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
-</span><span id="amd_clients-216"><a href="#amd_clients-216"><span class="linenos">216</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="p">}</span>
-</span><span id="amd_clients-217"><a href="#amd_clients-217"><span class="linenos">217</span></a>    <span class="k">return</span> <span class="p">(</span>
-</span><span id="amd_clients-218"><a href="#amd_clients-218"><span class="linenos">218</span></a>        <span class="n">render_template</span><span class="p">(</span>
-</span><span id="amd_clients-219"><a href="#amd_clients-219"><span class="linenos">219</span></a>            <span class="s2">&quot;dashboard/clients.j2&quot;</span><span class="p">,</span>
-</span><span id="amd_clients-220"><a href="#amd_clients-220"><span class="linenos">220</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
-</span><span id="amd_clients-221"><a href="#amd_clients-221"><span class="linenos">221</span></a>            <span class="n">reseller_dict</span><span class="o">=</span><span class="n">reseller_dict</span><span class="p">,</span>
-</span><span id="amd_clients-222"><a href="#amd_clients-222"><span class="linenos">222</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
-</span><span id="amd_clients-223"><a href="#amd_clients-223"><span class="linenos">223</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
-</span><span id="amd_clients-224"><a href="#amd_clients-224"><span class="linenos">224</span></a>        <span class="p">),</span>
-</span><span id="amd_clients-225"><a href="#amd_clients-225"><span class="linenos">225</span></a>        <span class="mi">200</span><span class="p">,</span>
-</span><span id="amd_clients-226"><a href="#amd_clients-226"><span class="linenos">226</span></a>    <span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="amd_clients-194"><a href="#amd_clients-194"><span class="linenos">194</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/clients&quot;</span><span class="p">)</span>
+</span><span id="amd_clients-195"><a href="#amd_clients-195"><span class="linenos">195</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
+</span><span id="amd_clients-196"><a href="#amd_clients-196"><span class="linenos">196</span></a><span class="k">def</span><span class="w"> </span><span class="nf">amd_clients</span><span class="p">():</span>
+</span><span id="amd_clients-197"><a href="#amd_clients-197"><span class="linenos">197</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="amd_clients-198"><a href="#amd_clients-198"><span class="linenos">198</span></a><span class="sd">    Página: Renderiza la vista de clientes</span>
+</span><span id="amd_clients-199"><a href="#amd_clients-199"><span class="linenos">199</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="amd_clients-200"><a href="#amd_clients-200"><span class="linenos">200</span></a>    <span class="n">claims</span> <span class="o">=</span> <span class="n">get_jwt</span><span class="p">()</span>
+</span><span id="amd_clients-201"><a href="#amd_clients-201"><span class="linenos">201</span></a>    <span class="n">user_role</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rol&quot;</span><span class="p">)</span>
+</span><span id="amd_clients-202"><a href="#amd_clients-202"><span class="linenos">202</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+</span><span id="amd_clients-203"><a href="#amd_clients-203"><span class="linenos">203</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="amd_clients-204"><a href="#amd_clients-204"><span class="linenos">204</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="amd_clients-205"><a href="#amd_clients-205"><span class="linenos">205</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestión de clientes&quot;</span><span class="p">,</span>
+</span><span id="amd_clients-206"><a href="#amd_clients-206"><span class="linenos">206</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Administración de clientes.&quot;</span><span class="p">,</span>
+</span><span id="amd_clients-207"><a href="#amd_clients-207"><span class="linenos">207</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="amd_clients-208"><a href="#amd_clients-208"><span class="linenos">208</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Panel de Control&quot;</span><span class="p">,</span>
+</span><span id="amd_clients-209"><a href="#amd_clients-209"><span class="linenos">209</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span>
+</span><span id="amd_clients-210"><a href="#amd_clients-210"><span class="linenos">210</span></a>    <span class="p">}</span>
+</span><span id="amd_clients-211"><a href="#amd_clients-211"><span class="linenos">211</span></a>    <span class="n">org_view</span> <span class="o">=</span> <span class="n">OrgView</span><span class="p">()</span>
+</span><span id="amd_clients-212"><a href="#amd_clients-212"><span class="linenos">212</span></a>    <span class="n">response</span><span class="p">,</span> <span class="n">status_code</span> <span class="o">=</span> <span class="n">org_view</span><span class="o">.</span><span class="n">_get_org_list</span><span class="p">()</span>
+</span><span id="amd_clients-213"><a href="#amd_clients-213"><span class="linenos">213</span></a>    <span class="k">if</span> <span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+</span><span id="amd_clients-214"><a href="#amd_clients-214"><span class="linenos">214</span></a>        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;error.j2&quot;</span><span class="p">),</span> <span class="n">status_code</span>
+</span><span id="amd_clients-215"><a href="#amd_clients-215"><span class="linenos">215</span></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+</span><span id="amd_clients-216"><a href="#amd_clients-216"><span class="linenos">216</span></a>    <span class="k">if</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;administrator&quot;</span><span class="p">:</span>
+</span><span id="amd_clients-217"><a href="#amd_clients-217"><span class="linenos">217</span></a>        <span class="c1"># Obtener todos los usuarios con rol reseller</span>
+</span><span id="amd_clients-218"><a href="#amd_clients-218"><span class="linenos">218</span></a>        <span class="n">resellers</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">RoleEnum</span><span class="o">.</span><span class="n">RESELLER</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span><span id="amd_clients-219"><a href="#amd_clients-219"><span class="linenos">219</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Sin Reseller&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+</span><span id="amd_clients-220"><a href="#amd_clients-220"><span class="linenos">220</span></a>        <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">resellers</span><span class="p">:</span>
+</span><span id="amd_clients-221"><a href="#amd_clients-221"><span class="linenos">221</span></a>            <span class="n">reseller_dict</span><span class="p">[</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span>
+</span><span id="amd_clients-222"><a href="#amd_clients-222"><span class="linenos">222</span></a>    <span class="k">elif</span> <span class="n">user_role</span> <span class="o">==</span> <span class="s2">&quot;reseller&quot;</span><span class="p">:</span>
+</span><span id="amd_clients-223"><a href="#amd_clients-223"><span class="linenos">223</span></a>        <span class="c1"># Obtener el usuario actual</span>
+</span><span id="amd_clients-224"><a href="#amd_clients-224"><span class="linenos">224</span></a>        <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</span><span id="amd_clients-225"><a href="#amd_clients-225"><span class="linenos">225</span></a>        <span class="n">reseller_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="p">}</span>
+</span><span id="amd_clients-226"><a href="#amd_clients-226"><span class="linenos">226</span></a>    <span class="k">return</span> <span class="p">(</span>
+</span><span id="amd_clients-227"><a href="#amd_clients-227"><span class="linenos">227</span></a>        <span class="n">render_template</span><span class="p">(</span>
+</span><span id="amd_clients-228"><a href="#amd_clients-228"><span class="linenos">228</span></a>            <span class="s2">&quot;dashboard/clients.j2&quot;</span><span class="p">,</span>
+</span><span id="amd_clients-229"><a href="#amd_clients-229"><span class="linenos">229</span></a>            <span class="n">items</span><span class="o">=</span><span class="n">items</span><span class="p">,</span>
+</span><span id="amd_clients-230"><a href="#amd_clients-230"><span class="linenos">230</span></a>            <span class="n">reseller_dict</span><span class="o">=</span><span class="n">reseller_dict</span><span class="p">,</span>
+</span><span id="amd_clients-231"><a href="#amd_clients-231"><span class="linenos">231</span></a>            <span class="o">**</span><span class="n">context</span><span class="p">,</span>
+</span><span id="amd_clients-232"><a href="#amd_clients-232"><span class="linenos">232</span></a>            <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">,</span>
+</span><span id="amd_clients-233"><a href="#amd_clients-233"><span class="linenos">233</span></a>        <span class="p">),</span>
+</span><span id="amd_clients-234"><a href="#amd_clients-234"><span class="linenos">234</span></a>        <span class="mi">200</span><span class="p">,</span>
+</span><span id="amd_clients-235"><a href="#amd_clients-235"><span class="linenos">235</span></a>    <span class="p">)</span>
 </span></pre></div>
 
 
@@ -678,14 +739,42 @@
 
     </div>
     <a class="headerlink" href="#profile"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="profile-229"><a href="#profile-229"><span class="linenos">229</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/profile&quot;</span><span class="p">)</span>
-</span><span id="profile-230"><a href="#profile-230"><span class="linenos">230</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
-</span><span id="profile-231"><a href="#profile-231"><span class="linenos">231</span></a><span class="k">def</span><span class="w"> </span><span class="nf">profile</span><span class="p">():</span>
-</span><span id="profile-232"><a href="#profile-232"><span class="linenos">232</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="profile-233"><a href="#profile-233"><span class="linenos">233</span></a><span class="sd">    Página: Renderiza la vista de perfil de usuario</span>
-</span><span id="profile-234"><a href="#profile-234"><span class="linenos">234</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="profile-235"><a href="#profile-235"><span class="linenos">235</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="profile-236"><a href="#profile-236"><span class="linenos">236</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/profile.j2&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">)</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="profile-238"><a href="#profile-238"><span class="linenos">238</span></a><span class="nd">@web</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/dashboard/profile&quot;</span><span class="p">)</span>
+</span><span id="profile-239"><a href="#profile-239"><span class="linenos">239</span></a><span class="nd">@jwt_required</span><span class="p">()</span>
+</span><span id="profile-240"><a href="#profile-240"><span class="linenos">240</span></a><span class="k">def</span><span class="w"> </span><span class="nf">profile</span><span class="p">():</span>
+</span><span id="profile-241"><a href="#profile-241"><span class="linenos">241</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="profile-242"><a href="#profile-242"><span class="linenos">242</span></a><span class="sd">    Página: Renderiza la vista de perfil de usuario</span>
+</span><span id="profile-243"><a href="#profile-243"><span class="linenos">243</span></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="profile-244"><a href="#profile-244"><span class="linenos">244</span></a>    <span class="n">user_id</span> <span class="o">=</span> <span class="n">get_jwt_identity</span><span class="p">()</span>
+</span><span id="profile-245"><a href="#profile-245"><span class="linenos">245</span></a>    <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</span><span id="profile-246"><a href="#profile-246"><span class="linenos">246</span></a>
+</span><span id="profile-247"><a href="#profile-247"><span class="linenos">247</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">user</span><span class="p">:</span>
+</span><span id="profile-248"><a href="#profile-248"><span class="linenos">248</span></a>        <span class="c1"># Handle case where user might not be found (though JWT ensures they exist)</span>
+</span><span id="profile-249"><a href="#profile-249"><span class="linenos">249</span></a>        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s1">&#39;core.logout&#39;</span><span class="p">))</span>
+</span><span id="profile-250"><a href="#profile-250"><span class="linenos">250</span></a>
+</span><span id="profile-251"><a href="#profile-251"><span class="linenos">251</span></a>    <span class="c1"># Prepare data for the template</span>
+</span><span id="profile-252"><a href="#profile-252"><span class="linenos">252</span></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="profile-253"><a href="#profile-253"><span class="linenos">253</span></a>        <span class="s2">&quot;dashboard&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="profile-254"><a href="#profile-254"><span class="linenos">254</span></a>        <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Mi Perfil&quot;</span><span class="p">,</span>
+</span><span id="profile-255"><a href="#profile-255"><span class="linenos">255</span></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Gestiona tu información personal y contraseña.&quot;</span><span class="p">,</span>
+</span><span id="profile-256"><a href="#profile-256"><span class="linenos">256</span></a>        <span class="s2">&quot;author&quot;</span><span class="p">:</span> <span class="s2">&quot;Johnny De Castro&quot;</span><span class="p">,</span>
+</span><span id="profile-257"><a href="#profile-257"><span class="linenos">257</span></a>        <span class="s2">&quot;site_title&quot;</span><span class="p">:</span> <span class="s2">&quot;Mi Perfil&quot;</span><span class="p">,</span>
+</span><span id="profile-258"><a href="#profile-258"><span class="linenos">258</span></a>        <span class="s2">&quot;data_menu&quot;</span><span class="p">:</span> <span class="n">get_dashboard_menu</span><span class="p">(),</span> <span class="c1"># Ensure get_dashboard_menu is accessible</span>
+</span><span id="profile-259"><a href="#profile-259"><span class="linenos">259</span></a>        <span class="c1"># Pass user data explicitly</span>
+</span><span id="profile-260"><a href="#profile-260"><span class="linenos">260</span></a>        <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+</span><span id="profile-261"><a href="#profile-261"><span class="linenos">261</span></a>        <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">username</span><span class="p">,</span>
+</span><span id="profile-262"><a href="#profile-262"><span class="linenos">262</span></a>        <span class="s2">&quot;full_name&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">full_name</span><span class="p">,</span>
+</span><span id="profile-263"><a href="#profile-263"><span class="linenos">263</span></a>        <span class="s2">&quot;email&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="p">,</span>
+</span><span id="profile-264"><a href="#profile-264"><span class="linenos">264</span></a>        <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="n">user</span><span class="o">.</span><span class="n">role</span><span class="o">.</span><span class="n">description</span><span class="p">,</span> <span class="c1"># Use the description</span>
+</span><span id="profile-265"><a href="#profile-265"><span class="linenos">265</span></a>        <span class="c1"># Handle organizations - pass a list of names or IDs/names</span>
+</span><span id="profile-266"><a href="#profile-266"><span class="linenos">266</span></a>        <span class="s2">&quot;organizations&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">org</span><span class="o">.</span><span class="n">name</span><span class="p">}</span> <span class="k">for</span> <span class="n">org</span> <span class="ow">in</span> <span class="n">user</span><span class="o">.</span><span class="n">organizations</span><span class="o">.</span><span class="n">all</span><span class="p">()]</span>
+</span><span id="profile-267"><a href="#profile-267"><span class="linenos">267</span></a>    <span class="p">}</span>
+</span><span id="profile-268"><a href="#profile-268"><span class="linenos">268</span></a>    <span class="c1"># Note: The &#39;client&#39; variable in the template is ambiguous.</span>
+</span><span id="profile-269"><a href="#profile-269"><span class="linenos">269</span></a>    <span class="c1"># We now pass &#39;organizations&#39;. You&#39;ll need to adjust the template.</span>
+</span><span id="profile-270"><a href="#profile-270"><span class="linenos">270</span></a>    <span class="c1"># If you only want the *first* org name for simplicity in the template:</span>
+</span><span id="profile-271"><a href="#profile-271"><span class="linenos">271</span></a>    <span class="c1"># context[&quot;client_org_name&quot;] = user.organizations.first().name if user.organizations.first() else &quot;N/A&quot;</span>
+</span><span id="profile-272"><a href="#profile-272"><span class="linenos">272</span></a>
+</span><span id="profile-273"><a href="#profile-273"><span class="linenos">273</span></a>    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;dashboard/profile.j2&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">,</span> <span class="n">request</span><span class="o">=</span><span class="n">request</span><span class="p">)</span>
 </span></pre></div>
 
 

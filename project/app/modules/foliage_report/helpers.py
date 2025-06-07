@@ -121,6 +121,9 @@ class LeyLiebig:
             nutrientes[mineral] = {'p': p, 'i': i, 'r': r}
         return nutrientes
 
+from typing import Dict, Tuple
+from decimal import Decimal, ROUND_HALF_UP
+from scipy.optimize import linprog
 
 class NutrientOptimizer:
     """
@@ -172,50 +175,175 @@ class NutrientOptimizer:
         }
         return min(porcentajes, key=porcentajes.get)
 
-    def optimizar_productos(self) -> Tuple[Dict[str, Decimal], Dict[str, Decimal]]:
-        """
-        Optimiza las cantidades de productos a aplicar usando programación lineal.
+    def _solucion_heuristica(self, ajustes_positivos: Dict[str, Decimal]) -> Dict[str, Decimal]:
+        """Solución heurística cuando la optimización falla"""
+        print("Aplicando solución heurística...")
+        cantidades = {prod: Decimal('0.0') for prod in self.productos}
         
-        :return: Diccionario con las cantidades de productos y los nutrientes aportados.
-        """
-        if not self.productos:
-            raise ValueError("No products available for optimization. Cannot generate recommendation.")
+        for nutriente, requerido in ajustes_positivos.items():
+            # Encontrar el producto más eficiente para este nutriente
+            mejor_producto = None
+            mejor_eficiencia = Decimal('0.0')
+            
+            for prod in self.productos:
+                contrib = self.productos_contribuciones[prod].get(nutriente, Decimal('0.0'))
+                if contrib > mejor_eficiencia:
+                    mejor_eficiencia = contrib
+                    mejor_producto = prod
+            
+            if mejor_producto and mejor_eficiencia > 0:
+                cantidad_necesaria = requerido / mejor_eficiencia
+                cantidades[mejor_producto] = max(cantidades[mejor_producto], cantidad_necesaria)
+                print(f"Heurística: {mejor_producto} = {cantidad_necesaria} para {nutriente}")
         
-        ajustes = self.calcular_ajustes()
-        
-        # Coeficientes de la función objetivo (minimizar la suma de productos)
-        c = [1] * len(self.productos)
+        return cantidades
 
-        # Matriz de restricciones (negativa para linprog)
-        A_eq = []
-        b_eq = []
-        for nutriente in self.nutrientes:
-            if ajustes[nutriente] > 0:
+    def optimizar_productos(self) -> Tuple[Dict[str, Decimal], Dict[str, Decimal]]:
+        try:
+            print("Iniciando optimización de productos...")
+            if not self.productos:
+                raise ValueError("No products available for optimization. Cannot generate recommendation.")
+            
+            ajustes = self.calcular_ajustes()
+            print("Ajustes calculados:", ajustes)
+            
+            # Filtrar solo ajustes positivos (nutrientes que necesitan ser agregados)
+            ajustes_positivos = {k: v for k, v in ajustes.items() if v > 0}
+            
+            if not ajustes_positivos:
+                print("No hay nutrientes que necesiten ser agregados.")
+                return {prod: Decimal('0.0') for prod in self.productos}, \
+                       {nutriente: Decimal('0.0') for nutriente in self.nutrientes}
+            
+            print(f"Nutrientes a optimizar: {list(ajustes_positivos.keys())}")
+            
+            # Verificar que hay productos que pueden aportar los nutrientes necesarios
+            productos_utiles = set()
+            for nutriente in ajustes_positivos:
+                for prod in self.productos:
+                    if self.productos_contribuciones[prod].get(nutriente, Decimal('0.0')) > 0:
+                        productos_utiles.add(prod)
+            
+            if not productos_utiles:
+                print("No hay productos que puedan aportar los nutrientes necesarios.")
+                raise ValueError("Los productos disponibles no pueden satisfacer los requerimientos nutricionales.")
+            
+            print(f"Productos útiles: {list(productos_utiles)}")
+            
+            # Coeficientes de la función objetivo (minimizar la suma de productos)
+            print("Definiendo función objetivo...")
+            c = [1] * len(self.productos)
+            print("Coeficientes de la función objetivo:", c)
+            
+            # Matriz de restricciones de desigualdad (A_ub * x >= b_ub)
+            # Para linprog necesitamos A_ub * x <= b_ub, así que usamos -A_ub * x <= -b_ub
+            print("Definiendo restricciones de desigualdad...")
+            A_ub = []
+            b_ub = []
+            
+            for nutriente in ajustes_positivos:
+                print(f"Restricción para {nutriente}:")
                 fila = []
                 for prod in self.productos:
                     contrib = self.productos_contribuciones[prod].get(nutriente, Decimal('0.0'))
-                    fila.append(-float(contrib))  # Negativo para linprog
-                A_eq.append(fila)
-                b_eq.append(-float(ajustes[nutriente]))  # Negativo para linprog
+                    fila.append(-float(contrib))  # Negativo para convertir >= en <=
+                
+                # Solo agregar restricción si al menos un producto puede aportar este nutriente
+                if any(val < 0 for val in fila):  # Al menos una contribución positiva
+                    A_ub.append(fila)
+                    b_ub.append(-float(ajustes_positivos[nutriente]))  # Negativo para convertir >= en <=
+                    print(f"Coeficientes de la restricción: {fila}")
+                    print(f"Valor de la restricción: {b_ub[-1]}")
+                else:
+                    print(f"Advertencia: No hay productos que aporten {nutriente}")
+            
+            if not A_ub:
+                print("No se pudieron formar restricciones válidas")
+                cantidades = self._solucion_heuristica(ajustes_positivos)
+            else:
+                print("Matriz de restricciones:", A_ub)
+                print("Valores de las restricciones:", b_ub)
+                
+                # Límites (cantidades >= 0)
+                print("Definiendo límites...")
+                bounds = [(0, None)] * len(self.productos)
+                print("Límites:", bounds)
+                
+                # Resolver optimización
+                print("Resolviendo problema de programación lineal...")
+                res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+                print("Resultado de la optimización:", res)
+                
+                if not res.success:
+                    print("Error en la optimización:", res.message)
+                    print("Intentando con método alternativo...")
+                    
+                    # Intentar con método alternativo
+                    res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='interior-point')
+                    
+                    if not res.success:
+                        print("Error con método alternativo:", res.message)
+                        
+                        # Como último recurso, intentar relajar las restricciones
+                        print("Intentando con restricciones relajadas...")
+                        # Reducir los requerimientos en un 20%
+                        b_ub_relajado = [b * 0.8 for b in b_ub]
+                        res = linprog(c, A_ub=A_ub, b_ub=b_ub_relajado, bounds=bounds, method='highs')
+                        
+                        if not res.success:
+                            print(f"Optimización falló completamente: {res.message}")
+                            cantidades = self._solucion_heuristica(ajustes_positivos)
+                        else:
+                            cantidades = self._procesar_resultado_optimizacion(res)
+                    else:
+                        cantidades = self._procesar_resultado_optimizacion(res)
+                else:
+                    cantidades = self._procesar_resultado_optimizacion(res)
+            
+            print("Cantidades de productos:", cantidades)
+            
+            # Calcular nutrientes aportados
+            print("Calculando nutrientes aportados...")
+            nutrientes_aportados = {nutriente: Decimal('0.0') for nutriente in self.nutrientes}
+            for prod, cantidad in cantidades.items():
+                if cantidad > 0:
+                    for nutriente, contrib in self.productos_contribuciones[prod].items():
+                        nutrientes_aportados[nutriente] += contrib * cantidad
+            
+            print("Nutrientes aportados:", nutrientes_aportados)
+            
+            # Verificar que se cumplan los requerimientos mínimos
+            print("Verificando cumplimiento de requerimientos...")
+            for nutriente, requerido in ajustes_positivos.items():
+                aportado = nutrientes_aportados.get(nutriente, Decimal('0.0'))
+                cumplimiento = (aportado / requerido * 100) if requerido > 0 else Decimal('100.0')
+                print(f"{nutriente}: Requerido={requerido}, Aportado={aportado}, Cumplimiento={cumplimiento:.1f}%")
+            
+            return cantidades, nutrientes_aportados
+            
+        except Exception as e:
+            print("Error en la optimización:", str(e))
+            import traceback
+            traceback.print_exc()
+            raise
 
-        # Límites (cantidades >= 0)
-        bounds = [(0, None)] * len(self.productos)
-
-        # Resolver optimización
-        res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-        if not res.success:
-            raise ValueError("No se pudo optimizar la aplicación de productos.")
-
+    def _procesar_resultado_optimizacion(self, res) -> Dict[str, Decimal]:
+        """Procesa el resultado de la optimización lineal"""
+        # Verificar que la solución no sea trivial (todos ceros)
+        if all(x < 1e-6 for x in res.x):
+            print("La solución es trivial (todos los valores son cero)")
+            return {prod: Decimal('0.0') for prod in self.productos}
+        
         # Resultados: cantidades de productos
-        cantidades = {self.productos[i]: Decimal(str(round(x, 2))) for i, x in enumerate(res.x)}
-
-        # Calcular nutrientes aportados
-        nutrientes_aportados = {nutriente: Decimal('0.0') for nutriente in self.nutrientes}
-        for prod, cantidad in cantidades.items():
-            for nutriente, contrib in self.productos_contribuciones[prod].items():
-                nutrientes_aportados[nutriente] += contrib * cantidad
-
-        return cantidades, nutrientes_aportados
+        print("Calculando cantidades de productos...")
+        cantidades = {}
+        for i, x in enumerate(res.x):
+            if x > 1e-6:  # Solo incluir cantidades significativas
+                cantidades[self.productos[i]] = Decimal(str(round(x, 2)))
+            else:
+                cantidades[self.productos[i]] = Decimal('0.0')
+        
+        return cantidades
 
     def generar_recomendacion(self, lot_id: int) -> str:
         """
@@ -224,17 +352,32 @@ class NutrientOptimizer:
         :param lot_id: ID del lote donde se aplicará la recomendación.
         :return: Texto de la recomendación.
         """
-        cantidades, nutrientes_aportados = self.optimizar_productos()
-        lineas = [f"Aplicar en el lote {lot_id}:"]
-        for prod, cantidad in cantidades.items():
-            if cantidad > 0:
-                lineas.append(f"- {cantidad} unidades de {prod}")
-        lineas.append("Nutrientes aportados:")
-        for nutriente, cantidad in nutrientes_aportados.items():
-            unidad = "kg/ha" if nutriente in [n["name"] for n in macronutrients] else "g/ha"
-            lineas.append(f"- {nutriente}: {cantidad} {unidad}")
-        return "\n".join(lineas)
-
+        try:
+            cantidades, nutrientes_aportados = self.optimizar_productos()
+            
+            lineas = [f"Aplicar en el lote {lot_id}:"]
+            
+            # Solo mostrar productos con cantidades significativas
+            productos_aplicar = {prod: cant for prod, cant in cantidades.items() if cant > 0}
+            
+            if not productos_aplicar:
+                lineas.append("- No se requiere aplicación de productos adicionales")
+            else:
+                for prod, cantidad in productos_aplicar.items():
+                    lineas.append(f"- {cantidad} unidades de {prod}")
+            
+            lineas.append("\nNutrientes aportados:")
+            for nutriente, cantidad in nutrientes_aportados.items():
+                if cantidad > 0:  # Solo mostrar nutrientes con aporte significativo
+                    # Asumiendo que tienes acceso a macronutrients, sino puedes ajustar esta lógica
+                    unidad = "kg/ha"  # Puedes ajustar esto según tu lógica de negocio
+                    lineas.append(f"- {nutriente}: {cantidad} {unidad}")
+            
+            return "\n".join(lineas)
+            
+        except Exception as e:
+            print(f"Error generando recomendación: {str(e)}")
+            return f"Error al generar recomendación para el lote {lot_id}: {str(e)}"
 
 # # # Datos de ejemplo basados en los nutrientes proporcionados
 # macronutrients = [

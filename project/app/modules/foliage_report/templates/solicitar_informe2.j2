@@ -327,12 +327,34 @@
 
             // ✅ Convertir a tipos esperados por el backend
             const payload = {
-                farm_id: parseInt(data.farm_id),
                 lot_id: parseInt(data.lot_id), // <-- Aquí se convierte a entero
                 common_analysis_ids: data.selected_analyses.map(id => parseInt(id)), // <-- Convertir lista a enteros
                 objective_id: parseInt(data.objective_id),
                 title: data.report_title
             };
+
+            // New NaN checks:
+            if (isNaN(payload.lot_id)) {
+                errorMessage.textContent = 'Valor inválido para la selección de Lote. Por favor, vuelva a seleccionarlo y asegúrese de que sea un número.';
+                errorMessage.classList.remove('hidden');
+                loadingMessage.classList.add('hidden');
+                generateBtn.disabled = false;
+                return;
+            }
+            if (isNaN(payload.objective_id)) {
+                errorMessage.textContent = 'Valor inválido para la selección de Objetivo. Por favor, vuelva a seleccionarlo y asegúrese de que sea un número.';
+                errorMessage.classList.remove('hidden');
+                loadingMessage.classList.add('hidden');
+                generateBtn.disabled = false;
+                return;
+            }
+            if (payload.common_analysis_ids.some(isNaN)) {
+                errorMessage.textContent = 'Valor inválido en uno o más Análisis seleccionados. Por favor, revise sus selecciones.';
+                errorMessage.classList.remove('hidden');
+                loadingMessage.classList.add('hidden');
+                generateBtn.disabled = false;
+                return;
+            }
 //////////////////////////////////
 // Log de depuración: Mostrar todos los datos recolectados
     console.log("===== DATOS RECOLECTADOS DEL FORMULARIO =====");
@@ -355,7 +377,6 @@
     
     // 5. Validación adicional de tipos
     console.log("\nValidación de tipos:");
-    console.log("farm_id (debe ser número):", typeof payload.farm_id);
     console.log("lot_id (debe ser número):", typeof payload.lot_id);
     console.log("common_analysis_ids (debe ser array de números):", 
                 payload.common_analysis_ids.map(id => typeof id));
