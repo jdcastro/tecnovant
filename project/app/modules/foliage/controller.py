@@ -174,8 +174,10 @@ class FarmView(MethodView):
         return Response(json_data, status=200, mimetype="application/json")
 
     def _delete_farm(self, farm_id=None, farm_ids=None):
-        """Elimina una granja marcándola como inactiva."""
+        """Elimina una granja o varias granjas marcándolas como inactivas."""
         claims = get_jwt()
+        deleted_farms = []
+
         if farm_id and farm_ids:
             raise BadRequest("Solo se puede especificar farm_id o farm_ids, no ambos.")
 
@@ -186,10 +188,9 @@ class FarmView(MethodView):
             else:
                 db.session.delete(farm)
             db.session.commit()
-            return jsonify({"message": "Farm deleted successfully"}), 200
+            deleted_farms.append(farm.name)
 
         if farm_ids is not None:
-            deleted_farms = []
             for farm_id in farm_ids:
                 farm = Farm.query.get(farm_id)
                 if not farm:
@@ -201,16 +202,17 @@ class FarmView(MethodView):
                 deleted_farms.append(farm.name)
                 db.session.commit()
 
-            if deleted_farms:
-                deleted_farms_str = ", ".join(deleted_farms)
-                return (
-                    jsonify({"message": f"Farms {deleted_farms_str} deleted successfully"}),
-                    200,
-                )
+        if not deleted_farms:
             return (
                 jsonify({"error": "No farms were deleted due to permission restrictions"}),
                 403,
             )
+
+        deleted_farms_str = ", ".join(deleted_farms)
+        return (
+            jsonify({"message": f"Farms {deleted_farms_str} deleted successfully"}),
+            200,
+        )
 
     def _has_access(self, farm, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
