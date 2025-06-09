@@ -29,7 +29,7 @@ Entre las tecnologías seleccionadas están MariaDB/MySQL, Flask, Flask-SQLAlche
 
 ## 2. Instalación
 
-1. Crea un archivo `.env` en la carpeta `project/` con las variables `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_NAME`, `SECRET_KEY` y demás parámetros necesarios.
+1. Copia `.env.example` a `.env` en la raíz del proyecto y edita los valores según tu entorno.
 2. Dentro de `project/` ejecuta:
 
 ```bash
