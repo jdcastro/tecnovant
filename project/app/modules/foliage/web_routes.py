@@ -86,7 +86,9 @@ def amd_farms():
         "data_menu": get_dashboard_menu(),
     }
     farm_view = FarmView()
-    response = farm_view._get_farm_list()
+    filter_value = request.args.get("filter_value", type=int)
+    search = request.args.get("search")
+    response = farm_view._get_farm_list(filter_by=filter_value, search=search)
     items = response.get_json()
     status_code = response.status_code
     assigned_org = get_clients_for_user(user_id)
@@ -100,6 +102,12 @@ def amd_farms():
             org_dict=org_dict,
             **context,
             request=request,
+            filter_field="org_id",
+            filter_options=assigned_org,
+            filter_value=filter_value,
+            select_url=url_for("foliage.amd_farms"),
+            search=search,
+            search_url=url_for("foliage.amd_farms"),
         ),
         200,
     )
@@ -120,10 +128,10 @@ def amd_lots(filter_value=None):
         "data_menu": get_dashboard_menu(),
     }
     lot_view = LotView()
-    filter_value = request.args.get("filter_value")
-    if filter_value:
-        filter_value = int(filter_value)
-        response = lot_view._get_lot_list(filter_by=filter_value)
+    filter_value = request.args.get("filter_value", type=int)
+    search = request.args.get("search")
+    if filter_value or search:
+        response = lot_view._get_lot_list(filter_by=filter_value, search=search)
     else:
         response = lot_view._get_lot_list()
 
@@ -150,6 +158,8 @@ def amd_lots(filter_value=None):
             filter_options=filter_options,
             filter_value=filter_value,
             select_url=select_url,
+            search=search,
+            search_url=url_for("foliage.amd_lots"),
         ),
         200,
     )
