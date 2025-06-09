@@ -81,7 +81,7 @@ class FarmView(MethodView):
         """
         Actualiza una granja existente.
         Args:
-            farm_id (str): ID de la granja a actualizar.
+            id (int): ID de la granja a actualizar.
         Returns:
             JSON: Detalles de la granja actualizada.
         """
@@ -96,7 +96,7 @@ class FarmView(MethodView):
         """
         Elimina una granja existente.
         Args:
-            farm_id (str): ID de la granja a eliminar.
+            id (int, optional): ID de la granja a eliminar.
         Returns:
             JSON: Mensaje de confirmación.
         """
