@@ -208,8 +208,155 @@ Se utiliza un diseño de "Permissions Based Access Control" (PBAC), que es muy f
 ### Diagrama de la Base de Datos de usuarios
 ```mermaid
 erDiagram
-    User }o--o{ Organization : pertenece
-    User }o--|| Role : rol
-    Role ||--o{ Permission : permisos
-    Permission ||--o{ Action : acciones
+
+  Organization ||--o{ Farm : has
+  Farm ||--o{ Lot : has
+  Lot ||--o{ LotCrop : has
+  Crop ||--o{ LotCrop : has
+  Lot ||--o{ CommonAnalysis : has
+  CommonAnalysis ||--|| SoilAnalysis : has
+  CommonAnalysis ||--|| LeafAnalysis : has
+  LeafAnalysis }o--|| Nutrient : contains
+  Lot ||--o{ NutrientApplication : has
+  NutrientApplication }o--|| Nutrient : applies
+  Lot ||--o{ Recommendation : has
+  Crop ||--o{ Recommendation : has
+  Crop ||--o{ Objective : has
+  Objective }o--|| Nutrient : targets
+  Lot ||--o{ Production : has
+  Product ||--o{ ProductContribution : has
+  ProductContribution }o--|| Nutrient : contributes
+  Product ||--o{ ProductPrice : has
+
+  Organization {
+    int id PK
+    string name
+  }
+
+  Farm {
+    int id PK
+    string name
+    int org_id FK
+  }
+
+  Lot {
+    int id PK
+    string name
+    float area
+    int farm_id FK
+  }
+
+  Crop {
+    int id PK
+    string name
+  }
+
+  LotCrop {
+    int id PK
+    int lot_id FK
+    int crop_id FK
+    date start_date
+    date end_date
+  }
+
+  CommonAnalysis {
+    int id PK
+    date date
+    int lot_id FK
+    float protein
+    float rest
+    int rest_days
+    float energy
+    float yield_estimate
+    int month
+  }
+
+  SoilAnalysis {
+    int id PK
+    int common_analysis_id FK
+    float energy
+    int grazing
+  }
+
+  LeafAnalysis {
+    int id PK
+    int common_analysis_id FK
+  }
+
+  Nutrient {
+    int id PK
+    string name
+    string symbol
+    string unit
+    string description
+    enum category
+  }
+
+  NutrientApplication {
+    int id PK
+    date date
+    int lot_id FK
+  }
+
+  Recommendation {
+    int id PK
+    int lot_id FK
+    int crop_id FK
+    date date
+    string author
+    string title
+    string limiting_nutrient_id
+    text automatic_recommendations
+    text text_recommendations
+    text optimal_comparison
+    text minimum_law_analyses
+    text soil_analysis_details
+    text foliar_analysis_details
+    boolean applied
+    boolean active
+  }
+
+  Objective {
+    int id PK
+    int crop_id FK
+    float target_value
+    float protein
+    float rest
+  }
+
+  Production {
+    int id PK
+    date date
+    int lot_id FK
+    float area
+    float production_kg
+    int bags
+    string harvest
+    int month
+    string variety
+    float price_per_kg
+    float protein_65dde
+    float discount
+  }
+
+  Product {
+    int id PK
+    string name
+    text description
+  }
+
+  ProductContribution {
+    int id PK
+    int product_id FK
+  }
+
+  ProductPrice {
+    int id PK
+    int product_id FK
+    float price
+    string supplier
+    date start_date
+    date end_date
+  }
+
 ```
