@@ -643,8 +643,20 @@ def vista_report():
     limitingNutrient = findLimitingNutrient()
     recommendations = generateRecommendations()
 
-    return render_template('ver_reporte2.j2', **context, 
-            request=request,  analysisData=analysisData, optimalLevels=optimalLevels, foliarChartData=foliarChartData, soilChartData=soilChartData, historicalData=historicalData, nutrientNames=nutrientNames, limitingNutrient=limitingNutrient, recommendations=recommendations)
+    return render_template(
+        'ver_reporte2.j2',
+        **context,
+        request=request,
+        report_id=report_id,
+        analysisData=analysisData,
+        optimalLevels=optimalLevels,
+        foliarChartData=foliarChartData,
+        soilChartData=soilChartData,
+        historicalData=historicalData,
+        nutrientNames=nutrientNames,
+        limitingNutrient=limitingNutrient,
+        recommendations=recommendations
+    )
 
 
 
