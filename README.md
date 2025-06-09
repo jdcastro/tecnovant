@@ -25,9 +25,53 @@ El proyecto TecnoAgro consiste en un sistema de software para la gestión de dat
 
 El sistema recibe estos datos a través de una API y un formulario de ingreso, los analiza y los almacena para generar recomendaciones personalizadas basadas en parámetros locales de nutrientes. Su enfoque permite una toma de decisiones precisa, mejorando la eficiencia en el uso de recursos y la productividad agrícola.
 
-Entre las tecnologías seleccionadas están MariaDB/MySQL, Flask, Flask-SQLAlchemy, Jinja2 templates, blueprint, Flask-JWT-Extended para login y api.
+Entre las tecnologías seleccionadas están MariaDB/MySQL, Flask, Flask-SQLAlchemy, Jinja2 templates, blueprint y Flask-JWT-Extended para login y API.
 
-## 2. Arquitectura del Software
+## 2. Instalación
+
+1. Crea un archivo `.env` en la carpeta `project/` con las variables `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_NAME`, `SECRET_KEY` y demás parámetros necesarios.
+2. Dentro de `project/` ejecuta:
+
+```bash
+make install      # dependencias de producción
+# o
+make installdev   # dependencias de desarrollo y Tailwind
+```
+
+3. Inicia la aplicación con `make run`.
+4. La documentación generada estará disponible en [`docs/index.html`](docs/index.html).
+
+### Comandos Makefile
+
+- `make install` / `make installdev` – crean el entorno virtual e instalan dependencias.
+- `make run` – ejecuta la aplicación en segundo plano.
+- `make test` – ejecuta las pruebas con pytest.
+- `make documents` – genera documentación en `docs/` usando pdoc.
+- `make css` – compila los estilos Tailwind.
+- `make stop` – detiene el servidor.
+- `make clean` – elimina el entorno virtual y archivos temporales.
+
+### Docker
+
+El proyecto incluye `docker-compose.yml` para un despliegue rápido:
+
+```bash
+docker-compose up -d
+```
+
+El script `make_nginx.conf.sh <dominio>` ayuda a generar la configuración de Nginx y certificados con certbot.
+
+### CLI para crear módulos
+
+Puedes crear un módulo básico ejecutando:
+
+```bash
+python cli/create_module.py <nombre> --api --ui
+```
+
+Esto crea la estructura en `project/app/modules/` y deberás añadir el nombre del módulo en `app/config.py`.
+
+## 3. Arquitectura del Software
 
 La arquitectura del sistema se basa en un diseño modular y escalable, utilizando el patrón MVC (Modelo-Vista-Controlador) con una arquitectura RESTful para separar la lógica de negocio, la presentación y el acceso a datos. 
 
@@ -72,7 +116,12 @@ La estructura del proyecto sigue patrones de diseño modernos, con módulos sepa
 El código incluye manejadores de errores, logging y excepciones, asegurando una buena practica para la depuración y monitoreo.
 Se utiliza el Micro framework **Flask**  para desarrollar aplicación web en Python y Blueprints para modularizar la aplicación.
 
-CREAR: DIAGRAMA mermaid de relación web - api 
+```mermaid
+graph TD
+    Cliente -->|HTTP| Web[Aplicación Flask]
+    Web -->|AJAX| API[API Flask]
+    API --> DB[(Base de Datos)]
+```
 
 ### Resumen de Componentes Clave
 **Templating**: Jinja2 organiza plantillas de forma modular.
@@ -81,7 +130,7 @@ CREAR: DIAGRAMA mermaid de relación web - api
 **Lógica de Negocio**: Separada en funciones independientes siguiendo principios SOLID.
 **Manejo de APIs**: Endpoints REST seguros con autenticación basada en tokens mediante flask-jwt-extended.
 
-## 3. Requisitos de la herramienta
+## 4. Requisitos de la herramienta
 
 #### Requisitos Funcionales
 
@@ -136,7 +185,7 @@ CREAR: DIAGRAMA mermaid de relación web - api
 	1. ***A futuro:*** Integración fluida con la API externa de procesamiento de imágenes
 	2. Capacidad para exportar datos en formatos estándar (CSV, JSON)
 
-## 4. Diseño de la Base de Datos
+## 5. Diseño de la Base de Datos
 
 El diseño de la base de datos se ha normalizado y optimizado para asegurar la eficiencia en la gestión de datos y evitar redundancias. Se han agregado tablas adicionales para manejar las relaciones entre usuarios, fincas y lotes.
 
@@ -157,5 +206,10 @@ Se utiliza un diseño de "Permissions Based Access Control" (PBAC), que es muy f
 7. **ModulePermission**: Relación entre módulos y permisos.
 
 ### Diagrama de la Base de Datos de usuarios
-CREAR: DIAGRAMA MERMAID de la DB
-CREAR: Diagrama de la Secuencia de Pasos, Permisos y Restricciones
+```mermaid
+erDiagram
+    User }o--o{ Organization : pertenece
+    User }o--|| Role : rol
+    Role ||--o{ Permission : permisos
+    Permission ||--o{ Action : acciones
+```
