@@ -1,4 +1,5 @@
 from . import foliage_api as api
+from flask import request, jsonify, Response
 from .controller import (
     FarmView,
     LotView,
@@ -15,6 +16,8 @@ from .controller import (
     SoilAnalysisView, 
     ProductionView
 )
+from app.helpers.csv_handler import CsvHandler
+from .models import Farm, Crop, Lot
 
 # 👌
 farm_view = FarmView.as_view("farms_view")
@@ -87,3 +90,68 @@ api.add_url_rule("/nutrient_applications/<int:id>", view_func=nutrient_applicati
 production_view = ProductionView.as_view("production_view")
 api.add_url_rule("/production/", view_func=production_view, methods=["GET", "POST", "DELETE"])
 api.add_url_rule("/production/<int:id>", view_func=nutrient_application_view, methods=["GET", "PUT", "DELETE"])
+
+
+# ---------------------------------------------------------------------------
+# CSV helper endpoints
+# ---------------------------------------------------------------------------
+
+@api.route('/csv/upload', methods=['POST'])
+def upload_csv():
+    """Upload a CSV file and return the parsed data."""
+    if 'file' not in request.files:
+        return jsonify(error='No file part'), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify(error='No selected file'), 400
+
+    handler = CsvHandler()
+    try:
+        data = handler.handle_csv_upload(file)
+        return jsonify(data), 200
+    except Exception as exc:
+        return jsonify(error=str(exc)), 400
+
+
+@api.route('/csv/download')
+def download_csv():
+    """Download CSV representation of simple resources."""
+    resource = request.args.get('resource', 'farms')
+    handler = CsvHandler()
+
+    if resource == 'farms':
+        rows = [
+            {
+                'id': farm.id,
+                'name': farm.name,
+                'org_id': farm.org_id,
+            }
+            for farm in Farm.query.all()
+        ]
+    elif resource == 'crops':
+        rows = [
+            {
+                'id': crop.id,
+                'name': crop.name,
+            }
+            for crop in Crop.query.all()
+        ]
+    elif resource == 'lots':
+        rows = [
+            {
+                'id': lot.id,
+                'name': lot.name,
+                'farm_id': lot.farm_id,
+            }
+            for lot in Lot.query.all()
+        ]
+    else:
+        return jsonify(error='Unknown resource'), 400
+
+    csv_data = handler.export_to_csv(rows)
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={resource}.csv'},
+    )

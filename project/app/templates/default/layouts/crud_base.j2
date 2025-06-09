@@ -105,17 +105,30 @@ base_input_classes, table_header_class, table_cell_class %}
 {% endif %}
 {# fin Selector dinámico #}
 
-        <div class="mb-4 flex justify-between">        
-            <button onclick="showModal('create')" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">
-                Crear Nuevo {{ entity_name }}
-            </button>
-            {% if show_select_box %}
-            <button onclick="handleBulkAction()" class="{{ base_button_classes }} {{ border_color }} {{ delete_button_bg_color }} text-white {{ focus_ring_color }}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-            </button>
-            {% endif %}
+        <div class="mb-4 flex flex-wrap gap-2 justify-between items-center">
+            <div class="flex gap-2">
+                <button onclick="showModal('create')" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">
+                    Crear Nuevo {{ entity_name }}
+                </button>
+                {% if show_select_box %}
+                <button onclick="handleBulkAction()" class="{{ base_button_classes }} {{ border_color }} {{ delete_button_bg_color }} text-white {{ focus_ring_color }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                {% endif %}
+            </div>
+            <div class="flex gap-2 items-center">
+                {% if csv_download_url %}
+                <a href="{{ csv_download_url }}" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">Descargar CSV</a>
+                {% endif %}
+                {% if csv_upload_url %}
+                <form id="csv-upload-form" enctype="multipart/form-data" class="flex gap-2 items-center">
+                    <input type="file" id="csv-file-input" name="file" accept=".csv" class="{{ base_input_classes }}">
+                    <button type="button" onclick="uploadCsv()" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">Subir CSV</button>
+                </form>
+                {% endif %}
+            </div>
         </div>
         <div>
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border rounded">
@@ -634,6 +647,35 @@ window.addEventListener('click', function(event) {
             }
         }
     }
-    
+
+    {% if csv_upload_url %}
+    async function uploadCsv() {
+        const input = document.getElementById('csv-file-input');
+        if (!input || !input.files.length) {
+            alert('Seleccione un archivo CSV');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        try {
+            const response = await fetch('{{ csv_upload_url }}', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'X-CSRF-TOKEN': getCookie('csrf_access_token') },
+                body: formData,
+            });
+            if (response.ok) {
+                location.reload();
+            } else {
+                const data = await response.json();
+                alert(data.error || 'Error al subir el CSV');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al subir el CSV');
+        }
+    }
+    {% endif %}
+
 </script>
 {% endblock %}
