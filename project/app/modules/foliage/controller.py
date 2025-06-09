@@ -62,7 +62,9 @@ class FarmView(MethodView):
         """
         if farm_id:
             return self._get_farm(farm_id)
-        return self._get_farm_list()
+        filter_by = request.args.get("filter_value", type=int)
+        search = request.args.get("search")
+        return self._get_farm_list(filter_by=filter_by, search=search)
 
     @check_permission(required_roles=["administrator", "reseller"])
     def post(self):
@@ -109,16 +111,24 @@ class FarmView(MethodView):
         raise BadRequest("Missing farm_id.")
 
     # Métodos auxiliares
-    def _get_farm_list(self):
-        """Obtiene una lista de todas las granjas activas."""
+    def _get_farm_list(self, filter_by=None, search=None):
+        """Obtiene una lista de todas las granjas activas con filtros opcionales."""
         claims = get_jwt()
-        
-        farms = Farm.query.filter_by(active=True).all() if hasattr(Farm, "active") else Farm.query.all()
+
+        query = Farm.query
+        if hasattr(Farm, "active"):
+            query = query.filter_by(active=True)
+        if filter_by:
+            query = query.filter_by(org_id=filter_by)
+        if search:
+            query = query.filter(Farm.name.ilike(f"%{search}%"))
+
+        farms = query.all()
         accessible_farms = [farm for farm in farms if self._has_access(farm, claims)]
-        
+
         if farms and not accessible_farms:
             raise Forbidden("You do not have access to any farms.")
-        
+
         response_data = [self._serialize_farm(farm) for farm in farms]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
@@ -249,7 +259,9 @@ class LotView(MethodView):
         """
         if lot_id:
             return self._get_lot(lot_id)
-        return self._get_lot_list()
+        filter_by = request.args.get("filter_value", type=int)
+        search = request.args.get("search")
+        return self._get_lot_list(filter_by=filter_by, search=search)
 
     @check_permission(required_roles=["administrator", "reseller"])
     def post(self):
@@ -296,8 +308,8 @@ class LotView(MethodView):
         raise BadRequest("Missing lot_id.")
 
     # Métodos auxiliares
-    def _get_lot_list(self, filter_by=None):
-        """Obtiene una lista de lotes activos según el rol del usuario."""
+    def _get_lot_list(self, filter_by=None, search=None):
+        """Obtiene una lista de lotes activos según el rol del usuario con filtros opcionales."""
         claims = get_jwt()
         user_role = claims.get("rol")
         user_id = claims.get("id")
@@ -308,6 +320,8 @@ class LotView(MethodView):
                 query = query.filter_by(active=True)
             if filter_by:
                 query = query.filter_by(farm_id=filter_by)
+            if search:
+                query = query.filter(Lot.name.ilike(f"%{search}%"))
             lots = query.all()
         elif user_role == RoleEnum.RESELLER.value:
             reseller_package = (
@@ -323,6 +337,10 @@ class LotView(MethodView):
             lots = {lot for org in reseller_package.organizations for lot in org.lots}
             # Convertimos a lista para la serialización final
             lots = list(lots)
+            if filter_by:
+                lots = [l for l in lots if l.farm_id == filter_by]
+            if search:
+                lots = [l for l in lots if search.lower() in l.name.lower()]
         else:
             raise Forbidden("Only administrators and resellers can list lots.")
         # Serialización y respuesta
