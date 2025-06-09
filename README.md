@@ -63,13 +63,17 @@ El script `make_nginx.conf.sh <dominio>` ayuda a generar la configuración de Ng
 
 ### CLI para crear módulos
 
-Puedes crear un módulo básico ejecutando:
+El script `cli/create_module.py` genera la estructura inicial de un módulo Flask. Puedes crear un módulo básico ejecutando:
 
 ```bash
 python cli/create_module.py <nombre> --api --ui
 ```
 
 Esto crea la estructura en `project/app/modules/` y deberás añadir el nombre del módulo en `app/config.py`.
+
+## Documentación
+
+La documentación se genera con `make documents` y queda disponible en [`docs/`](docs/).
 
 ## 3. Arquitectura del Software
 
