@@ -367,6 +367,26 @@ class Organization(db.Model):
         db.String(255),
         doc="Descripción del cliente. Proporciona información adicional sobre el cliente u organización.",
     )
+    nit = db.Column(
+        db.String(50),
+        nullable=True,
+        doc="Número de identificación tributaria de la organización (opcional).",
+    )
+    contact = db.Column(
+        db.String(100),
+        nullable=True,
+        doc="Nombre de la persona de contacto de la organización (opcional).",
+    )
+    address = db.Column(
+        db.String(150),
+        nullable=True,
+        doc="Dirección física de la organización (opcional).",
+    )
+    phone = db.Column(
+        db.String(50),
+        nullable=True,
+        doc="Número de teléfono de la organización (opcional).",
+    )
     profile_data = db.Column(
         db.JSON,
         default=dict,

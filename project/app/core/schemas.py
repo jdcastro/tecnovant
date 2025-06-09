@@ -37,6 +37,10 @@ class OrganizationSchema(SQLAlchemyAutoSchema):
         lambda: ResellerPackageSchema(only=("id", "reseller", "max_clients")),
         dump_only=True,
     )
+    nit = fields.String(allow_none=True)
+    contact = fields.String(allow_none=True)
+    address = fields.String(allow_none=True)
+    phone = fields.String(allow_none=True)
 
     class Meta:
         model = Organization

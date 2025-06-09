@@ -661,6 +661,10 @@ class OrgView(MethodView):
         org = Organization(
             name=data["name"],
             description=data.get("description", ""),
+            nit=data.get("nit"),
+            contact=data.get("contact"),
+            address=data.get("address"),
+            phone=data.get("phone"),
         )
         if "reseller_id" in data:
             claims = get_jwt()
@@ -702,6 +706,14 @@ class OrgView(MethodView):
             org.name = data["name"]
         if "description" in data and data["description"] is not None:
             org.description = data["description"]
+        if "nit" in data:
+            org.nit = data["nit"]
+        if "contact" in data:
+            org.contact = data["contact"]
+        if "address" in data:
+            org.address = data["address"]
+        if "phone" in data:
+            org.phone = data["phone"]
         if "reseller_id" in data:
             claims = get_jwt()
             if claims.get("rol") == RoleEnum.ADMINISTRATOR.value:
@@ -822,6 +834,10 @@ class OrgView(MethodView):
             "id": org.id,
             "name": org.name,
             "description": org.description,
+            "nit": org.nit,
+            "contact": org.contact,
+            "address": org.address,
+            "phone": org.phone,
             "reseller_id": org.get_reseller.id if org.get_reseller else "",
             "reseller": org.get_reseller.full_name if org.get_reseller else "",
             "active": org.active,
