@@ -13,7 +13,7 @@ from .controller import (
     ProfileView,
     ChangePasswordView,
     ForgotPasswordRequestView,
-    ResetPasswordSubmitView
+    ResetPasswordSubmitView,
 )
 
 #############################################
@@ -29,8 +29,9 @@ api.add_url_rule("/login", view_func=LoginView.as_view("login"), methods=["POST"
 @api.route("/logout")
 @login_required
 def logout():
-    """Cerrar sesión
-    :status 200: Sesión cerrada correctamente
+    """Log out the current user.
+
+    :status 200: Successful logout
     """
     response = jsonify({"msg": "Logout successful"})
     unset_jwt_cookies(response)
@@ -39,11 +40,19 @@ def logout():
 
 api.add_url_rule("/refresh", view_func=RefreshView.as_view("refresh"), methods=["POST"])
 
-forgot_password_request_view = ForgotPasswordRequestView.as_view("forgot_password_request")
-api.add_url_rule("/forgot-password-request", view_func=forgot_password_request_view, methods=["POST"])
+forgot_password_request_view = ForgotPasswordRequestView.as_view(
+    "forgot_password_request"
+)
+api.add_url_rule(
+    "/forgot-password-request", view_func=forgot_password_request_view, methods=["POST"]
+)
 
 reset_password_submit_view = ResetPasswordSubmitView.as_view("reset_password_submit")
-api.add_url_rule("/reset-password-submit/<token>", view_func=reset_password_submit_view, methods=["POST"])
+api.add_url_rule(
+    "/reset-password-submit/<token>",
+    view_func=reset_password_submit_view,
+    methods=["POST"],
+)
 
 ################################
 # Endpoints for the User model #
@@ -70,7 +79,9 @@ profile_view = ProfileView.as_view("profile_view")
 api.add_url_rule("/profile", view_func=profile_view, methods=["GET", "PUT"])
 
 change_password_view = ChangePasswordView.as_view("change_password_view")
-api.add_url_rule("/profile/change-password", view_func=change_password_view, methods=["POST"])
+api.add_url_rule(
+    "/profile/change-password", view_func=change_password_view, methods=["POST"]
+)
 
 # # Registro de rutas
 # def register_routes(api):

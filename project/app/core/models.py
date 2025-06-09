@@ -39,8 +39,10 @@ Changes to permissions or roles can be managed centrally in the enums and associ
 
 # 1. Enumeraciones (Enums):
 class RoleEnum(Enum):
-    """RoleEnum: Defines the predefined roles within the system
-    (administrator, reseller, organization administrator, organization editor, organization viewer).
+    """Enumeration of the predefined roles available in the system.
+
+    Roles include administrator, reseller, organization administrator,
+    organization editor and organization viewer.
     """
 
     ADMINISTRATOR = ("administrator", "Administrador")
@@ -55,15 +57,12 @@ class RoleEnum(Enum):
 
     @property
     def value(self):
-        """
-        Devuelve el valor del rol.
-        """
+        """Return the role identifier."""
         return self.id
 
 
 class ActionEnum(Enum):
-    """ActionEnum: Define las acciones posibles
-    (crear, leer, actualizar, eliminar, administrar)."""
+    """Enumeration of the actions allowed in the system."""
 
     CREATE = "create"
     READ = "read"
@@ -73,9 +72,7 @@ class ActionEnum(Enum):
 
 
 class PermissionEnum(Enum):
-    """PermissionEnum: Define los permisos disponibles
-    (gestión completa, gestión de organización, gestión de contenido, informes, ajustes del sistema, informes limitados).
-    """
+    """Enumeration of the permissions supported by the system."""
 
     FULL_MANAGEMENT = "full_management"
     ORG_MANAGEMENT = "org_management"
@@ -127,14 +124,17 @@ user_organization = db.Table(
 
 
 def short_uuid():
-    return hex(uuid.uuid4().int & 0xFFFFFFFF)[2:].upper()  # 8 caracteres hexadecimales
+    """Return a short uppercase hexadecimal UUID."""
+
+    return hex(uuid.uuid4().int & 0xFFFFFFFF)[2:].upper()
 
 
 # Clases
 class User(db.Model):
-    """Modelo que representa a los usuarios del sistema.
-    Gestiona la información personal, credenciales de acceso, roles,
-    y la pertenencia a organizaciones (clientes).
+    """User model representing system users.
+
+    It stores personal information, credentials, roles and organization
+    membership.
     """
 
     __tablename__ = "users"
@@ -214,34 +214,34 @@ class User(db.Model):
         return f"<User {self.username}>"
 
     def set_password(self, password):
-        """
-        Establece un hash seguro para la contraseña del usuario.
+        """Set a secure hash for the user's password.
+
         Args:
-            password (str): La contraseña en texto plano.
+            password (str): The plain text password.
         Raises:
-            ValueError: Si la contraseña no cumple con los requisitos de seguridad.
+            ValueError: If the password does not meet security requirements.
         """
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
-        """
-        Verifica si la contraseña proporcionada coincide con el hash almacenado.
+        """Verify whether a given password matches the stored hash.
+
         Args:
-            password (str): La contraseña en texto plano a verificar.
+            password (str): Plain text password to verify.
         Returns:
-            bool: True si la contraseña coincide, False en caso contrario.
+            bool: ``True`` if the password matches, otherwise ``False``.
         """
         return check_password_hash(self.password_hash, password)
 
     def has_permission(self, permission_name, action_name, client_id=None):
-        """
-        Verifica si el usuario tiene un permiso específico y opcionalmente dentro de un cliente específico.
+        """Check whether the user has a specific permission and action.
+
         Args:
-            permission_name (str): Nombre del permiso a verificar (ej: 'full_management').
-            action_name (str): Nombre de la acción a verificar (ej: 'create').
-            client_id (int, optional): ID del cliente para verificar el permiso dentro de ese cliente. Defaults to None.
+            permission_name (str): Permission name to check (e.g. ``full_management``).
+            action_name (str): Action name to verify (e.g. ``create``).
+            client_id (int, optional): Organization ID to check within.
         Returns:
-            bool: True si el usuario tiene el permiso y la acción especificados, False en caso contrario.
+            bool: ``True`` if the user has the permission and action, otherwise ``False``.
         """
         try:
             perm_enum = PermissionEnum(permission_name)

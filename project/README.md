@@ -1,9 +1,9 @@
 # TecnoAgro
 
-Sistema de Gestión de Nutrición Foliar en Cultivos
+Foliar Nutrition Management System for Crops
 
-## 1. Introducción
+## 1. Introduction
 
-El proyecto TecnoAgro consiste en un sistema de software para la gestión de datos relacionados con la nutrición foliar en cultivos diseñado para ayudar a los agricultores a optimizar el uso de nutrientes y mejorar la producción. Cómo insumo se ingresan los datos obtenidos a partir de imágenes de drones procesadas externamente y complementadas con información ingresada manualmente. 
+TecnoAgro is a software platform designed to manage data related to foliar nutrition in crops. It helps farmers optimize nutrient usage and increase productivity. Data is sourced from drone images processed externally and complemented with information entered manually.
 
-El sistema recibe estos datos a través de una API y un formulario de ingreso, los analiza y los almacena para generar recomendaciones personalizadas basadas en parámetros locales de nutrientes. Su enfoque permite una toma de decisiones precisa, mejorando la eficiencia en el uso de recursos y la productividad agrícola.
+The system receives this data through an API and a web form, analyzes it, and stores it to generate personalized recommendations based on local nutrient parameters. This approach enables precise decision making, improving resource efficiency and agricultural performance.
