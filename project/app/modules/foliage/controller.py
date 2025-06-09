@@ -178,6 +178,7 @@ class FarmView(MethodView):
         claims = get_jwt()
         if farm_id and farm_ids:
             raise BadRequest("Solo se puede especificar farm_id o farm_ids, no ambos.")
+
         if farm_id:
             farm = Farm.query.get_or_404(farm_id)
             if hasattr(farm, "active"):
@@ -186,7 +187,8 @@ class FarmView(MethodView):
                 db.session.delete(farm)
             db.session.commit()
             return jsonify({"message": "Farm deleted successfully"}), 200
-        if farm_ids:
+
+        if farm_ids is not None:
             deleted_farms = []
             for farm_id in farm_ids:
                 farm = Farm.query.get(farm_id)
@@ -198,16 +200,15 @@ class FarmView(MethodView):
                     db.session.delete(farm)
                 deleted_farms.append(farm.name)
                 db.session.commit()
-            deleted_farms_str = ", ".join(deleted_farms)
+
+            if deleted_farms:
+                deleted_farms_str = ", ".join(deleted_farms)
+                return (
+                    jsonify({"message": f"Farms {deleted_farms_str} deleted successfully"}),
+                    200,
+                )
             return (
-                jsonify({"message": f"Farms {deleted_farms_str} deleted successfully"}),
-                200,
-            )
-        if not deleted_farms:
-            return (
-                jsonify(
-                    {"error": "No farms were deleted due to permission restrictions"}
-                ),
+                jsonify({"error": "No farms were deleted due to permission restrictions"}),
                 403,
             )
 
@@ -381,6 +382,7 @@ class LotView(MethodView):
         claims = get_jwt()
         if lot_id and lot_ids:
             raise BadRequest("Solo se puede especificar lot_id o lot_ids, no ambos.")
+
         if lot_id:
             lot = Lot.query.get_or_404(lot_id)
             if hasattr(lot, "active"):
@@ -389,7 +391,8 @@ class LotView(MethodView):
                 db.session.delete(lot)
             db.session.commit()
             return jsonify({"message": "Lot deleted successfully"}), 200
-        if lot_ids:
+
+        if lot_ids is not None:
             deleted_lots = []
             for lot_id in lot_ids:
                 lot = Lot.query.get(lot_id)
@@ -401,16 +404,15 @@ class LotView(MethodView):
                     db.session.delete(lot)
                 deleted_lots.append(lot.name)
                 db.session.commit()
+
+            if deleted_lots:
                 deleted_lots_str = ", ".join(deleted_lots)
+                return (
+                    jsonify({"message": f"Lots {deleted_lots_str} deleted successfully"}),
+                    200,
+                )
             return (
-                jsonify({"message": f"Lots {deleted_lots_str} deleted successfully"}),
-                200,
-            )
-        if not deleted_lots:
-            return (
-                jsonify(
-                    {"error": "No lots were deleted due to permission restrictions"}
-                ),
+                jsonify({"error": "No lots were deleted due to permission restrictions"}),
                 403,
             )
 
@@ -569,6 +571,7 @@ class CropView(MethodView):
         claims = get_jwt()
         if crop_id and crop_ids:
             raise BadRequest("Solo se puede especificar crop_id o crop_ids, no ambos.")
+
         if crop_id:
             crop = Crop.query.get_or_404(crop_id)
             if hasattr(crop, "active"):
@@ -577,7 +580,8 @@ class CropView(MethodView):
                 db.session.delete(crop)
             db.session.commit()
             return jsonify({"message": "Crop deleted successfully"}), 200
-        if crop_ids:
+
+        if crop_ids is not None:
             deleted_crops = []
             for crop_id in crop_ids:
                 crop = Crop.query.get(crop_id)
@@ -589,16 +593,15 @@ class CropView(MethodView):
                     db.session.delete(crop)
                 deleted_crops.append(crop.name)
                 db.session.commit()
+
+            if deleted_crops:
                 deleted_crops_str = ", ".join(deleted_crops)
+                return (
+                    jsonify({"message": f"Crops {deleted_crops_str} deleted successfully"}),
+                    200,
+                )
             return (
-                jsonify({"message": f"Crops {deleted_crops_str} deleted successfully"}),
-                200,
-            )
-        if not deleted_crops:
-            return (
-                jsonify(
-                    {"error": "No crops were deleted due to permission restrictions"}
-                ),
+                jsonify({"error": "No crops were deleted due to permission restrictions"}),
                 403,
             )
 
@@ -762,6 +765,7 @@ class NutrientView(MethodView):
             raise BadRequest(
                 "Solo se puede especificar nutrient_id o nutrient_ids, no ambos."
             )
+
         if nutrient_id:
             nutrient = Nutrient.query.get_or_404(nutrient_id)
             if hasattr(nutrient, "active"):
@@ -770,7 +774,8 @@ class NutrientView(MethodView):
                 db.session.delete(nutrient)
             db.session.commit()
             return jsonify({"message": "Nutrient deleted successfully"}), 200
-        if nutrient_ids:
+
+        if nutrient_ids is not None:
             deleted_nutrients = []
             for nutrient_id in nutrient_ids:
                 nutrient = Nutrient.query.get(nutrient_id)
@@ -782,16 +787,17 @@ class NutrientView(MethodView):
                     db.session.delete(nutrient)
                 deleted_nutrients.append(nutrient.name)
                 db.session.commit()
+
+            if deleted_nutrients:
                 deleted_nutrients_str = ", ".join(deleted_nutrients)
-            return (
-                jsonify(
-                    {
-                        "message": f"Nutrients {deleted_nutrients_str} deleted successfully"
-                    }
-                ),
-                200,
-            )
-        if not deleted_nutrients:
+                return (
+                    jsonify(
+                        {
+                            "message": f"Nutrients {deleted_nutrients_str} deleted successfully"
+                        }
+                    ),
+                    200,
+                )
             return (
                 jsonify(
                     {
