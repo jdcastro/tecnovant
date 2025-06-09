@@ -121,7 +121,7 @@ class Config:
     JSON_AS_ASCII = False
     JSONIFY_PRETTYPRINT_REGULAR = False
 
-    # overwrite for testing develpment propose
+    # overwrite for testing development purposes
     JWT_COOKIE_SECURE = True  # development purposes
     JWT_COOKIE_CSRF_PROTECT = True  # development purposes
 
