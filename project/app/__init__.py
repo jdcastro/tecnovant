@@ -1,4 +1,4 @@
-"""🚀 Started file app"""
+"""Application factory and extension initialization."""
 
 # Python standard library imports
 import os
