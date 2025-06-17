@@ -139,7 +139,7 @@ base_input_classes, table_header_class, table_cell_class %}
                 {% if csv_download_url %}
                 <a href="{{ csv_download_url }}" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">Descargar CSV</a>
                 {% endif %}
-                {% if csv_upload_url %}
+                {% if csv_import_url or csv_upload_url %}
                 <form id="csv-upload-form" enctype="multipart/form-data" class="flex gap-2 items-center">
                     <input type="file" id="csv-file-input" name="file" accept=".csv" class="{{ base_input_classes }}">
                     <button type="button" onclick="uploadCsv()" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }} {{ focus_ring_color }}">Subir CSV</button>
@@ -665,7 +665,7 @@ window.addEventListener('click', function(event) {
         }
     }
 
-    {% if csv_upload_url %}
+    {% if csv_import_url or csv_upload_url %}
     async function uploadCsv() {
         const input = document.getElementById('csv-file-input');
         if (!input || !input.files.length) {
@@ -675,7 +675,7 @@ window.addEventListener('click', function(event) {
         const formData = new FormData();
         formData.append('file', input.files[0]);
         try {
-            const response = await fetch('{{ csv_upload_url }}', {
+            const response = await fetch('{{ csv_import_url or csv_upload_url }}', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'X-CSRF-TOKEN': getCookie('csrf_access_token') },
