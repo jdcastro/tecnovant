@@ -15,6 +15,8 @@ from .helpers import ReportView
 
 report_view = ReportView.as_view("report_view")
 api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])
+report_data_view = ReportView.as_view("report_data")
+api.add_url_rule("/data/<int:id>", view_func=report_data_view, methods=["GET"])
 
 report_generator_view = RecommendationGenerator.as_view("generate_report")
 api.add_url_rule("/generate", view_func=report_generator_view, methods=["POST"])

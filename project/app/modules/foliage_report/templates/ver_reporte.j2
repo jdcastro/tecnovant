@@ -288,65 +288,82 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Solo intentar crear gráficos si los datos están disponibles
-            const foliarChartData = {{ foliarChartData|tojson|safe or 'null' }};
-            const soilChartData = {{ soilChartData|tojson|safe or 'null' }};
-            const historicalData = {{ historicalData|tojson|safe or 'null' }};
+            const chartColors = {
+                actual: 'rgba(59, 130, 246, 0.7)',
+                min: 'rgba(239, 68, 68, 0.5)',
+                max: 'rgba(245, 158, 11, 0.5)'
+            };
+            fetch('{{ url_for("foliage_report_api.report_data", id=report_id) }}')
+                .then(r => r.json())
+                .then(data => {
+                    const short = { nitrogeno:'N', fosforo:'P', potasio:'K', calcio:'Ca', magnesio:'Mg', azufre:'S', hierro:'Fe', manganeso:'Mn', zinc:'Zn', cobre:'Cu', boro:'B', ph:'pH', materiaOrganica:'M.O.', cic:'CIC' };
+                    const analysis = data.analysisData || {};
+                    const optimal = data.optimalLevels || {};
+                    const foliarChartData = [];
+                    if (analysis.foliar && optimal.foliar) {
+                        for (const [k,v] of Object.entries(analysis.foliar)) {
+                            const lvl = optimal.foliar[k];
+                            if (lvl && typeof v === 'number') {
+                                foliarChartData.push({name: short[k]||k, actual:v, min:lvl.min, max:lvl.max});
+                            }
+                        }
+                    }
+                    const soilChartData = [];
+                    if (analysis.soil && optimal.soil) {
+                        for (const [k,v] of Object.entries(analysis.soil)) {
+                            const lvl = optimal.soil[k];
+                            if (lvl && typeof v === 'number') {
+                                soilChartData.push({name: short[k]||k, actual:v, min:lvl.min, max:lvl.max});
+                            }
+                        }
+                    }
+                    const historicalData = data.historicalData || [];
 
-            // Configuración de gráficos (solo si hay datos)
-            if (foliarChartData && document.getElementById('foliarChart')) {
-                 const foliarChartCtx = document.getElementById('foliarChart').getContext('2d');
-                 new Chart(foliarChartCtx, {
-                     type: 'bar', // o 'radar'
-                     data: {
-                         labels: foliarChartData.map(d => d.name),
-                         datasets: [
-                             {
-                                 label: 'Nivel Actual',
-                                 data: foliarChartData.map(d => d.actual),
-                                 backgroundColor: 'rgba(54, 162, 235, 0.6)', // Azul
-                                 borderColor: 'rgba(54, 162, 235, 1)',
-                                 borderWidth: 1
-                             },
-                              {
-                                 label: 'Rango Óptimo',
-                                 data: foliarChartData.map(d => [d.min, d.max]), // Para mostrar rango
-                                 // Opciones para mostrar rango (puede requerir plugins o configuración específica)
-                                  type: 'line', // Podría ser una línea o área para el rango
-                                  fill: '+1', // Rellenar hasta el siguiente dataset (max)
-                                  backgroundColor: 'rgba(75, 192, 192, 0.2)', // Verde claro
-                                  borderColor: 'rgba(75, 192, 192, 0.5)',
-                                  pointRadius: 0,
-                                  data: foliarChartData.map(d => d.min), // Línea mínima
-                              },
-                               {
-                                  // Dataset para la línea máxima del rango
-                                  data: foliarChartData.map(d => d.max),
-                                  type: 'line',
-                                  fill: false,
-                                  borderColor: 'rgba(75, 192, 192, 0.5)',
-                                  pointRadius: 0,
-                                  showLine: false // Opcional: ocultar la línea si solo quieres el área
-                              }
-                         ]
-                     },
-                     options: { // Opciones básicas
-                         responsive: true,
-                         maintainAspectRatio: false,
-                          plugins: { legend: { display: true } }
-                     }
-                 });
-            }
+            const foliarChartCtx = document.getElementById('foliarChart').getContext('2d');
+            new Chart(foliarChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: foliarChartData.map(d => d.name),
+                    datasets: [
+                        { label: 'Nivel Actual', data: foliarChartData.map(d => d.actual), backgroundColor: chartColors.actual },
+                        { label: 'Nivel Mínimo', data: foliarChartData.map(d => d.min), backgroundColor: chartColors.min },
+                        { label: 'Nivel Máximo', data: foliarChartData.map(d => d.max), backgroundColor: chartColors.max }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } } }
+            });
 
-            if (soilChartData && document.getElementById('soilChart')) {
-                const soilChartCtx = document.getElementById('soilChart').getContext('2d');
-                 // ... (Configuración similar para soilChart) ...
-            }
+            const soilChartCtx = document.getElementById('soilChart').getContext('2d');
+            new Chart(soilChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: soilChartData.map(d => d.name),
+                    datasets: [
+                        { label: 'Nivel Actual', data: soilChartData.map(d => d.actual), backgroundColor: 'hsl(var(--chart-1))' },
+                        { label: 'Nivel Mínimo', data: soilChartData.map(d => d.min), backgroundColor: 'hsl(var(--chart-3))' },
+                        { label: 'Nivel Máximo', data: soilChartData.map(d => d.max), backgroundColor: 'hsl(var(--chart-4))' }
+                    ]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Niveles de Nutrientes de Suelo' } } }
+            });
 
-            if (historicalData && document.getElementById('historyChart')) {
-                const historyChartCtx = document.getElementById('historyChart').getContext('2d');
-                // ... (Configuración similar para historyChart) ...
-            }
+            const historyChartCtx = document.getElementById('historyChart').getContext('2d');
+            new Chart(historyChartCtx, {
+                type: 'line',
+                data: {
+                    labels: historicalData.map(d => d.fecha),
+                    datasets: [
+                        { label: 'Nitrógeno', data: historicalData.map(d => d.nitrogeno), fill: false, borderColor: 'hsl(var(--color-nitrogeno))', tension: 0.1 },
+                        { label: 'Fósforo', data: historicalData.map(d => d.fosforo), fill: false, borderColor: 'hsl(var(--color-fosforo))', tension: 0.1 },
+                        { label: 'Potasio', data: historicalData.map(d => d.potasio), fill: false, borderColor: 'hsl(var(--color-potasio))', tension: 0.1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' }, title: { display: true, text: 'Historial de Análisis' } },
+                    scales: { x: { display: true, title: { display: true, text: 'Fecha' } }, y: { display: true, title: { display: true, text: 'Nivel (%)' } } }
+                }
+            });
 
             // Manejo de tabs
             const tabs = document.querySelectorAll('.tabs-trigger');

@@ -728,148 +728,91 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Configuración de gráficos de análisis foliar
-            const foliarChartCtx = document.getElementById('foliarChart').getContext('2d');
             const chartColors = {
-                actual: 'rgba(59, 130, 246, 0.7)',    // Blue-500
-                min: 'rgba(239, 68, 68, 0.5)',      // Red-500
-                max: 'rgba(245, 158, 11, 0.5)',     // Amber-500
+                actual: 'rgba(59, 130, 246, 0.7)',
+                min: 'rgba(239, 68, 68, 0.5)',
+                max: 'rgba(245, 158, 11, 0.5)'
             };
-            new Chart(foliarChartCtx, {
-                type: 'bar',
-                data: {
-                    labels: {{ foliarChartData|map(attribute='name')|list|tojson }},
-                    datasets: [
-                        {
-                            label: 'Nivel Actual',
-                            data: {{ foliarChartData|map(attribute='actual')|list|tojson }},
-                            backgroundColor: chartColors.actual,
-                        },
-                        {
-                            label: 'Nivel Mínimo',
-                            data: {{ foliarChartData|map(attribute='min')|list|tojson }},
-                            backgroundColor: chartColors.min,
-                        },
-                        {
-                            label: 'Nivel Máximo',
-                            data: {{ foliarChartData|map(attribute='max')|list|tojson }},
-                            backgroundColor: chartColors.max,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Niveles de Nutrientes Folares'
-                        }
-                    }
-                }
-            });
-
-            // Configuración de gráficos de análisis de suelo
-            const soilChartCtx = document.getElementById('soilChart').getContext('2d');
-            new Chart(soilChartCtx, {
-                type: 'bar',
-                data: {
-                    labels: {{ soilChartData|map(attribute='name')|list|tojson }},
-                    datasets: [
-                        {
-                            label: 'Nivel Actual',
-                            data: {{ soilChartData|map(attribute='actual')|list|tojson }},
-                            backgroundColor: 'hsl(var(--chart-1))',
-                        },
-                        {
-                            label: 'Nivel Mínimo',
-                            data: {{ soilChartData|map(attribute='min')|list|tojson }},
-                            backgroundColor: 'hsl(var(--chart-3))',
-                        },
-                        {
-                            label: 'Nivel Máximo',
-                            data: {{ soilChartData|map(attribute='max')|list|tojson }},
-                            backgroundColor: 'hsl(var(--chart-4))',
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Niveles de Nutrientes de Suelo'
-                        }
-                    }
-                }
-            });
-
-            // Configuración de gráficos histórico
-            const historyChartCtx = document.getElementById('historyChart').getContext('2d');
-            new Chart(historyChartCtx, {
-                type: 'line',
-                data: {
-                    labels: {{ historicalData|map(attribute='fecha')|list|tojson }},
-                    datasets: [
-                        {
-                            label: 'Nitrógeno',
-                            data: {{ historicalData|map(attribute='nitrogeno')|list|tojson }},
-                            fill: false,
-                            borderColor: 'hsl(var(--color-nitrogeno))',
-                            tension: 0.1
-                        },
-                        {
-                            label: 'Fósforo',
-                            data: {{ historicalData|map(attribute='fosforo')|list|tojson }},
-                            fill: false,
-                            borderColor: 'hsl(var(--color-fosforo))',
-                            tension: 0.1
-                        },
-                        {
-                            label: 'Potasio',
-                            data: {{ historicalData|map(attribute='potasio')|list|tojson }},
-                            fill: false,
-                            borderColor: 'hsl(var(--color-potasio))',
-                            tension: 0.1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Historial de Análisis'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            display: true,
-                            title: {
-                                display: true,
-                                text: 'Fecha'
-                            }
-                        },
-                        y: {
-                            display: true,
-                            title: {
-                                display: true,
-                                text: 'Nivel (%)'
+            fetch('{{ url_for("foliage_report_api.report_data", id=report_id) }}')
+                .then(r => r.json())
+                .then(data => {
+                    const short = {
+                        nitrogeno: 'N', fosforo: 'P', potasio: 'K', calcio: 'Ca', magnesio: 'Mg', azufre: 'S',
+                        hierro: 'Fe', manganeso: 'Mn', zinc: 'Zn', cobre: 'Cu', boro: 'B',
+                        ph: 'pH', materiaOrganica: 'M.O.', cic: 'CIC'
+                    };
+                    const analysis = data.analysisData || {};
+                    const optimal = data.optimalLevels || {};
+                    const foliarChartData = [];
+                    if (analysis.foliar && optimal.foliar) {
+                        for (const [k, v] of Object.entries(analysis.foliar)) {
+                            const lvl = optimal.foliar[k];
+                            if (lvl && typeof v === 'number') {
+                                foliarChartData.push({name: short[k] || k, actual: v, min: lvl.min, max: lvl.max});
                             }
                         }
                     }
-                }
-            });
+                    const soilChartData = [];
+                    if (analysis.soil && optimal.soil) {
+                        for (const [k, v] of Object.entries(analysis.soil)) {
+                            const lvl = optimal.soil[k];
+                            if (lvl && typeof v === 'number') {
+                                soilChartData.push({name: short[k] || k, actual: v, min: lvl.min, max: lvl.max});
+                            }
+                        }
+                    }
+                    const historicalData = data.historicalData || [];
 
-            // Manejo de tabs
+                    const foliarChartCtx = document.getElementById('foliarChart').getContext('2d');
+                    new Chart(foliarChartCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: foliarChartData.map(d => d.name),
+                            datasets: [
+                                { label: 'Nivel Actual', data: foliarChartData.map(d => d.actual), backgroundColor: chartColors.actual },
+                                { label: 'Nivel Mínimo', data: foliarChartData.map(d => d.min), backgroundColor: chartColors.min },
+                                { label: 'Nivel Máximo', data: foliarChartData.map(d => d.max), backgroundColor: chartColors.max }
+                            ]
+                        },
+                        options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Niveles de Nutrientes Folares' } } }
+                    });
+
+                    const soilChartCtx = document.getElementById('soilChart').getContext('2d');
+                    new Chart(soilChartCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: soilChartData.map(d => d.name),
+                            datasets: [
+                                { label: 'Nivel Actual', data: soilChartData.map(d => d.actual), backgroundColor: 'hsl(var(--chart-1))' },
+                                { label: 'Nivel Mínimo', data: soilChartData.map(d => d.min), backgroundColor: 'hsl(var(--chart-3))' },
+                                { label: 'Nivel Máximo', data: soilChartData.map(d => d.max), backgroundColor: 'hsl(var(--chart-4))' }
+                            ]
+                        },
+                        options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Niveles de Nutrientes de Suelo' } } }
+                    });
+
+                    const historyChartCtx = document.getElementById('historyChart').getContext('2d');
+                    new Chart(historyChartCtx, {
+                        type: 'line',
+                        data: {
+                            labels: historicalData.map(d => d.fecha),
+                            datasets: [
+                                { label: 'Nitrógeno', data: historicalData.map(d => d.nitrogeno), fill: false, borderColor: 'hsl(var(--color-nitrogeno))', tension: 0.1 },
+                                { label: 'Fósforo', data: historicalData.map(d => d.fosforo), fill: false, borderColor: 'hsl(var(--color-fosforo))', tension: 0.1 },
+                                { label: 'Potasio', data: historicalData.map(d => d.potasio), fill: false, borderColor: 'hsl(var(--color-potasio))', tension: 0.1 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'top' }, title: { display: true, text: 'Historial de Análisis' } },
+                            scales: {
+                                x: { display: true, title: { display: true, text: 'Fecha' } },
+                                y: { display: true, title: { display: true, text: 'Nivel (%)' } }
+                            }
+                        }
+                    });
+                });
+
             const tabs = document.querySelectorAll('.tabs-trigger');
             tabs.forEach(tab => {
                 tab.addEventListener('click', function() {
