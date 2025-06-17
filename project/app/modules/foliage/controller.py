@@ -38,11 +38,13 @@ from .models import (
 
 # helper
 
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (date, datetime)):
             return obj.isoformat()
         return super().default(obj)
+
 
 # Vista para granjas (farms)
 # 👌
@@ -214,7 +216,9 @@ class FarmView(MethodView):
 
         if not deleted_farms:
             return (
-                jsonify({"error": "No farms were deleted due to permission restrictions"}),
+                jsonify(
+                    {"error": "No farms were deleted due to permission restrictions"}
+                ),
                 403,
             )
 
@@ -428,11 +432,15 @@ class LotView(MethodView):
             if deleted_lots:
                 deleted_lots_str = ", ".join(deleted_lots)
                 return (
-                    jsonify({"message": f"Lots {deleted_lots_str} deleted successfully"}),
+                    jsonify(
+                        {"message": f"Lots {deleted_lots_str} deleted successfully"}
+                    ),
                     200,
                 )
             return (
-                jsonify({"error": "No lots were deleted due to permission restrictions"}),
+                jsonify(
+                    {"error": "No lots were deleted due to permission restrictions"}
+                ),
                 403,
             )
 
@@ -617,11 +625,15 @@ class CropView(MethodView):
             if deleted_crops:
                 deleted_crops_str = ", ".join(deleted_crops)
                 return (
-                    jsonify({"message": f"Crops {deleted_crops_str} deleted successfully"}),
+                    jsonify(
+                        {"message": f"Crops {deleted_crops_str} deleted successfully"}
+                    ),
                     200,
                 )
             return (
-                jsonify({"error": "No crops were deleted due to permission restrictions"}),
+                jsonify(
+                    {"error": "No crops were deleted due to permission restrictions"}
+                ),
                 403,
             )
 
@@ -844,7 +856,6 @@ class NutrientView(MethodView):
         }
 
 
-
 # 👌
 class ObjectiveView(MethodView):
     """Class to manage CRUD operations for nutrient objectives tied to crops"""
@@ -954,9 +965,9 @@ class ObjectiveView(MethodView):
         """Create a new objective with nutrient targets"""
         crop_id = data["crop_id"]
         try:
-            target_value = float(data["target_value"]) # Convert to float
+            target_value = float(data["target_value"])  # Convert to float
         except (ValueError, TypeError):
-            target_value = 0.0  
+            target_value = 0.0
         protein = data.get("protein")  # Optional
         rest = data.get("rest")  # Optional
 
@@ -966,8 +977,8 @@ class ObjectiveView(MethodView):
             raise BadRequest("Invalid crop ID.")
 
         # Convert optional fields to float if provided
-        protein = float(data.get('protein', 0)) if data.get('protein') else None
-        rest = float(data.get('rest', 0)) if data.get('rest') else None
+        protein = float(data.get("protein", 0)) if data.get("protein") else None
+        rest = float(data.get("rest", 0)) if data.get("rest") else None
 
         # Create new objective
         new_objective = Objective(
@@ -983,11 +994,11 @@ class ObjectiveView(MethodView):
             nutrient = Nutrient.query.get(nutrient_id)
             if not nutrient:
                 raise BadRequest(f"Invalid nutrient ID: {nutrient_id}")
-            
+
             # Handle null or empty values
             if value is None or value == "":
                 continue  # Skip this nutrient target if value is null or empty
-            
+
             try:
                 target_value_float = float(value)  # Convert to float
                 if target_value_float < 0:
@@ -1311,6 +1322,7 @@ class ProductView(MethodView):
             "updated_at": product.updated_at.isoformat(),
         }
 
+
 # 👌
 class ProductContributionView(MethodView):
     """Class to manage CRUD operations for product contributions"""
@@ -1521,6 +1533,7 @@ class ProductContributionView(MethodView):
             "nutrient_contributions": nutrient_contributions_dict,
         }
 
+
 # 👌
 class ProductPriceView(MethodView):
     """Class to manage CRUD operations for product prices"""
@@ -1686,10 +1699,13 @@ class ProductPriceView(MethodView):
             ),
         }
 
+
 # 👌# Vista para análisis comunes (common_analyses)
 class CommonAnalysisView(MethodView):
     """Clase para gestionar operaciones CRUD sobre análisis comunes."""
+
     decorators = [jwt_required()]
+
     @check_permission(required_roles=["administrator", "reseller"])
     def get(self, common_analysis_id=None):
         """
@@ -1702,6 +1718,7 @@ class CommonAnalysisView(MethodView):
         if common_analysis_id:
             return self._get_common_analysis(common_analysis_id)
         return self._get_common_analysis_list()
+
     @check_permission(required_roles=["administrator", "reseller"])
     def post(self):
         """
@@ -1710,9 +1727,21 @@ class CommonAnalysisView(MethodView):
             JSON: Detalles del análisis común creado.
         """
         data = request.get_json()
-        if not data or not all(k in data for k in ("date", "lot_id", "protein", "energy", "rest", "rest_days", "month")):
+        if not data or not all(
+            k in data
+            for k in (
+                "date",
+                "lot_id",
+                "protein",
+                "energy",
+                "rest",
+                "rest_days",
+                "month",
+            )
+        ):
             raise BadRequest("Missing required fields.")
         return self._create_common_analysis(data)
+
     @check_permission(resource_owner_check=True)
     def put(self, id):
         """
@@ -1727,6 +1756,7 @@ class CommonAnalysisView(MethodView):
         if not data or not common_analysis_id:
             raise BadRequest("Missing common_analysis_id or data.")
         return self._update_common_analysis(common_analysis_id, data)
+
     @check_permission(resource_owner_check=True)
     def delete(self, id=None):
         """
@@ -1743,14 +1773,15 @@ class CommonAnalysisView(MethodView):
         if common_analysis_id:
             return self._delete_common_analysis(common_analysis_id=common_analysis_id)
         raise BadRequest("Missing common_analysis_id.")
+
     # Métodos auxiliares
     def _get_common_analysis_list(self, filter_by=None):
         """
         Obtiene una lista de todos los análisis comunes activos según el rol del usuario.
-        
+
         Args:
             filter_by (int): Filtro por ID de finca.
-        
+
         Returns:
             Response: Lista de análisis comunes en formato JSON.
         """
@@ -1758,9 +1789,9 @@ class CommonAnalysisView(MethodView):
         user_role = claims.get("rol")
         user_id = claims.get("id")
         user_org = claims.get("organizations", [])
-        
+
         common_analyses = []  # Lista de análisis comunes que se devolverá
-        
+
         if user_role == RoleEnum.ADMINISTRATOR.value:
             query = CommonAnalysis.query
             if hasattr(CommonAnalysis, "active"):
@@ -1777,43 +1808,51 @@ class CommonAnalysisView(MethodView):
             )
             if not reseller_package:
                 raise NotFound("Reseller package not found.")
-            
+
             if filter_by:
                 query = (
                     CommonAnalysis.query.join(Lot)
                     .join(Farm)
                     .filter(Farm.id == filter_by)
-                    .join(ResellerPackage.organizations, Farm.organization_id == Organization.id)
+                    .join(
+                        ResellerPackage.organizations,
+                        Farm.organization_id == Organization.id,
+                    )
                     .filter(Organization.id.in_(reseller_package.organization_ids))
                 )
             else:
                 query = (
                     CommonAnalysis.query.join(Lot)
                     .join(Farm)
-                    .join(ResellerPackage.organizations, Farm.organization_id == Organization.id)
+                    .join(
+                        ResellerPackage.organizations,
+                        Farm.organization_id == Organization.id,
+                    )
                     .filter(Organization.id.in_(reseller_package.organization_ids))
                 )
         elif user_role == RoleEnum.ORG_ADMIN.value:
-            org_ids = [org["id"] for org in user_org ]
+            org_ids = [org["id"] for org in user_org]
             if not org_ids:
                 raise Forbidden("User is not associated with any organization.")
 
             if filter_by:
                 query = (
                     CommonAnalysis.query.join(Lot)
-                    .join(Farm).filter(Farm.id == filter_by)
+                    .join(Farm)
+                    .filter(Farm.id == filter_by)
                     .filter(Farm.org_id.in_(org_ids))
                 )
             else:
                 query = (
                     CommonAnalysis.query.join(Lot)
-                    .join(Farm).filter(Farm.org_id.in_(org_ids))
+                    .join(Farm)
+                    .filter(Farm.org_id.in_(org_ids))
                 )
         else:
             raise Forbidden("You can't list common_analyses.")
-        
+
         common_analyses = query.all()
-        
+
         # Serialización y respuesta
         response_data = [
             self._serialize_common_analysis(common_analysis)
@@ -1821,7 +1860,7 @@ class CommonAnalysisView(MethodView):
         ]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
-    
+
     def _get_common_analysis(self, common_analysis_id):
         """Obtiene los detalles de un análisis común específico."""
         common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
@@ -1831,7 +1870,7 @@ class CommonAnalysisView(MethodView):
         response_data = self._serialize_common_analysis(common_analysis)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
-    
+
     def _create_common_analysis(self, data):
         """Crea un nuevo análisis común con los datos proporcionados."""
         if CommonAnalysis.query.filter_by(
@@ -1853,6 +1892,7 @@ class CommonAnalysisView(MethodView):
         response_data = self._serialize_common_analysis(common_analysis)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=201, mimetype="application/json")
+
     def _update_common_analysis(self, common_analysis_id, data):
         """Actualiza los datos de un análisis común existente."""
         common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
@@ -1876,6 +1916,7 @@ class CommonAnalysisView(MethodView):
         response_data = self._serialize_common_analysis(common_analysis)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
+
     def _delete_common_analysis(
         self, common_analysis_id=None, common_analysis_ids=None
     ):
@@ -1910,10 +1951,11 @@ class CommonAnalysisView(MethodView):
                 ),
                 200,
             )
+
     def _has_access(self, common_analysis, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
         return check_resource_access(common_analysis, claims)
-        
+
     def _serialize_common_analysis(self, common_analysis):
         """Serializa un objeto CommonAnalysis a un diccionario."""
         return {
@@ -1928,8 +1970,16 @@ class CommonAnalysisView(MethodView):
             "rest_days": common_analysis.rest_days,
             "yield_estimate": common_analysis.yield_estimate,
             "month": common_analysis.month,
-            "created_at": common_analysis.created_at.isoformat() if common_analysis.created_at else None,
-            "updated_at": common_analysis.updated_at.isoformat() if common_analysis.updated_at else None,
+            "created_at": (
+                common_analysis.created_at.isoformat()
+                if common_analysis.created_at
+                else None
+            ),
+            "updated_at": (
+                common_analysis.updated_at.isoformat()
+                if common_analysis.updated_at
+                else None
+            ),
         }
 
 
@@ -2017,7 +2067,9 @@ class LotCropView(MethodView):
                     lot_crops.extend(farm.lot_crops)
         else:
             # Filtra por organización del usuario
-            lot_crops = LotCrop.query.join(Lot).join(Farm).filter(Farm.org_id == org_id).all()
+            lot_crops = (
+                LotCrop.query.join(Lot).join(Farm).filter(Farm.org_id == org_id).all()
+            )
         response_data = [self._serialize_lot_crop(lot_crop) for lot_crop in lot_crops]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
@@ -2040,26 +2092,43 @@ class LotCropView(MethodView):
 
         # Convertir las fechas de entrada a objetos datetime
         new_start_date = datetime.fromisoformat(data["start_date"])
-        new_end_date = datetime.fromisoformat(data["end_date"]) if data.get("end_date") else None
+        new_end_date = (
+            datetime.fromisoformat(data["end_date"]) if data.get("end_date") else None
+        )
 
         # Verificar si ya existe un cultivo activo (sin fecha de fin) en el lote
-        active_crop = LotCrop.query.filter_by(lot_id=data["lot_id"]).filter(LotCrop.end_date.is_(None)).first()
+        active_crop = (
+            LotCrop.query.filter_by(lot_id=data["lot_id"])
+            .filter(LotCrop.end_date.is_(None))
+            .first()
+        )
         if active_crop:
-            raise BadRequest("There is an active crop in this lot. Please close it before starting a new one.")
+            raise BadRequest(
+                "There is an active crop in this lot. Please close it before starting a new one."
+            )
 
         # Verificar solapamiento con cultivos existentes
         existing_crops = LotCrop.query.filter_by(lot_id=data["lot_id"]).all()
         for existing in existing_crops:
             existing_start = existing.start_date
-            existing_end = existing.end_date if existing.end_date else datetime.max  # Si no hay end_date, asumir que sigue activo
+            existing_end = (
+                existing.end_date if existing.end_date else datetime.max
+            )  # Si no hay end_date, asumir que sigue activo
 
             # Comprobar si hay solapamiento
-            if (new_start_date <= existing_end) and (new_end_date is None or new_end_date >= existing_start):
-                raise BadRequest("The new crop dates overlap with an existing crop in this lot.")
+            if (new_start_date <= existing_end) and (
+                new_end_date is None or new_end_date >= existing_start
+            ):
+                raise BadRequest(
+                    "The new crop dates overlap with an existing crop in this lot."
+                )
 
         # Verificar duplicados (misma combinación de lote, cultivo y fecha de inicio)
-        if LotCrop.query.filter_by(lot_id=data["lot_id"], crop_id=data["crop_id"], 
-                                start_date=data["start_date"]).first():
+        if LotCrop.query.filter_by(
+            lot_id=data["lot_id"],
+            crop_id=data["crop_id"],
+            start_date=data["start_date"],
+        ).first():
             raise BadRequest("This lot-crop relationship already exists.")
 
         # Crear el nuevo cultivo
@@ -2067,7 +2136,7 @@ class LotCropView(MethodView):
             lot_id=data["lot_id"],
             crop_id=data["crop_id"],
             start_date=data["start_date"],
-            end_date=data.get("end_date")
+            end_date=data.get("end_date"),
         )
         db.session.add(lot_crop)
         db.session.commit()
@@ -2081,8 +2150,16 @@ class LotCropView(MethodView):
 
         # Nuevas fechas propuestas
         new_lot_id = data.get("lot_id", lot_crop.lot_id)
-        new_start_date = datetime.fromisoformat(data["start_date"]) if "start_date" in data else lot_crop.start_date
-        new_end_date = datetime.fromisoformat(data["end_date"]) if data.get("end_date") else lot_crop.end_date
+        new_start_date = (
+            datetime.fromisoformat(data["start_date"])
+            if "start_date" in data
+            else lot_crop.start_date
+        )
+        new_end_date = (
+            datetime.fromisoformat(data["end_date"])
+            if data.get("end_date")
+            else lot_crop.end_date
+        )
 
         # Si se cambia el lote o las fechas, validar solapamientos
         if "lot_id" in data or "start_date" in data or "end_date" in data:
@@ -2091,13 +2168,19 @@ class LotCropView(MethodView):
                 Lot.query.get_or_404(data["lot_id"])
 
             # Verificar solapamiento con otros cultivos en el lote
-            existing_crops = LotCrop.query.filter(LotCrop.lot_id == new_lot_id, LotCrop.id != lot_crop_id).all()
+            existing_crops = LotCrop.query.filter(
+                LotCrop.lot_id == new_lot_id, LotCrop.id != lot_crop_id
+            ).all()
             for existing in existing_crops:
                 existing_start = existing.start_date
                 existing_end = existing.end_date if existing.end_date else datetime.max
 
-                if (new_start_date <= existing_end) and (new_end_date is None or new_end_date >= existing_start):
-                    raise BadRequest("The updated crop dates overlap with an existing crop in this lot.")
+                if (new_start_date <= existing_end) and (
+                    new_end_date is None or new_end_date >= existing_start
+                ):
+                    raise BadRequest(
+                        "The updated crop dates overlap with an existing crop in this lot."
+                    )
 
         # Actualizar los campos
         if "lot_id" in data and data["lot_id"] != lot_crop.lot_id:
@@ -2122,8 +2205,10 @@ class LotCropView(MethodView):
         """Elimina una o varias relaciones lot-crop."""
         claims = get_jwt()
         if lot_crop_id and lot_crop_ids:
-            raise BadRequest("Solo se puede especificar lot_crop_id o lot_crop_ids, no ambos.")
-        
+            raise BadRequest(
+                "Solo se puede especificar lot_crop_id o lot_crop_ids, no ambos."
+            )
+
         if lot_crop_id:
             lot_crop = LotCrop.query.get_or_404(lot_crop_id)
             if not self._has_access(lot_crop, claims):
@@ -2131,7 +2216,7 @@ class LotCropView(MethodView):
             db.session.delete(lot_crop)
             db.session.commit()
             return jsonify({"message": "LotCrop deleted successfully"}), 200
-        
+
         if lot_crop_ids:
             deleted_lot_crops = []
             for lc_id in lot_crop_ids:
@@ -2145,8 +2230,20 @@ class LotCropView(MethodView):
             db.session.commit()
             if deleted_lot_crops:
                 deleted_str = ", ".join(deleted_lot_crops)
-                return jsonify({"message": f"LotCrops {deleted_str} deleted successfully"}), 200
-            return jsonify({"error": "No lot-crops were deleted due to permission restrictions"}), 403
+                return (
+                    jsonify(
+                        {"message": f"LotCrops {deleted_str} deleted successfully"}
+                    ),
+                    200,
+                )
+            return (
+                jsonify(
+                    {
+                        "error": "No lot-crops were deleted due to permission restrictions"
+                    }
+                ),
+                403,
+            )
 
     def _has_access(self, lot_crop, claims):
         """Verifica si el usuario actual tiene acceso al recurso."""
@@ -2166,8 +2263,11 @@ class LotCropView(MethodView):
             "end_date": lot_crop.end_date.isoformat() if lot_crop.end_date else None,
             "created_at": lot_crop.created_at.isoformat(),
             "updated_at": lot_crop.updated_at.isoformat(),
-            "organization_id": lot_crop.lot.farm.org_id if lot_crop.lot and lot_crop.lot.farm else None
+            "organization_id": (
+                lot_crop.lot.farm.org_id if lot_crop.lot and lot_crop.lot.farm else None
+            ),
         }
+
 
 # Vista para análisis de foliar (leaf_analyses)
 # 👌
@@ -2189,7 +2289,7 @@ class LeafAnalysisView(MethodView):
         if filter_by:
             filter_by = int(filter_by)
             return self._get_leaf_analysis_list(filter_by=filter_by)
-        
+
         if leaf_analysis_id:
             return self._get_leaf_analysis(leaf_analysis_id)
         return self._get_leaf_analysis_list()
@@ -2249,25 +2349,31 @@ class LeafAnalysisView(MethodView):
         claims = get_jwt()
         user_role = claims.get("rol")
         leaf_analyses = []
-        
+
         if user_role == RoleEnum.ADMINISTRATOR.value:
-            query = LeafAnalysis.query.join(CommonAnalysis, LeafAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = LeafAnalysis.query.join(
+                CommonAnalysis, LeafAnalysis.common_analysis_id == CommonAnalysis.id
+            )
             query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
         elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(reseller_id=claims.get("org_id")).first()
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
             if not reseller_package:
                 raise NotFound("Reseller package not found.")
-            query = LeafAnalysis.query.join(CommonAnalysis, LeafAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = LeafAnalysis.query.join(
+                CommonAnalysis, LeafAnalysis.common_analysis_id == CommonAnalysis.id
+            )
             query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
             query = query.join(Farm, Lot.farm_id == Farm.id)
             query = query.join(Organization, Farm.org_id == Organization.id)
             query = query.filter(Organization.id.in_(reseller_package.organization_ids))
         else:
             raise Forbidden("Only administrators and resellers can list leaf analyses.")
-            
+
         if filter_by:
             query = query.filter(Lot.farm_id == filter_by)
-            
+
         leaf_analyses = query.all()
         response_data = [
             self._serialize_leaf_analysis(leaf_analysis)
@@ -2291,7 +2397,7 @@ class LeafAnalysisView(MethodView):
         common_analysis_id = data["common_analysis_id"]
 
         # Validar que common_analysis_id existe
-    
+
         common_analysis = CommonAnalysis.query.get(common_analysis_id)
         if not common_analysis:
             raise BadRequest("Invalid common_analysis_id.")
@@ -2316,11 +2422,13 @@ class LeafAnalysisView(MethodView):
                     leaf_analysis_id=new_leaf_analysis.id,
                     nutrient_id=nutrient_id,
                     value=nutrient_value,
-                    created_at=datetime.utcnow()
+                    created_at=datetime.utcnow(),
                 )
                 db.session.execute(insert_stmt)
             except ValueError:
-                raise BadRequest(f"Invalid numeric value for {nutrient.name}: '{value}'")
+                raise BadRequest(
+                    f"Invalid numeric value for {nutrient.name}: '{value}'"
+                )
 
         db.session.commit()
         response_data = self._serialize_leaf_analysis(new_leaf_analysis)
@@ -2355,16 +2463,20 @@ class LeafAnalysisView(MethodView):
                 try:
                     nutrient_value = float(value)
                     if nutrient_value < 0:
-                        raise BadRequest(f"Value for {nutrient.name} must be non-negative.")
+                        raise BadRequest(
+                            f"Value for {nutrient.name} must be non-negative."
+                        )
                     insert_stmt = leaf_analysis_nutrients.insert().values(
                         leaf_analysis_id=leaf_analysis.id,
                         nutrient_id=nutrient_id,
                         value=nutrient_value,
-                        created_at=datetime.utcnow()
+                        created_at=datetime.utcnow(),
                     )
                     db.session.execute(insert_stmt)
                 except ValueError:
-                    raise BadRequest(f"Invalid numeric value for {nutrient.name}: '{value}'")
+                    raise BadRequest(
+                        f"Invalid numeric value for {nutrient.name}: '{value}'"
+                    )
 
         db.session.commit()
         response_data = self._serialize_leaf_analysis(leaf_analysis)
@@ -2381,7 +2493,7 @@ class LeafAnalysisView(MethodView):
     def _has_access(self, leaf_analysis, claims):
         """Verifica si el usuario actual tiene acceso al análisis de hoja."""
         return check_resource_access(leaf_analysis, claims)
-    
+
     def _serialize_leaf_analysis(self, leaf_analysis):
         """Serializa un objeto LeafAnalysis a un diccionario."""
         nutrient_values = (
@@ -2403,12 +2515,13 @@ class LeafAnalysisView(MethodView):
                     "unit": Nutrient.query.get(nv.nutrient_id).unit,
                 }
                 for nv in nutrient_values
-            }
+            },
         }
         # Aplanar los valores de los nutrientes directamente en el diccionario
         for nv in nutrient_values:
             analysis_dict[f"nutrient_{nv.nutrient_id}"] = nv.value
         return analysis_dict
+
 
 # 👌
 class SoilAnalysisView(MethodView):
@@ -2434,8 +2547,7 @@ class SoilAnalysisView(MethodView):
             return self._get_soil_analysis_list(filter_by=filter_value)
         else:
             return self._get_soil_analysis_list()
-        
-        
+
     @check_permission(required_roles=["administrator", "reseller"])
     def post(self):
         """
@@ -2484,25 +2596,31 @@ class SoilAnalysisView(MethodView):
         claims = get_jwt()
         user_role = claims.get("rol")
         soil_analyses = []
-        
+
         if user_role == RoleEnum.ADMINISTRATOR.value:
-            query = SoilAnalysis.query.join(CommonAnalysis, SoilAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = SoilAnalysis.query.join(
+                CommonAnalysis, SoilAnalysis.common_analysis_id == CommonAnalysis.id
+            )
             query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
         elif user_role == RoleEnum.RESELLER.value:
-            reseller_package = ResellerPackage.query.filter_by(reseller_id=claims.get("org_id")).first()
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
             if not reseller_package:
                 raise NotFound("Reseller package not found.")
-            query = SoilAnalysis.query.join(CommonAnalysis, SoilAnalysis.common_analysis_id == CommonAnalysis.id)
+            query = SoilAnalysis.query.join(
+                CommonAnalysis, SoilAnalysis.common_analysis_id == CommonAnalysis.id
+            )
             query = query.join(Lot, CommonAnalysis.lot_id == Lot.id)
             query = query.join(Farm, Lot.farm_id == Farm.id)
             query = query.join(Organization, Farm.org_id == Organization.id)
             query = query.filter(Organization.id.in_(reseller_package.organization_ids))
         else:
             raise Forbidden("Only administrators and resellers can list soil analyses")
-            
+
         if filter_by:
             query = query.filter(Lot.farm_id == filter_by)
-            
+
         soil_analyses = query.all()
         response_data = [self._serialize_soil_analysis(sa) for sa in soil_analyses]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
@@ -2566,10 +2684,13 @@ class SoilAnalysisView(MethodView):
             "updated_at": soil_analysis.updated_at.isoformat(),
         }
 
+
 # Vista para aplicaciones de nutrientes (nutrient_applications)
 class NutrientApplicationView(MethodView):
     """Class to manage CRUD operations for nutrient applications"""
+
     decorators = [jwt_required()]
+
     @check_permission(required_roles=["administrator", "reseller"])
     def get(self, nutrient_application_id=None):
         """
@@ -2581,11 +2702,11 @@ class NutrientApplicationView(MethodView):
         """
         if nutrient_application_id:
             return self._get_nutrient_application(nutrient_application_id)
-        filter_by = request.args.get('filter_by', None)
+        filter_by = request.args.get("filter_by", None)
         if filter_by:
             filter_by = int(filter_by)
         return self._get_nutrient_application_list(filter_by=filter_by)
-    
+
     @check_permission(required_roles=["administrator", "reseller"])
     def post(self):
         """
@@ -2604,6 +2725,7 @@ class NutrientApplicationView(MethodView):
         if not data or not all(k in data for k in required_fields):
             raise BadRequest("Missing required fields: lot_id and date.")
         return self._create_nutrient_application(data)
+
     @check_permission(resource_owner_check=True)
     def put(self, id: int):
         """
@@ -2619,6 +2741,7 @@ class NutrientApplicationView(MethodView):
         if not data or not nutrient_application_id:
             raise BadRequest("Missing nutrient_application_id or data.")
         return self._update_nutrient_application(nutrient_application_id, data)
+
     @check_permission(resource_owner_check=True)
     def delete(self, id=None):
         """
@@ -2632,6 +2755,7 @@ class NutrientApplicationView(MethodView):
         if not nutrient_application_id:
             raise BadRequest("Missing nutrient_application_id.")
         return self._delete_nutrient_application(nutrient_application_id)
+
     # Helper Methods
     def _get_nutrient_application_list(self, filter_by=None):
         """
@@ -2646,11 +2770,9 @@ class NutrientApplicationView(MethodView):
         nutrient_applications = []  # Lista de nutrient applications que se devolverá
 
         if user_role == RoleEnum.ADMINISTRATOR.value:
-            query = (
-                NutrientApplication.query
-                .join(Lot, NutrientApplication.lot_id == Lot.id)
-                .join(Farm, Lot.farm_id == Farm.id)
-            )
+            query = NutrientApplication.query.join(
+                Lot, NutrientApplication.lot_id == Lot.id
+            ).join(Farm, Lot.farm_id == Farm.id)
         elif user_role == RoleEnum.RESELLER.value:
             reseller_package = ResellerPackage.query.filter_by(
                 reseller_id=claims.get("org_id")
@@ -2658,14 +2780,17 @@ class NutrientApplicationView(MethodView):
             if not reseller_package:
                 raise NotFound("Reseller package not found.")
             query = (
-                NutrientApplication.query
-                .join(Lot, NutrientApplication.lot_id == Lot.id)
+                NutrientApplication.query.join(
+                    Lot, NutrientApplication.lot_id == Lot.id
+                )
                 .join(Farm, Lot.farm_id == Farm.id)
                 .join(Organization, Farm.org_id == Organization.id)
                 .filter(Organization.id.in_(reseller_package.organization_ids))
             )
         else:
-            raise Forbidden("Only administrators and resellers can list nutrient applications.")
+            raise Forbidden(
+                "Only administrators and resellers can list nutrient applications."
+            )
 
         if filter_by:
             query = query.filter(Lot.farm_id == filter_by)
@@ -2677,16 +2802,19 @@ class NutrientApplicationView(MethodView):
         ]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
-    
+
     def _get_nutrient_application(self, nutrient_application_id):
         """Retrieve details of a specific nutrient application"""
-        nutrient_application = NutrientApplication.query.get_or_404(nutrient_application_id)
+        nutrient_application = NutrientApplication.query.get_or_404(
+            nutrient_application_id
+        )
         claims = get_jwt()
         if not self._has_access(nutrient_application, claims):
             raise Forbidden("You do not have access to this nutrient application.")
         response_data = self._serialize_nutrient_application(nutrient_application)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
+
     def _create_nutrient_application(self, data):
         """Create a new nutrient application with nutrient quantities"""
         lot_id = data["lot_id"]
@@ -2695,13 +2823,13 @@ class NutrientApplicationView(MethodView):
         lot = Lot.query.get(lot_id)
         if not lot:
             raise BadRequest("Invalid lot ID.")
-        new_nutrient_application = NutrientApplication(
-            date=date, lot_id=lot_id
-        )
+        new_nutrient_application = NutrientApplication(date=date, lot_id=lot_id)
         db.session.add(new_nutrient_application)
         db.session.flush()  # Ensure new_nutrient_application.id is available
         # Handle nutrient quantities
-        nutrient_quantities = {k: v for k, v in data.items() if k.startswith("nutrient_")}
+        nutrient_quantities = {
+            k: v for k, v in data.items() if k.startswith("nutrient_")
+        }
         for key, value in nutrient_quantities.items():
             nutrient_id = int(key.split("_")[1])
             nutrient = Nutrient.query.get(nutrient_id)
@@ -2710,9 +2838,7 @@ class NutrientApplicationView(MethodView):
             try:
                 quantity_float = float(value)  # Convert to float
                 if quantity_float <= 0:
-                    raise BadRequest(
-                        f"Quantity for {nutrient.name} must be positive."
-                    )
+                    raise BadRequest(f"Quantity for {nutrient.name} must be positive.")
                 insert_stmt = nutrient_application_nutrients.insert().values(
                     nutrient_application_id=new_nutrient_application.id,
                     nutrient_id=nutrient_id,
@@ -2727,9 +2853,12 @@ class NutrientApplicationView(MethodView):
         response_data = self._serialize_nutrient_application(new_nutrient_application)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=201, mimetype="application/json")
+
     def _update_nutrient_application(self, nutrient_application_id, data):
         """Update an existing nutrient application"""
-        nutrient_application = NutrientApplication.query.get_or_404(nutrient_application_id)
+        nutrient_application = NutrientApplication.query.get_or_404(
+            nutrient_application_id
+        )
         # Update main fields if provided
         if "lot_id" in data:
             lot = Lot.query.get(data["lot_id"])
@@ -2739,7 +2868,9 @@ class NutrientApplicationView(MethodView):
         if "date" in data:
             nutrient_application.date = datetime.strptime(data["date"], "%Y-%m-%d")
         # Handle nutrient quantities if provided
-        nutrient_quantities = {k: v for k, v in data.items() if k.startswith("nutrient_")}
+        nutrient_quantities = {
+            k: v for k, v in data.items() if k.startswith("nutrient_")
+        }
         if nutrient_quantities:
             # Delete existing nutrient quantities
             db.session.query(nutrient_application_nutrients).filter_by(
@@ -2774,16 +2905,20 @@ class NutrientApplicationView(MethodView):
         response_data = self._serialize_nutrient_application(nutrient_application)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
+
     def _delete_nutrient_application(self, nutrient_application_id):
         """Delete an existing nutrient application"""
-        nutrient_application = NutrientApplication.query.get_or_404(nutrient_application_id)
+        nutrient_application = NutrientApplication.query.get_or_404(
+            nutrient_application_id
+        )
         db.session.delete(nutrient_application)
         db.session.commit()
         return jsonify({"message": "Nutrient application deleted successfully"}), 200
+
     def _has_access(self, nutrient_application, claims):
         """Check if the current user has access to the nutrient application"""
         return check_resource_access(nutrient_application, claims)
-        
+
     def _serialize_nutrient_application(self, nutrient_application):
         """Serialize a NutrientApplication object to a dictionary"""
         nutrient_quantities = (
@@ -2814,10 +2949,11 @@ class NutrientApplicationView(MethodView):
         }
 
 
-
 class ProductionView(MethodView):
     """Class to manage CRUD operations for productions"""
+
     decorators = [jwt_required()]
+
     @check_permission(required_roles=["administrator", "reseller"])
     def get(self, production_id=None):
         """
@@ -2830,6 +2966,7 @@ class ProductionView(MethodView):
         if production_id:
             return self._get_production(production_id)
         return self._get_production_list()
+
     @check_permission(required_roles=["administrator", "reseller"])
     def post(self):
         """
@@ -2839,12 +2976,22 @@ class ProductionView(MethodView):
         """
         data = request.get_json()
         required_fields = [
-            "lot_id", "date", "area", "production_kg", "bags", "harvest", 
-            "month", "variety", "price_per_kg", "protein_65dde", "discount"
+            "lot_id",
+            "date",
+            "area",
+            "production_kg",
+            "bags",
+            "harvest",
+            "month",
+            "variety",
+            "price_per_kg",
+            "protein_65dde",
+            "discount",
         ]
         if not data or not all(k in data for k in required_fields):
             raise BadRequest("Missing required fields")
         return self._create_production(data)
+
     @check_permission(resource_owner_check=True)
     def put(self, id: int):
         """
@@ -2859,6 +3006,7 @@ class ProductionView(MethodView):
         if not data or not production_id:
             raise BadRequest("Missing production_id or data")
         return self._update_production(production_id, data)
+
     @check_permission(resource_owner_check=True)
     def delete(self, id=None):
         """
@@ -2872,6 +3020,7 @@ class ProductionView(MethodView):
         if not production_id:
             raise BadRequest("Missing production_id")
         return self._delete_production(production_id)
+
     # Helper Methods
     def _get_production_list(self):
         """Retrieve a list of all productions"""
@@ -2894,6 +3043,7 @@ class ProductionView(MethodView):
         response_data = [self._serialize_production(p) for p in productions]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
+
     def _get_production(self, production_id):
         """Retrieve details of a specific production"""
         production = Production.query.get_or_404(production_id)
@@ -2903,6 +3053,7 @@ class ProductionView(MethodView):
         response_data = self._serialize_production(production)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
+
     def _create_production(self, data):
         """Create a new production"""
         production = Production(
@@ -2916,13 +3067,14 @@ class ProductionView(MethodView):
             variety=data["variety"],
             price_per_kg=data["price_per_kg"],
             protein_65dde=data["protein_65dde"],
-            discount=data["discount"]
+            discount=data["discount"],
         )
         db.session.add(production)
         db.session.commit()
         response_data = self._serialize_production(production)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=201, mimetype="application/json")
+
     def _update_production(self, production_id, data):
         """Update an existing production"""
         production = Production.query.get_or_404(production_id)
@@ -2950,16 +3102,18 @@ class ProductionView(MethodView):
         response_data = self._serialize_production(production)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
+
     def _delete_production(self, production_id):
         """Delete an existing production"""
         production = Production.query.get_or_404(production_id)
         db.session.delete(production)
         db.session.commit()
         return jsonify({"message": "Production deleted successfully"}), 200
+
     def _has_access(self, production, claims):
         """Check if the current user has access to the production"""
         return check_resource_access(production, claims)
-        
+
     def _serialize_production(self, production):
         """Serialize a Production object to a dictionary"""
         return {
@@ -2981,4 +3135,3 @@ class ProductionView(MethodView):
             "created_at": production.created_at.isoformat(),
             "updated_at": production.updated_at.isoformat(),
         }
-

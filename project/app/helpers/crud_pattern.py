@@ -130,11 +130,17 @@ class CRUDMixin(MethodView):
             data = {
                 "items": [self._serialize_resource(item) for item in accessible_items],
                 "total": len(accessible_items),
-                "pages": (len(accessible_items) + per_page - 1) // per_page if accessible_items else 1,
+                "pages": (
+                    (len(accessible_items) + per_page - 1) // per_page
+                    if accessible_items
+                    else 1
+                ),
                 "page": page,
                 "per_page": per_page,
             }
-            return self._build_success_response("Resources retrieved successfully", data)
+            return self._build_success_response(
+                "Resources retrieved successfully", data
+            )
         else:
             resources = self.service.get_all()
             accessible_resources = [
@@ -144,8 +150,12 @@ class CRUDMixin(MethodView):
             if resources and not accessible_resources:
                 raise Forbidden("You do not have access to any resources.")
 
-            data = [self._serialize_resource(resource) for resource in accessible_resources]
-            return self._build_success_response("Resources retrieved successfully", data)
+            data = [
+                self._serialize_resource(resource) for resource in accessible_resources
+            ]
+            return self._build_success_response(
+                "Resources retrieved successfully", data
+            )
 
     def _get_resource(self, resource_id):
         """Retrieve a specific resource by ID with access control.
@@ -265,11 +275,9 @@ class CRUDMixin(MethodView):
         """
         deleted_resources = self.service.delete_multiple(resource_ids)
         if not deleted_resources:
-            raise Forbidden(
-                "No resources were deleted due to permission restrictions."
-            )
-            
-        deleted_resources_str = ", ".join(map(str, deleted_resources))    
+            raise Forbidden("No resources were deleted due to permission restrictions.")
+
+        deleted_resources_str = ", ".join(map(str, deleted_resources))
         return self._build_success_response(
             f"Resources {deleted_resources_str} deleted successfully"
         )
@@ -325,7 +333,11 @@ class CRUDMixin(MethodView):
                 for org in reseller_package.organizations
             )
 
-        if user_role == RoleEnum.ORG_ADMIN.value or user_role == RoleEnum.ORG_EDITOR.value or user_role == RoleEnum.ORG_VIEWER.value:
+        if (
+            user_role == RoleEnum.ORG_ADMIN.value
+            or user_role == RoleEnum.ORG_EDITOR.value
+            or user_role == RoleEnum.ORG_VIEWER.value
+        ):
             user_id = claims.get("user_id")
             if not user_id:
                 return False
@@ -389,9 +401,7 @@ class BaseService:
         Returns:
             Any: Pagination object containing the resources.
         """
-        return self.model.query.paginate(
-            page=page, per_page=per_page, error_out=False
-        )
+        return self.model.query.paginate(page=page, per_page=per_page, error_out=False)
 
     def get_by_id(self, resource_id: Any) -> Any:
         """Retrieve a single resource by its primary key.
@@ -442,12 +452,12 @@ class BaseService:
 
         resources = []
         for organization in reseller_package.organizations:
-            resources.extend(
-                self.model.query.filter_by(org_id=organization.id).all()
-            )
+            resources.extend(self.model.query.filter_by(org_id=organization.id).all())
         return resources
 
-    def get_by_reseller_paginated(self, reseller_id: Any, page: int, per_page: int) -> Any:
+    def get_by_reseller_paginated(
+        self, reseller_id: Any, page: int, per_page: int
+    ) -> Any:
         """Retrieve paginated resources linked to a reseller account.
 
         Args:
@@ -482,7 +492,7 @@ class BaseService:
         Returns:
             Any: Newly created resource instance.
         """
-        
+
         try:
             resource = self.model(**self._prepare_create_data(data))
             db.session.add(resource)
@@ -547,7 +557,7 @@ class BaseService:
                         db.session.delete(resource)
                     processed_ids.append(resource_id)
             db.session.commit()
-            
+
         except SQLAlchemyError as e:
             db.session.rollback()
             raise e

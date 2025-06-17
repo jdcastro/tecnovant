@@ -120,11 +120,11 @@ class Lot(db.Model):
 
     def __repr__(self):
         return f"<Lot {self.name}>"
-    
+
     @property
     def organization(self):
         return self.farm.organization if self.farm else None
-      
+
 
 class Crop(db.Model):
     """Model representing a crop"""
@@ -166,10 +166,11 @@ class LotCrop(db.Model):
 
     def __repr__(self):
         return f"<LotCrop {self.id}>"
-    
+
     @property
     def organization(self):
         return self.lot.organization if self.lot else None
+
 
 class CommonAnalysis(db.Model):
     """Model representing a common analysis"""
@@ -202,7 +203,7 @@ class CommonAnalysis(db.Model):
 
     def __repr__(self):
         return f"<CommonAnalysis {self.id}>"
-    
+
     @property
     def organization(self):
         return self.lot.farm.organization if self.lot and self.lot.farm else None
@@ -210,11 +211,10 @@ class CommonAnalysis(db.Model):
     @property
     def farm_name(self):
         return self.lot.farm.name
-    
+
     @property
     def lot_name(self):
         return self.lot.name
-    
 
 
 class SoilAnalysis(db.Model):
@@ -235,8 +235,8 @@ class SoilAnalysis(db.Model):
 
     def __repr__(self):
         return f"<SoilAnalysis {self.id}>"
-   
-    
+
+
 class Nutrient(db.Model):
     """Model representing a nutrient"""
 
@@ -295,7 +295,7 @@ class LeafAnalysis(db.Model):
 
     def __repr__(self):
         return f"<LeafAnalysis {self.id}>"
-    
+
     @property
     def organization(self):
         return self.common_analysis.organization if self.common_analysis else None
@@ -308,7 +308,7 @@ class LeafAnalysis(db.Model):
     def lot_name(self):
         return self.common_analysis.lot.name if self.common_analysis else None
 
-    
+
 class Recommendation(db.Model):
     """Model representing a recommendation for a lot"""
 
@@ -320,12 +320,20 @@ class Recommendation(db.Model):
     author = db.Column(db.String(100))
     title = db.Column(db.String(255), nullable=False)
     limiting_nutrient_id = db.Column(db.String(255), nullable=False)
-    automatic_recommendations = db.Column(db.Text)  # Recomendaciones automáticas (puede ser JSON)
-    text_recommendations = db.Column(db.Text)      # Recomendaciones en texto libre
-    optimal_comparison = db.Column(db.Text)        # Comparación con niveles óptimos (puede ser JSON)
-    minimum_law_analyses = db.Column(db.Text)      # Análisis legal mínimo (puede ser JSON)
-    soil_analysis_details = db.Column(db.Text)     # Detalles del análisis de suelo (puede ser JSON)
-    foliar_analysis_details = db.Column(db.Text)   # Detalles del análisis foliar (puede ser JSON)
+    automatic_recommendations = db.Column(
+        db.Text
+    )  # Recomendaciones automáticas (puede ser JSON)
+    text_recommendations = db.Column(db.Text)  # Recomendaciones en texto libre
+    optimal_comparison = db.Column(
+        db.Text
+    )  # Comparación con niveles óptimos (puede ser JSON)
+    minimum_law_analyses = db.Column(db.Text)  # Análisis legal mínimo (puede ser JSON)
+    soil_analysis_details = db.Column(
+        db.Text
+    )  # Detalles del análisis de suelo (puede ser JSON)
+    foliar_analysis_details = db.Column(
+        db.Text
+    )  # Detalles del análisis foliar (puede ser JSON)
     applied = db.Column(db.Boolean, default=False)
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -344,7 +352,7 @@ class Recommendation(db.Model):
 
     def __repr__(self):
         return f"<Recommendation {self.id}>"
-    
+
     @property
     def organization(self):
         return self.lot.farm.organization if self.lot and self.lot.farm else None
@@ -371,7 +379,7 @@ class NutrientApplication(db.Model):
 
     def __repr__(self):
         return f"<NutrientApplication {self.id}>"
-    
+
     @property
     def organization(self):
         return self.lot.farm.organization if self.lot and self.lot.farm else None
@@ -428,7 +436,7 @@ class Production(db.Model):
 
     def __repr__(self):
         return f"<Production {self.id}>"
-    
+
     @property
     def organization(self):
         return self.lot.farm.organization if self.lot and self.lot.farm else None
@@ -525,7 +533,6 @@ def validate_nutrient_value(value):
 @cache.cached(timeout=3600, key_prefix="view_%s" % __name__)
 def get_all_users():
     return User.query.options(db.joinedload(User.farms)).all()
-
 
 
 # Example query optimization using joinedload

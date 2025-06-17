@@ -13,16 +13,17 @@ from .controller import (
     ProductView,
     ProductContributionView,
     ProductPriceView,
-    CommonAnalysisView, 
+    CommonAnalysisView,
     LotCropView,
-    LeafAnalysisView, 
+    LeafAnalysisView,
     SoilAnalysisView,
-    NutrientApplicationView, 
-    ProductionView
+    NutrientApplicationView,
+    ProductionView,
 )
 from .models import Farm, Crop, Nutrient, Product, Lot, LotCrop, CommonAnalysis
 from app.core.models import get_clients_for_user
 from app.core.controller import login_required
+
 
 def get_dashboard_menu():
     """Define el menu superior en los templates"""
@@ -33,6 +34,7 @@ def get_dashboard_menu():
             {"name": "Profile", "url": url_for("core.profile")},
         ]
     }
+
 
 # 👌
 @web.route("/nutrientes")
@@ -68,6 +70,7 @@ def nutrientes():
         ),
         200,
     )
+
 
 # 👌
 @web.route("/farms")
@@ -111,6 +114,7 @@ def amd_farms():
         ),
         200,
     )
+
 
 # 👌
 @web.route("/lots")
@@ -164,6 +168,7 @@ def amd_lots(filter_value=None):
         200,
     )
 
+
 # 👌
 @web.route("/crops")
 @login_required
@@ -196,6 +201,7 @@ def amd_crops():
         200,
     )
 
+
 # 👌
 @web.route("/lot_crops")
 @login_required
@@ -214,7 +220,7 @@ def amd_lot_crops():
 
     # Instanciar la vista de LotCrop
     lot_crop_view = LotCropView()
-    
+
     # Obtener el valor del filtro desde los argumentos de la solicitud
     filter_value = request.args.get("filter_value")
     filter_field = "farm_id"
@@ -263,6 +269,7 @@ def amd_lot_crops():
         ),
         200,
     )
+
 
 # 👌
 @web.route("/objectives")
@@ -355,6 +362,7 @@ def amd_objectives():
         200,
     )
 
+
 # 👌
 @web.route("/products")
 @login_required
@@ -386,6 +394,7 @@ def amd_products():
         ),
         200,
     )
+
 
 # 👌
 @web.route("/product_contributions")
@@ -450,6 +459,7 @@ def amd_product_contributions():
         200,
     )
 
+
 # 👌
 @web.route("/product_prices")
 @login_required
@@ -485,6 +495,7 @@ def amd_product_prices():
         200,
     )
 
+
 # 👌
 @web.route("/common_analyses")
 @login_required
@@ -505,10 +516,12 @@ def amd_common_analyses():
     filter_value = request.args.get("filter_value")
     if filter_value:
         filter_value = int(filter_value)
-        response = common_analysis_view._get_common_analysis_list(filter_by=filter_value)
+        response = common_analysis_view._get_common_analysis_list(
+            filter_by=filter_value
+        )
     else:
         response = common_analysis_view._get_common_analysis_list()
-        
+
     items = response.get_json()
     status_code = response.status_code
     # if filter_value:
@@ -516,33 +529,32 @@ def amd_common_analyses():
     # else:
     #     lots = LotCrop.query.all()
     # lots_dic = {f"{lot.lot.name} - {lot.crop.name}": lot.id for lot in lots}
-    
+
     if filter_value:
         lots = Lot.query.join(Farm).filter(Farm.id == filter_value).all()
     else:
         lots = Lot.query.all()
     lots_dic = {lot.name: lot.id for lot in lots}
-    
+
     filter_field = "farm_id"
     farms = Farm.query.all()
     filter_options = farms
-    
+
     if status_code != 200:
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "common_analyses.j2", 
-            items=items, 
-            lots_dic=lots_dic, 
+            "common_analyses.j2",
+            items=items,
+            lots_dic=lots_dic,
             filter_field=filter_field,
             filter_options=filter_options,
             filter_value=filter_value,
-            **context, 
+            **context,
             request=request,
         ),
         200,
     )
-    
 
 
 # 👌✍🏼
@@ -561,7 +573,7 @@ def amd_leaf_analyses():
         "site_title": "Panel de Control",
         "data_menu": get_dashboard_menu(),
     }
-    
+
     # Get data
     leaf_analysis_view = LeafAnalysisView()
     filter_value = request.args.get("filter_value")
@@ -575,23 +587,29 @@ def amd_leaf_analyses():
     filter_options = farms
     items = response.get_json()
     status_code = response.status_code
-    
+
     # Get CommonAnalysisView
     analisis_comun_id = request.args.get("analisis_comun_id")
     if filter_value:
-        common_analyses = CommonAnalysis.query.join(Lot, CommonAnalysis.lot_id == Lot.id).filter(Lot.farm_id == filter_value).all()
+        common_analyses = (
+            CommonAnalysis.query.join(Lot, CommonAnalysis.lot_id == Lot.id)
+            .filter(Lot.farm_id == filter_value)
+            .all()
+        )
     else:
         common_analyses = CommonAnalysis.query.all()
 
     # Actualizar el diccionario common_analysis_options
     if analisis_comun_id:
-        # get name 
+        # get name
         common_analysis_options = {int(analisis_comun_id): int(analisis_comun_id)}
-    #}
+    # }
     else:
-        common_analysis_options = {common_analysis.id: common_analysis.id for common_analysis in common_analyses}
-    
-    
+        common_analysis_options = {
+            common_analysis.id: common_analysis.id
+            for common_analysis in common_analyses
+        }
+
     # Define form fields
     nutrient_ids = Nutrient.query.all()
     form_fields = {
@@ -602,7 +620,7 @@ def amd_leaf_analyses():
             "required": True,
         },
     }
-    
+
     # Add nutrient fields dynamically
     for nutrient in nutrient_ids:
         form_fields[f"nutrient_{nutrient.id}"] = {
@@ -613,19 +631,23 @@ def amd_leaf_analyses():
         }
     if status_code != 200:
         return render_template("error.j2"), status_code
-        
-    return render_template(
-        "leaf_analyses.j2",
-        items=items,
-        nutrient_ids=nutrient_ids,
-        form_fields=form_fields,
-        filter_field=filter_field,
-        filter_options=filter_options,
-        filter_value=filter_value,
-        **context,
-        request=request,
-    ), 200
-    
+
+    return (
+        render_template(
+            "leaf_analyses.j2",
+            items=items,
+            nutrient_ids=nutrient_ids,
+            form_fields=form_fields,
+            filter_field=filter_field,
+            filter_options=filter_options,
+            filter_value=filter_value,
+            **context,
+            request=request,
+        ),
+        200,
+    )
+
+
 # 👌
 @web.route("/soil_analyses")
 @jwt_required()
@@ -652,15 +674,19 @@ def amd_soil_analyses():
 
     items = response.get_json()
     status_code = response.status_code
-    
+
     filter_field = "farm_id"
     farms = Farm.query.all()
     filter_options = farms
-    
+
     # Get CommonAnalysisView
     analisis_comun_id = request.args.get("analisis_comun_id")
     if filter_value:
-        common_analyses = CommonAnalysis.query.join(Lot, CommonAnalysis.lot_id == Lot.id).filter(Lot.farm_id == filter_value).all()
+        common_analyses = (
+            CommonAnalysis.query.join(Lot, CommonAnalysis.lot_id == Lot.id)
+            .filter(Lot.farm_id == filter_value)
+            .all()
+        )
     else:
         common_analyses = CommonAnalysis.query.all()
 
@@ -668,23 +694,27 @@ def amd_soil_analyses():
     if analisis_comun_id:
         common_analysis_options = {int(analisis_comun_id): int(analisis_comun_id)}
     else:
-        common_analysis_options = {common_analysis.id: common_analysis.id for common_analysis in common_analyses}
+        common_analysis_options = {
+            common_analysis.id: common_analysis.id
+            for common_analysis in common_analyses
+        }
 
     if status_code != 200:
         return render_template("error.j2"), status_code
     return (
         render_template(
-            "soil_analyses.j2", 
-            items=items, 
+            "soil_analyses.j2",
+            items=items,
             filter_field=filter_field,
             filter_options=filter_options,
             filter_value=filter_value,
             common_analysis_options=common_analysis_options,
-            **context, 
+            **context,
             request=request,
         ),
         200,
     )
+
 
 # 👌
 @web.route("/nutrient_applications")
@@ -706,7 +736,9 @@ def amd_nutrient_applications():
     nutrient_application_view = NutrientApplicationView()
     if filter_value:
         filter_value = int(filter_value)
-        response = nutrient_application_view._get_nutrient_application_list(filter_by=filter_value)
+        response = nutrient_application_view._get_nutrient_application_list(
+            filter_by=filter_value
+        )
     else:
         response = nutrient_application_view._get_nutrient_application_list()
 
@@ -716,7 +748,11 @@ def amd_nutrient_applications():
     if status_code != 200:
         return render_template("error.j2"), status_code
 
-    lots = Lot.query.join(Farm).filter(Farm.org_id == filter_value).all() if filter_value else Lot.query.all()
+    lots = (
+        Lot.query.join(Farm).filter(Farm.org_id == filter_value).all()
+        if filter_value
+        else Lot.query.all()
+    )
     lots_dic = {lot.name: lot.id for lot in lots}
 
     filter_field = "farm_id"
@@ -726,17 +762,13 @@ def amd_nutrient_applications():
     # Define form fields
     nutrient_ids = Nutrient.query.all()
     form_fields = {
-        'date': {
-            'type': 'date', 
-            'label': 'Fecha de aplicación', 
-            'required': True
-        },
-        'lot_id': {
-            'type': 'select', 
-            'label': 'Lote', 
-            'options': lots_dic, 
-            'required': True, 
-            'new_value': False
+        "date": {"type": "date", "label": "Fecha de aplicación", "required": True},
+        "lot_id": {
+            "type": "select",
+            "label": "Lote",
+            "options": lots_dic,
+            "required": True,
+            "new_value": False,
         },
     }
 
@@ -751,19 +783,20 @@ def amd_nutrient_applications():
 
     return (
         render_template(
-            "nutrient_applications.j2", 
-            items=items, 
+            "nutrient_applications.j2",
+            items=items,
             lots_dic=lots_dic,
             filter_field=filter_field,
             filter_options=filter_options,
             filter_value=filter_value,
             form_fields=form_fields,
-            **context, 
+            **context,
             request=request,
         ),
         status_code,
     )
-    
+
+
 @web.route("/productions")
 @jwt_required()
 def amd_productions():
@@ -789,8 +822,8 @@ def amd_productions():
     return (
         render_template(
             "productions.j2",
-            items=items, 
-            **context, 
+            items=items,
+            **context,
             request=request,
         ),
         200,

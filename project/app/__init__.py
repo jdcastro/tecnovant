@@ -1,4 +1,4 @@
-""" 🚀 Application factory and extension initialization."""
+"""🚀 Application factory and extension initialization."""
 
 # Python standard library imports
 import os
@@ -40,6 +40,7 @@ def register_blueprints(app):
     if Config.CORE == True:
         try:
             from app.core import core, core_api
+
             app.register_blueprint(core)
             app.register_blueprint(core_api)
         except ImportError as e:
@@ -60,7 +61,6 @@ def register_blueprints(app):
             logging.error(f"Failed to import module {module_name}: {e}")
         except AttributeError as e:
             logging.error(f"Blueprint {module} not found in module {module_name}: {e}")
-
 
 
 def configure_logging():

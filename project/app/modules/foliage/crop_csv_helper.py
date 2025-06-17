@@ -2,6 +2,7 @@ from app.helpers.csv_handler import CsvHandler
 from app.extensions import db
 from .models import Crop
 
+
 class CropCsvImporter(CsvHandler):
     """Handle CSV rows and map them into Crop models."""
 

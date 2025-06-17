@@ -107,11 +107,12 @@ micronutrients = [
     },
 ]
 
+
 def initialize_nutrients():
     """Initialize the nutrients table with default values"""
     # Verificar si ya existen nutrientes
     if Nutrient.query.count() == 0:
-        
+
         try:
             # Add macronutrients
             for nutrient_data in macronutrients:

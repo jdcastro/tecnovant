@@ -13,7 +13,13 @@ from flask_jwt_extended import (
 
 # Local application imports
 from . import core as web
-from .controller import UserView, OrgView, InstallationView, login_required, ResetPasswordFormView
+from .controller import (
+    UserView,
+    OrgView,
+    InstallationView,
+    login_required,
+    ResetPasswordFormView,
+)
 from .models import User, get_clients_for_user, RoleEnum
 
 __doc__ = """
@@ -106,9 +112,11 @@ def logout():
     """Página de cierre de sesión. Implementa core_api.logout"""
     return render_template("logout.j2")
 
+
 @web.route("/forgot_password")
 def forgot_password():
     return render_template("forgot_password.j2")
+
 
 web.add_url_rule(
     "/reset-password/<token>",
@@ -245,7 +253,7 @@ def profile():
 
     if not user:
         # Handle case where user might not be found (though JWT ensures they exist)
-        return redirect(url_for('core.logout'))
+        return redirect(url_for("core.logout"))
 
     # Prepare data for the template
     context = {
@@ -254,15 +262,17 @@ def profile():
         "description": "Gestiona tu información personal y contraseña.",
         "author": "Johnny De Castro",
         "site_title": "Mi Perfil",
-        "data_menu": get_dashboard_menu(), # Ensure get_dashboard_menu is accessible
+        "data_menu": get_dashboard_menu(),  # Ensure get_dashboard_menu is accessible
         # Pass user data explicitly
         "user_id": user.id,
         "username": user.username,
         "full_name": user.full_name,
         "email": user.email,
-        "role": user.role.description, # Use the description
+        "role": user.role.description,  # Use the description
         # Handle organizations - pass a list of names or IDs/names
-        "organizations": [{"id": org.id, "name": org.name} for org in user.organizations.all()]
+        "organizations": [
+            {"id": org.id, "name": org.name} for org in user.organizations.all()
+        ],
     }
     # Note: The 'client' variable in the template is ambiguous.
     # We now pass 'organizations'. You'll need to adjust the template.
@@ -273,4 +283,3 @@ def profile():
 
 
 web.add_url_rule("/install", view_func=InstallationView.as_view("install"))
-

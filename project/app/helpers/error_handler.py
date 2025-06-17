@@ -45,6 +45,7 @@ def setup_logging(log_file="errors.log"):
 
     return logger
 
+
 def error_handler(app: Flask, logger) -> None:
     """Register global error handlers for the Flask application.
 
@@ -60,10 +61,7 @@ def error_handler(app: Flask, logger) -> None:
             bool: True if the request expects JSON (e.g., Accept header or URL pattern), False otherwise.
         """
         accept_header = request.headers.get("Accept", "").lower()
-        return (
-            "application/json" in accept_header
-            or request.path.startswith("/api/")
-        )
+        return "application/json" in accept_header or request.path.startswith("/api/")
 
     @app.errorhandler(Exception)
     def handle_exception(e: Exception) -> tuple:

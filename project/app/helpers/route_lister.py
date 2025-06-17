@@ -108,13 +108,16 @@ class RouteLister(MethodView):
     ) -> Tuple[str, List[str], List[str], Dict[str, Dict[str, List[str]]]]:
         """
         Parses the docstring for general and method-specific documentation.
-        
+
         :param docstring: Raw docstring
         :return: Tuple with parsed general description, parameters, response codes, and method documentation.
         """
         lines = docstring.split("\n")
         general_description, general_params, general_responses, method_docs = (
-            [], [], [], {}
+            [],
+            [],
+            [],
+            {},
         )
 
         for line in lines:
@@ -132,7 +135,6 @@ class RouteLister(MethodView):
             general_responses,
             method_docs,
         )
-
 
     def _get_method_docs(self, view_class, methods) -> Dict[str, Dict[str, List[str]]]:
         """
