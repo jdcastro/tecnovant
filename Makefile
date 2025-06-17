@@ -45,14 +45,14 @@ test:
 
 format:
 	@echo "Formatting code..."
-	$(VENV_NAME)/bin/black project/app project/cli project/run.py
-	$(VENV_NAME)/bin/isort project/app project/cli project/run.py
+	$(VENV_NAME)/bin/black project/app project/run.py
+	$(VENV_NAME)/bin/isort project/app project/run.py
 
 lint:
 	@echo "Running linters..."
-	$(VENV_NAME)/bin/flake8 project/app project/cli project/run.py
-	$(VENV_NAME)/bin/black --check project/app project/cli project/run.py
-	$(VENV_NAME)/bin/isort --check-only project/app project/cli project/run.py
+	$(VENV_NAME)/bin/flake8 project/app project/run.py
+	$(VENV_NAME)/bin/black --check project/app project/run.py
+	$(VENV_NAME)/bin/isort --check-only project/app project/run.py
 
 check: format lint test
 
