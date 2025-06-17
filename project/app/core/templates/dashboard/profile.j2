@@ -25,7 +25,7 @@
     <div class="relative mb-8">
         <div class="h-48 bg-gradient-to-r from-blue-600 to-purple-600 rounded-t-lg"></div>
         <div class="absolute -bottom-10 left-4">
-            <img src="/img/avatar.png'" alt="Avatar" class="w-32 h-32 rounded-full border-4 border-white"> 
+            <img src="/img/avatar.png" alt="Avatar" class="w-32 h-32 rounded-full border-4 border-white"> 
         </div>
         <div class="absolute -bottom-10 left-40">
              {# Use data passed from the route #}
@@ -42,14 +42,14 @@
                 <div>
                     <label for="username" class="block text-sm font-medium {{ text_color }}">Nombre de Usuario</label>
                     <input type="text" id="username" name="username"
-                        class="mt-1 block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }} bg-gray-200 dark:bg-gray-700" disabled {# Added name attribute #}
+                        class="mt-1 block p-2  w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }} bg-gray-200 dark:bg-gray-700" disabled {# Added name attribute #}
                         value="{{ username }}">
                      <p class="mt-1 text-sm {{ text_color }}">Rol: {{ role }} </p>
                 </div>
                 <div>
                     <label for="full_name" class="block text-sm font-medium {{ text_color }}">Nombre Completo</label>
                     <input type="text" id="full_name" name="full_name" {# Added name attribute #}
-                        class="mt-1 block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}"
+                        class="mt-1 p-2  block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}"
                         value="{{ full_name }}">
                     {# Display Organizations #}
                     <label class="block text-sm font-medium {{ text_color }} mt-2">Organizaciones Asignadas:</label>
@@ -66,7 +66,7 @@
                 <div class="md:col-span-2"> {# Make email span full width on medium screens #}
                     <label for="email" class="block text-sm font-medium {{ text_color }}">Correo Electrónico</label>
                     <input type="email" id="email" name="email" {# Added name attribute #}
-                        class="mt-1 block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}" value="{{ email }}">
+                        class="mt-1 block p-2 w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}" value="{{ email }}">
                 </div>
             </div>
             <button type="submit" id="updateProfileBtn" class="{{ base_button_classes }} {{ button_bg_color }} text-white mt-4">Actualizar Perfil</button>
@@ -79,16 +79,16 @@
         <form id="passwordForm">
             <div class="space-y-4">
                 <div>
-                    <label for="current_password" class="block text-sm font-medium {{ text_color }}">Contraseña Actual</label>
-                    <input type="password" id="current_password" name="current_password" required class="mt-1 block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}">
+                    <label for="current_password" class="block p-2 text-sm font-medium {{ text_color }}">Contraseña Actual</label>
+                    <input type="password" id="current_password" name="current_password" required class="mt-1 block w-full rounded-md shadow-sm p-2 sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}">
                 </div>
                 <div>
-                    <label for="new_password" class="block text-sm font-medium {{ text_color }}">Nueva Contraseña</label>
-                    <input type="password" id="new_password" name="new_password" required class="mt-1 block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}">
+                    <label for="new_password" class="block text-sm p-2 font-medium {{ text_color }}">Nueva Contraseña</label>
+                    <input type="password" id="new_password" name="new_password" required class="mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}">
                 </div>
                 <div>
-                    <label for="confirm_password" class="block text-sm font-medium {{ text_color }}">Confirmar Nueva Contraseña</label>
-                    <input type="password" id="confirm_password" name="confirm_password" required class="mt-1 block w-full rounded-md shadow-sm sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}">
+                    <label for="confirm_password" class="block p-2 text-sm font-medium {{ text_color }}">Confirmar Nueva Contraseña</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required class="mt-1 block w-full rounded-md shadow-sm p-2 sm:text-sm {{ input_bg_color }} {{ border_color }} {{ input_focus_bg_color }}">
                 </div>
                 <button type="submit" id="updatePasswordBtn" class="{{ base_button_classes }} {{ button_bg_color }} text-white">Actualizar Contraseña</button>
             </div>
