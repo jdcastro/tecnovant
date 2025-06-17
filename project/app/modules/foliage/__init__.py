@@ -1,3 +1,5 @@
+"""Blueprint registrations for the foliage module."""
+
 from flask import Blueprint
 
 foliage = Blueprint(

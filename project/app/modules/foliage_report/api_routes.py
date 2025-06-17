@@ -1,3 +1,5 @@
+"""API routes for generating foliage analysis reports."""
+
 from datetime import datetime
 
 from flask import jsonify, request

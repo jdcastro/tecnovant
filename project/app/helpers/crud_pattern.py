@@ -1,3 +1,5 @@
+"""Reusable CRUD mixin with role-based access controls."""
+
 from typing import List, Dict, Any
 import json
 

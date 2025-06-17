@@ -1,3 +1,5 @@
+"""Define REST API routes for the core module."""
+
 # Third party imports
 from flask import jsonify, request, current_app, views
 from flask_jwt_extended import unset_jwt_cookies
