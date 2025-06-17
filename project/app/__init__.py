@@ -1,4 +1,4 @@
-"""Application factory and extension initialization."""
+""" 🚀 Application factory and extension initialization."""
 
 # Python standard library imports
 import os
