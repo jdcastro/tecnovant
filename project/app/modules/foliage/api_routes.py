@@ -1,3 +1,5 @@
+"""REST API endpoints for foliage-related resources."""
+
 from . import foliage_api as api
 from flask import request, jsonify, Response
 from .controller import (

@@ -1,3 +1,5 @@
+"""Blueprint setup for foliage report functionality."""
+
 from flask import Blueprint
 
 foliage_report = Blueprint("foliage_report", __name__,
