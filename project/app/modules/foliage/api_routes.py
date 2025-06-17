@@ -18,6 +18,7 @@ from .controller import (
 )
 from app.helpers.csv_handler import CsvHandler
 from .models import Farm, Crop, Lot
+from .csv_controller import CropCsvImportView
 
 # 👌
 farm_view = FarmView.as_view("farms_view")
@@ -155,3 +156,13 @@ def download_csv():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename={resource}.csv'},
     )
+
+
+
+# CSV import view
+crop_csv_import_view = CropCsvImportView.as_view("crops_csv_import")
+api.add_url_rule(
+    "/crops/csv/import",
+    view_func=crop_csv_import_view,
+    methods=["POST"],
+)
