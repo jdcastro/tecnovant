@@ -10,7 +10,7 @@ class CsvHandler:
 
         output = io.StringIO()
         # Using 'newline=""' to prevent blank rows in CSV on Windows
-        writer = csv.writer(output, newline='')
+        writer = csv.writer(output)
 
         if not data:
             return ""
