@@ -1,6 +1,6 @@
 from app.extensions import db, cache
 from app.core.models import User
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from marshmallow import Schema, fields, validates, ValidationError
 from enum import Enum
 
@@ -151,8 +151,8 @@ class LotCrop(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lot_id = db.Column(db.Integer, db.ForeignKey("lots.id"), nullable=False)
     crop_id = db.Column(db.Integer, db.ForeignKey("crops.id"), nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date)
+    start_date = db.Column(db.Date, nullable=False, default=date.today)
+    end_date = db.Column(db.Date, default=lambda: date.today() + timedelta(days=365))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -177,7 +177,7 @@ class CommonAnalysis(db.Model):
 
     __tablename__ = "common_analyses"
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.Date, nullable=False)
+    date = db.Column(db.Date, nullable=False, default=date.today)
     lot_id = db.Column(db.Integer, db.ForeignKey("lots.id"), nullable=False)
     protein = db.Column(db.Float)
     rest = db.Column(db.Float)
@@ -494,8 +494,8 @@ class ProductPrice(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
     price = db.Column(db.Float, nullable=False)
     supplier = db.Column(db.String(100))
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date)
+    start_date = db.Column(db.Date, nullable=False, default=date.today)
+    end_date = db.Column(db.Date, default=lambda: date.today() + timedelta(days=365))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

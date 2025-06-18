@@ -1,6 +1,6 @@
 # Python standard library imports
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 # Third party imports
 from flask_jwt_extended import jwt_required, get_jwt
@@ -1423,6 +1423,8 @@ class ProductContributionView(MethodView):
             k: v for k, v in data.items() if k.startswith("nutrient_")
         }
         for key, value in nutrient_contributions.items():
+            if value in (None, "", "null"):
+                continue
             nutrient_id = int(key.split("_")[1])
             nutrient = Nutrient.query.get(nutrient_id)
             if not nutrient:
@@ -1470,6 +1472,8 @@ class ProductContributionView(MethodView):
             ).delete()
             # Add new nutrient contributions
             for key, value in nutrient_contributions.items():
+                if value in (None, "", "null"):
+                    continue
                 nutrient_id = int(key.split("_")[1])
                 nutrient = Nutrient.query.get(nutrient_id)
                 if not nutrient:
@@ -1636,10 +1640,24 @@ class ProductPriceView(MethodView):
         if existing_price:
             raise Conflict("Ya existe un precio para este producto")
         price = data["price"]
-        start_date = data["start_date"]
-        end_date = data["end_date"]
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
+
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        else:
+            start_date = date.today()
+
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        else:
+            end_date = start_date + timedelta(days=365)
+
         product_price = ProductPrice(
-            product_id=product_id, price=price, start_date=start_date, end_date=end_date
+            product_id=product_id,
+            price=price,
+            start_date=start_date,
+            end_date=end_date,
         )
         db.session.add(product_price)
         db.session.commit()
@@ -1653,9 +1671,13 @@ class ProductPriceView(MethodView):
         if "price" in data:
             product_price.price = data["price"]
         if "start_date" in data:
-            product_price.start_date = data["start_date"]
+            product_price.start_date = datetime.strptime(
+                data["start_date"], "%Y-%m-%d"
+            ).date()
         if "end_date" in data:
-            product_price.end_date = data["end_date"]
+            product_price.end_date = datetime.strptime(
+                data["end_date"], "%Y-%m-%d"
+            ).date()
         db.session.commit()
         response_data = self._serialize_product_price(product_price)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
@@ -1730,7 +1752,6 @@ class CommonAnalysisView(MethodView):
         if not data or not all(
             k in data
             for k in (
-                "date",
                 "lot_id",
                 "protein",
                 "energy",
@@ -1873,12 +1894,18 @@ class CommonAnalysisView(MethodView):
 
     def _create_common_analysis(self, data):
         """Crea un nuevo análisis común con los datos proporcionados."""
+        date_str = data.get("date")
+        if date_str:
+            analysis_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        else:
+            analysis_date = date.today()
+
         if CommonAnalysis.query.filter_by(
-            date=data["date"], lot_id=data["lot_id"]
+            date=analysis_date, lot_id=data["lot_id"]
         ).first():
             raise BadRequest("CommonAnalysis already exists.")
         common_analysis = CommonAnalysis(
-            date=data["date"],
+            date=analysis_date,
             lot_id=data["lot_id"],
             protein=data["protein"],
             rest=data["rest"],
@@ -1897,7 +1924,9 @@ class CommonAnalysisView(MethodView):
         """Actualiza los datos de un análisis común existente."""
         common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
         if "date" in data:
-            common_analysis.date = data["date"]
+            common_analysis.date = datetime.strptime(
+                data["date"], "%Y-%m-%d"
+            ).date()
         if "lot_id" in data:
             common_analysis.lot_id = data["lot_id"]
         if "protein" in data:
@@ -2504,6 +2533,8 @@ class LeafAnalysisView(MethodView):
         analysis_dict = {
             "id": leaf_analysis.id,
             "common_analysis_id": leaf_analysis.common_analysis_id,
+            "common_analysis_date": leaf_analysis.common_analysis.date.isoformat(),
+            "common_analysis_display": f"{leaf_analysis.common_analysis.lot.farm.name}, {leaf_analysis.common_analysis.lot.name}, {leaf_analysis.common_analysis.date.isoformat()}",
             "farm_name": leaf_analysis.common_analysis.farm_name,
             "lot_name": leaf_analysis.common_analysis.lot_name,
             "created_at": leaf_analysis.created_at.isoformat(),
