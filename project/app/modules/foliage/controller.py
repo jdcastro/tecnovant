@@ -1,6 +1,6 @@
 # Python standard library imports
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 # Third party imports
 from flask_jwt_extended import jwt_required, get_jwt
@@ -1640,10 +1640,24 @@ class ProductPriceView(MethodView):
         if existing_price:
             raise Conflict("Ya existe un precio para este producto")
         price = data["price"]
-        start_date = data["start_date"]
-        end_date = data["end_date"]
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
+
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        else:
+            start_date = date.today()
+
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        else:
+            end_date = start_date + timedelta(days=365)
+
         product_price = ProductPrice(
-            product_id=product_id, price=price, start_date=start_date, end_date=end_date
+            product_id=product_id,
+            price=price,
+            start_date=start_date,
+            end_date=end_date,
         )
         db.session.add(product_price)
         db.session.commit()
@@ -1657,9 +1671,13 @@ class ProductPriceView(MethodView):
         if "price" in data:
             product_price.price = data["price"]
         if "start_date" in data:
-            product_price.start_date = data["start_date"]
+            product_price.start_date = datetime.strptime(
+                data["start_date"], "%Y-%m-%d"
+            ).date()
         if "end_date" in data:
-            product_price.end_date = data["end_date"]
+            product_price.end_date = datetime.strptime(
+                data["end_date"], "%Y-%m-%d"
+            ).date()
         db.session.commit()
         response_data = self._serialize_product_price(product_price)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
