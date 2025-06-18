@@ -1423,6 +1423,8 @@ class ProductContributionView(MethodView):
             k: v for k, v in data.items() if k.startswith("nutrient_")
         }
         for key, value in nutrient_contributions.items():
+            if value in (None, "", "null"):
+                continue
             nutrient_id = int(key.split("_")[1])
             nutrient = Nutrient.query.get(nutrient_id)
             if not nutrient:
@@ -1470,6 +1472,8 @@ class ProductContributionView(MethodView):
             ).delete()
             # Add new nutrient contributions
             for key, value in nutrient_contributions.items():
+                if value in (None, "", "null"):
+                    continue
                 nutrient_id = int(key.split("_")[1])
                 nutrient = Nutrient.query.get(nutrient_id)
                 if not nutrient:
