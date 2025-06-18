@@ -46,15 +46,13 @@ function fillFormWithData(id) {
         document.getElementById('{{ entity_name_lower }}Id').value = item.id;
         document.getElementById('common_analysis_id').value = item.common_analysis_id || '';
         
-        // Cambia nutrient_targets por nutrient_values
-        if (item.nutrient_values) {
-            item.nutrient_values.forEach(target => {
-                const field = document.getElementById(`nutrient_${target.nutrient_id}`);
-                if (field) {
-                    field.value = target.value || ''; // Cambia target_value por value
-                }
-            });
-        }
+        const nutrients = {{ nutrient_ids | tojson | safe }};
+        nutrients.forEach(n => {
+            const field = document.getElementById(`nutrient_${n.id}`);
+            if (field) {
+                field.value = item[`nutrient_${n.id}`] || '';
+            }
+        });
     }
 }
 </script>
