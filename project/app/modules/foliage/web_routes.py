@@ -604,12 +604,12 @@ def amd_leaf_analyses():
         ca = CommonAnalysis.query.get(int(analisis_comun_id))
         if ca:
             display = f"{ca.lot.farm.name}, {ca.lot.name}, {ca.date.isoformat()}"
-            common_analysis_options = {ca.id: display}
+            common_analysis_options = {display: ca.id}
         else:
             common_analysis_options = {}
     else:
         common_analysis_options = {
-            ca.id: f"{ca.lot.farm.name}, {ca.lot.name}, {ca.date.isoformat()}"
+            f"{ca.lot.farm.name}, {ca.lot.name}, {ca.date.isoformat()}": ca.id
             for ca in common_analyses
         }
 
