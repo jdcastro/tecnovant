@@ -1752,7 +1752,6 @@ class CommonAnalysisView(MethodView):
         if not data or not all(
             k in data
             for k in (
-                "date",
                 "lot_id",
                 "protein",
                 "energy",
@@ -1895,12 +1894,18 @@ class CommonAnalysisView(MethodView):
 
     def _create_common_analysis(self, data):
         """Crea un nuevo análisis común con los datos proporcionados."""
+        date_str = data.get("date")
+        if date_str:
+            analysis_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        else:
+            analysis_date = date.today()
+
         if CommonAnalysis.query.filter_by(
-            date=data["date"], lot_id=data["lot_id"]
+            date=analysis_date, lot_id=data["lot_id"]
         ).first():
             raise BadRequest("CommonAnalysis already exists.")
         common_analysis = CommonAnalysis(
-            date=data["date"],
+            date=analysis_date,
             lot_id=data["lot_id"],
             protein=data["protein"],
             rest=data["rest"],
@@ -1919,7 +1924,9 @@ class CommonAnalysisView(MethodView):
         """Actualiza los datos de un análisis común existente."""
         common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
         if "date" in data:
-            common_analysis.date = data["date"]
+            common_analysis.date = datetime.strptime(
+                data["date"], "%Y-%m-%d"
+            ).date()
         if "lot_id" in data:
             common_analysis.lot_id = data["lot_id"]
         if "protein" in data:
@@ -2526,6 +2533,8 @@ class LeafAnalysisView(MethodView):
         analysis_dict = {
             "id": leaf_analysis.id,
             "common_analysis_id": leaf_analysis.common_analysis_id,
+            "common_analysis_date": leaf_analysis.common_analysis.date.isoformat(),
+            "common_analysis_display": f"{leaf_analysis.common_analysis.lot.farm.name}, {leaf_analysis.common_analysis.lot.name}, {leaf_analysis.common_analysis.date.isoformat()}",
             "farm_name": leaf_analysis.common_analysis.farm_name,
             "lot_name": leaf_analysis.common_analysis.lot_name,
             "created_at": leaf_analysis.created_at.isoformat(),

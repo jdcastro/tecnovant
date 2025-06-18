@@ -177,7 +177,7 @@ class CommonAnalysis(db.Model):
 
     __tablename__ = "common_analyses"
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.Date, nullable=False)
+    date = db.Column(db.Date, nullable=False, default=date.today)
     lot_id = db.Column(db.Integer, db.ForeignKey("lots.id"), nullable=False)
     protein = db.Column(db.Float)
     rest = db.Column(db.Float)

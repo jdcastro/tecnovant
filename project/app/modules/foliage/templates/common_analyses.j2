@@ -68,5 +68,18 @@
 
         // Ejecutar la inyección cuando el DOM esté completamente cargado
         document.addEventListener('DOMContentLoaded', injectCustomActions);
+
+        const originalShowModal = showModal;
+        showModal = function(action, id = null) {
+            originalShowModal(action, id);
+            if (action === 'create') {
+                const dateInput = document.getElementById('date');
+                if (dateInput) {
+                    const today = new Date().toISOString().split('T')[0];
+                    dateInput.value = today;
+                    dateInput.setAttribute('value', today);
+                }
+            }
+        };
     </script>
 {% endblock %}

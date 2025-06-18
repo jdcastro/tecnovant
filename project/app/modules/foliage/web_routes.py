@@ -601,13 +601,16 @@ def amd_leaf_analyses():
 
     # Actualizar el diccionario common_analysis_options
     if analisis_comun_id:
-        # get name
-        common_analysis_options = {int(analisis_comun_id): int(analisis_comun_id)}
-    # }
+        ca = CommonAnalysis.query.get(int(analisis_comun_id))
+        if ca:
+            display = f"{ca.lot.farm.name}, {ca.lot.name}, {ca.date.isoformat()}"
+            common_analysis_options = {ca.id: display}
+        else:
+            common_analysis_options = {}
     else:
         common_analysis_options = {
-            common_analysis.id: common_analysis.id
-            for common_analysis in common_analyses
+            ca.id: f"{ca.lot.farm.name}, {ca.lot.name}, {ca.date.isoformat()}"
+            for ca in common_analyses
         }
 
     # Define form fields
