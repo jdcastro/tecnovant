@@ -46,11 +46,11 @@ function fillFormWithData(id) {
         document.getElementById('{{ entity_name_lower }}Id').value = item.id;
         document.getElementById('common_analysis_id').value = item.common_analysis_id || '';
         
-        const nutrients = {{ nutrient_ids | tojson | safe }};
-        nutrients.forEach(n => {
-            const field = document.getElementById(`nutrient_${n.id}`);
+        const nutrientIds = {{ nutrient_ids | map(attribute='id') | list | tojson | safe }};
+        nutrientIds.forEach(id => {
+            const field = document.getElementById(`nutrient_${id}`);
             if (field) {
-                field.value = item[`nutrient_${n.id}`] || '';
+                field.value = item[`nutrient_${id}`] || '';
             }
         });
     }
