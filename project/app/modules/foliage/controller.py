@@ -2439,6 +2439,8 @@ class LeafAnalysisView(MethodView):
         # Manejar valores de nutrientes
         nutrient_values = {k: v for k, v in data.items() if k.startswith("nutrient_")}
         for key, value in nutrient_values.items():
+            if value is None or str(value).strip() == "":
+                continue
             nutrient_id = int(key.split("_")[1])
             nutrient = Nutrient.query.get(nutrient_id)
             if not nutrient:
@@ -2485,6 +2487,8 @@ class LeafAnalysisView(MethodView):
             ).delete()
             # Agregar nuevos valores de nutrientes
             for key, value in nutrient_values.items():
+                if value is None or str(value).strip() == "":
+                    continue
                 nutrient_id = int(key.split("_")[1])
                 nutrient = Nutrient.query.get(nutrient_id)
                 if not nutrient:
