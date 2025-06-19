@@ -1992,6 +1992,7 @@ class CommonAnalysisView(MethodView):
             "date": common_analysis.date.isoformat() if common_analysis.date else None,
             "lot_id": common_analysis.lot_id,
             "lot_name": common_analysis.lot.name,
+            "lot_area": common_analysis.lot.area,
             "farm_name": common_analysis.lot.farm.name,
             "protein": common_analysis.protein,
             "energy": common_analysis.energy,
