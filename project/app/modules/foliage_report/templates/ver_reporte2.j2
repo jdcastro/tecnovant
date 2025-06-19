@@ -270,6 +270,7 @@
             </div>
         </div>
         <div id="foliar" class="tabs-content hidden">
+            {% if analysisData.foliar %}
             <div class="mb-4 border p-4 rounded-lg">
                 <div class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-green-500"><path d="M16 17l5-5l-5-5M2 12h6"></path><path d="M18 17v-1a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v1"></path></svg>
@@ -283,7 +284,7 @@
                         <h3 class="text-lg font-semibold mb-4">Macronutrientes (%)</h3>
                         <div class="space-y-4">
                             {% for key, value in analysisData.foliar.items() %}
-                                {% if key in ['nitrogeno', 'fosforo', 'potasio', 'calcio', 'magnesio', 'azufre'] %}
+                                {% if key in ['nitrogeno', 'fosforo', 'potasio', 'calcio', 'magnesio', 'azufre'] and key in optimalLevels.foliar %}
                                     {% set status = get_nutrient_status(value, optimalLevels.foliar[key].min, optimalLevels.foliar[key].max) %}
                                     {% set statusColor = get_status_color(status) %}
                                     {% set percentage = (value / ((optimalLevels.foliar[key].min + optimalLevels.foliar[key].max) / 2)) * 100 %}
@@ -312,8 +313,8 @@
                         <h3 class="text-lg font-semibold mb-4">Micronutrientes (ppm)</h3>
                         <div class="space-y-4">
                             {% for key, value in analysisData.foliar.items() %}
-                                {% if key in ['hierro', 'manganeso', 'zinc', 'cobre', 'boro'] %}
-                                
+                                {% if key in ['hierro', 'manganeso', 'zinc', 'cobre', 'boro'] and key in optimalLevels.foliar %}
+
                                     {% set status = get_nutrient_status(value, optimalLevels.foliar[key].min, optimalLevels.foliar[key].max)  %}
                                     {% set statusColor = get_status_color(status) %}
                                     {% set percentage = (value / ((optimalLevels.foliar[key].min + optimalLevels.foliar[key].max) / 2)) * 100 %}
@@ -407,11 +408,14 @@
                     </div>
                 </div>
             </div>
+            {% else %}
+            <p class="text-red-500">No hay datos de análisis foliar disponibles.</p>
+            {% endif %}
         </div>
         <div id="soil" class="tabs-content hidden">
+            {% if analysisData.soil %}
 
-
-<div class="mb-4 border p-4 rounded-lg">
+ <div class="mb-4 border p-4 rounded-lg">
         <div class="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-amber-500"><path d="M12 1V22a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             <h2 class="text-lg font-bold">Análisis de Suelo Detallado</h2>
@@ -423,7 +427,7 @@
             <div>
                 <h3 class="text-lg font-semibold mb-4">Propiedades Físico-Químicas</h3>
                 <div class="space-y-4">
-                    {% for item in [{'key': 'ph', 'label': 'pH', 'unit': ''},
+                        {% for item in [{'key': 'ph', 'label': 'pH', 'unit': ''},
                                     {'key': 'materiaOrganica', 'label': 'Materia Orgánica', 'unit': '%'},
                                     {'key': 'textura', 'label': 'Textura', 'unit': ''},
                                     {'key': 'cic', 'label': 'CIC', 'unit': 'meq/100g'}] %}
@@ -431,10 +435,10 @@
                             <div class="space-y-1">
                                 <div class="flex justify-between items-center">
                                     <span>{{ item.label }}</span>
-                                    <span class="font-semibold">{{ analysisData.soil[item.key] }}</span>
+                                    <span class="font-semibold">{{ analysisData.soil[item.key] if item.key in analysisData.soil else 'N/A' }}</span>
                                 </div>
                             </div>
-                        {% else %}
+                        {% elif analysisData.soil and optimalLevels.soil and item.key in analysisData.soil and item.key in optimalLevels.soil %}
                             {% set status = get_nutrient_status(analysisData.soil[item.key], optimalLevels.soil[item.key].min, optimalLevels.soil[item.key].max) %}
                             {% set statusColor = get_status_color(status) %}
                             {% set percentage = (analysisData.soil[item.key] / ((optimalLevels.soil[item.key].min + optimalLevels.soil[item.key].max) / 2)) * 100 %}
@@ -469,27 +473,29 @@
                                     {'key': 'calcio', 'label': 'Calcio', 'unit': 'ppm'},
                                     {'key': 'magnesio', 'label': 'Magnesio', 'unit': 'ppm'},
                                     {'key': 'azufre', 'label': 'Azufre', 'unit': 'ppm'}] %}
-                        <div class="space-y-1">
-                            {% set status = get_nutrient_status(analysisData.soil[item.key], optimalLevels.soil[item.key].min, optimalLevels.soil[item.key].max) %}
-                            {% set statusColor = get_status_color(status) %}
-                            {% set percentage = (analysisData.soil[item.key] / ((optimalLevels.soil[item.key].min + optimalLevels.soil[item.key].max) / 2)) * 100 %}
-                            <div class="flex justify-between items-center">
-                                <div class="flex items-center">
-                                    {{ get_status_icon(status)|safe }}
-                                    <span class="ml-2">{{ nutrientNames[item.key] or item.key }}</span>
+                        {% if analysisData.soil and optimalLevels.soil and item.key in analysisData.soil and item.key in optimalLevels.soil %}
+                            <div class="space-y-1">
+                                {% set status = get_nutrient_status(analysisData.soil[item.key], optimalLevels.soil[item.key].min, optimalLevels.soil[item.key].max) %}
+                                {% set statusColor = get_status_color(status) %}
+                                {% set percentage = (analysisData.soil[item.key] / ((optimalLevels.soil[item.key].min + optimalLevels.soil[item.key].max) / 2)) * 100 %}
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center">
+                                        {{ get_status_icon(status)|safe }}
+                                        <span class="ml-2">{{ nutrientNames[item.key] or item.key }}</span>
+                                    </div>
+                                    <div class="{{ statusColor }} font-semibold">
+                                        {{ analysisData.soil[item.key] }}
+                                        {{ item.unit if item.unit }}
+                                        <span class="text-xs font-normal text-muted-foreground">
+                                            ({{ optimalLevels.soil[item.key].min }}-{{ optimalLevels.soil[item.key].max }}{{ item.unit if item.unit }})
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="{{ statusColor }} font-semibold">
-                                    {{ analysisData.soil[item.key] }}
-                                    {{ item.unit if item.unit }}
-                                    <span class="text-xs font-normal text-muted-foreground">
-                                        ({{ optimalLevels.soil[item.key].min }}-{{ optimalLevels.soil[item.key].max }}{{ item.unit if item.unit }})
-                                    </span>
+                                <div class="w-full bg-gray-200 h-2 mb-4 rounded-full">
+                                    <div class="h-2 rounded-full" style="width: {{ percentage|round(2) }}%; background-color: hsl(var(--color-actual))"></div>
                                 </div>
                             </div>
-                            <div class="w-full bg-gray-200 h-2 mb-4 rounded-full">
-                                <div class="h-2 rounded-full" style="width: {{ percentage|round(2) }}%; background-color: hsl(var(--color-actual))"></div>
-                            </div>
-                        </div>
+                        {% endif %}
                     {% endfor %}
                 </div>
             </div>
@@ -544,35 +550,40 @@
                             </ul>
                         </div>
                         <div>
+                            {% set ph_value = analysisData.soil.get('ph') %}
                             <h3 class="text-md font-semibold mb-2">Problemas de pH</h3>
-                            {% if analysisData.soil.ph < optimalLevels.soil.ph.min %}
+                            {% if ph_value is not none and ph_value < optimalLevels.soil.ph.min %}
                                 <div class="flex items-start gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-red-500 mt-0.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                     <div>
                                         <p>
-                                            <span class="font-medium">Suelo ácido (pH {{ analysisData.soil.ph }})</span>
+                                            <span class="font-medium">Suelo ácido (pH {{ ph_value }})</span>
                                         </p>
                                         <p class="text-sm text-muted-foreground">
                                             Puede limitar la disponibilidad de nutrientes como fósforo, calcio y magnesio. Considere aplicar cal agrícola para elevar el pH.
                                         </p>
                                     </div>
                                 </div>
-                            {% elif analysisData.soil.ph > optimalLevels.soil.ph.max %}
+                            {% elif ph_value is not none and ph_value > optimalLevels.soil.ph.max %}
                                 <div class="flex items-start gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-yellow-500 mt-0.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                     <div>
                                         <p>
-                                            <span class="font-medium">Suelo alcalino (pH {{ analysisData.soil.ph }})</span>
+                                            <span class="font-medium">Suelo alcalino (pH {{ ph_value }})</span>
                                         </p>
                                         <p class="text-sm text-muted-foreground">
                                             Puede limitar la disponibilidad de micronutrientes como hierro, manganeso y zinc. Considere aplicar azufre elemental o materia orgánica para reducir el pH.
                                         </p>
                                     </div>
                                 </div>
-                            {% else %}
+                            {% elif ph_value is not none %}
                                 <div class="flex items-center text-green-600">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                                    <span>pH óptimo para la mayoría de cultivos ({{ analysisData.soil.ph }})</span>
+                                    <span>pH óptimo para la mayoría de cultivos ({{ ph_value }})</span>
+                                </div>
+                            {% else %}
+                                <div class="flex items-center text-muted-foreground">
+                                    <span>pH no disponible</span>
                                 </div>
                             {% endif %}
                         </div>
@@ -584,7 +595,9 @@
                     <h2 class="text-lg font-bold">Interpretación del Análisis de Suelo</h2>
                 </div>
                 <div class="space-y-4">
-                    {{ get_status_icon(get_nutrient_status(analysisData.soil.ph, optimalLevels.soil.ph.min, optimalLevels.soil.ph.max))|safe }}
+                    {% if ph_value is not none %}
+                        {{ get_status_icon(get_nutrient_status(ph_value, optimalLevels.soil.ph.min, optimalLevels.soil.ph.max))|safe }}
+                    {% endif %}
                     <p>
                         La Ley del Mínimo de Liebig, formulada por el químico alemán Justus von Liebig en 1840, establece que el crecimiento de una planta no está determinado por la cantidad total de recursos disponibles, sino por el recurso más escaso (factor limitante).
                     </p>
@@ -608,6 +621,9 @@
                     </p>
                 </div>
             </div>
+            {% else %}
+            <p class="text-red-500">No hay datos de análisis de suelo disponibles.</p>
+            {% endif %}
         </div>
         <div id="recommendations" class="tabs-content hidden">
             <div class="mb-4  border p-4 rounded-lg">
