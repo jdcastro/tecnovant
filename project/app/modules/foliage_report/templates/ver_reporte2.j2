@@ -270,6 +270,7 @@
             </div>
         </div>
         <div id="foliar" class="tabs-content hidden">
+            {% if analysisData.foliar %}
             <div class="mb-4 border p-4 rounded-lg">
                 <div class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-green-500"><path d="M16 17l5-5l-5-5M2 12h6"></path><path d="M18 17v-1a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v1"></path></svg>
@@ -407,11 +408,14 @@
                     </div>
                 </div>
             </div>
+            {% else %}
+            <p class="text-red-500">No hay datos de análisis foliar disponibles.</p>
+            {% endif %}
         </div>
         <div id="soil" class="tabs-content hidden">
+            {% if analysisData.soil %}
 
-
-<div class="mb-4 border p-4 rounded-lg">
+ <div class="mb-4 border p-4 rounded-lg">
         <div class="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-amber-500"><path d="M12 1V22a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             <h2 class="text-lg font-bold">Análisis de Suelo Detallado</h2>
@@ -435,7 +439,6 @@
                                 </div>
                             </div>
                         {% elif analysisData.soil and optimalLevels.soil and item.key in analysisData.soil and item.key in optimalLevels.soil %}
-
                             {% set status = get_nutrient_status(analysisData.soil[item.key], optimalLevels.soil[item.key].min, optimalLevels.soil[item.key].max) %}
                             {% set statusColor = get_status_color(status) %}
                             {% set percentage = (analysisData.soil[item.key] / ((optimalLevels.soil[item.key].min + optimalLevels.soil[item.key].max) / 2)) * 100 %}
@@ -619,6 +622,9 @@
                     </p>
                 </div>
             </div>
+            {% else %}
+            <p class="text-red-500">No hay datos de análisis de suelo disponibles.</p>
+            {% endif %}
         </div>
         <div id="recommendations" class="tabs-content hidden">
             <div class="mb-4  border p-4 rounded-lg">
