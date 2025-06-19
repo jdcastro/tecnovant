@@ -473,6 +473,7 @@
                                     {'key': 'calcio', 'label': 'Calcio', 'unit': 'ppm'},
                                     {'key': 'magnesio', 'label': 'Magnesio', 'unit': 'ppm'},
                                     {'key': 'azufre', 'label': 'Azufre', 'unit': 'ppm'}] %}
+
                         {% if analysisData.soil and optimalLevels.soil and item.key in analysisData.soil and item.key in optimalLevels.soil %}
                             <div class="space-y-1">
                                 {% set status = get_nutrient_status(analysisData.soil[item.key], optimalLevels.soil[item.key].min, optimalLevels.soil[item.key].max) %}
