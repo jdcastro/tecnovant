@@ -283,7 +283,7 @@
                         <h3 class="text-lg font-semibold mb-4">Macronutrientes (%)</h3>
                         <div class="space-y-4">
                             {% for key, value in analysisData.foliar.items() %}
-                                {% if key in ['nitrogeno', 'fosforo', 'potasio', 'calcio', 'magnesio', 'azufre'] %}
+                                {% if key in ['nitrogeno', 'fosforo', 'potasio', 'calcio', 'magnesio', 'azufre'] and key in optimalLevels.foliar %}
                                     {% set status = get_nutrient_status(value, optimalLevels.foliar[key].min, optimalLevels.foliar[key].max) %}
                                     {% set statusColor = get_status_color(status) %}
                                     {% set percentage = (value / ((optimalLevels.foliar[key].min + optimalLevels.foliar[key].max) / 2)) * 100 %}
@@ -312,8 +312,8 @@
                         <h3 class="text-lg font-semibold mb-4">Micronutrientes (ppm)</h3>
                         <div class="space-y-4">
                             {% for key, value in analysisData.foliar.items() %}
-                                {% if key in ['hierro', 'manganeso', 'zinc', 'cobre', 'boro'] %}
-                                
+                                {% if key in ['hierro', 'manganeso', 'zinc', 'cobre', 'boro'] and key in optimalLevels.foliar %}
+
                                     {% set status = get_nutrient_status(value, optimalLevels.foliar[key].min, optimalLevels.foliar[key].max)  %}
                                     {% set statusColor = get_status_color(status) %}
                                     {% set percentage = (value / ((optimalLevels.foliar[key].min + optimalLevels.foliar[key].max) / 2)) * 100 %}
