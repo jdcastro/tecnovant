@@ -75,7 +75,7 @@
         <div class="col-md-12">
 
 
-    <div class="container mx-auto p-6">
+    <div id="report-content" class="container mx-auto p-6">
         <div class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-3xl font-bold">Análisis y Recomendaciones - ver_reporte2.j2</h1>
@@ -84,7 +84,7 @@
                 </p>
             </div>
             <div class="flex gap-2">
-                <button class="inline-flex items-center gap-2 rounded-md border border-transparent px-3 py-2 text-sm font-medium leading-4 text-white shadow-sm bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <button id="btnExportPDF" class="inline-flex items-center gap-2 rounded-md border border-transparent px-3 py-2 text-sm font-medium leading-4 text-white shadow-sm bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                     Exportar
                 </button>
@@ -743,6 +743,8 @@
     {% block extra_js %}
     {{ super() }}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Configuración de gráficos de análisis foliar
@@ -897,6 +899,23 @@
                     targetContent.classList.remove('hidden');
                 });
             });
+
+            const exportBtn = document.getElementById('btnExportPDF');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF('p', 'pt', 'a4');
+                    const element = document.getElementById('report-content');
+                    html2canvas(element).then(canvas => {
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgProps = doc.getImageProperties(imgData);
+                        const pdfWidth = doc.internal.pageSize.getWidth();
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                        doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                        doc.save('reporte.pdf');
+                    });
+                });
+            }
         });
     </script>
 
