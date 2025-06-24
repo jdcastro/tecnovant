@@ -506,7 +506,7 @@ def amd_common_analyses():
     user_id = get_jwt_identity()
     context = {
         "dashboard": True,
-        "title": "Gestión de análisis comunes",
+        "title": "Gestión de análisis comunes - Bromatologico",
         "description": "Administración de análisis comunes.",
         "author": "Johnny De Castro",
         "site_title": "Panel de Control",
