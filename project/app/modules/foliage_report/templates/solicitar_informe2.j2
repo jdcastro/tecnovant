@@ -396,6 +396,14 @@
                 });
         });
 
+        // Actualizar información del cultivo cuando cambia el objetivo seleccionado
+        objectiveSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            let cropId = selectedOption.dataset.cropId;
+             if (!cropId || cropId === 'null') cropId = '';
+            updateCropInfo(cropId);
+        });
+
 
         // Enviar formulario para generar reporte
         form.addEventListener('submit', function(event) {
