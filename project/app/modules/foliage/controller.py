@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt
 from flask import request, jsonify, Response
 from flask.views import MethodView
 from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized, Conflict
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 
 # Local application imports
@@ -2409,9 +2409,28 @@ class LeafAnalysisView(MethodView):
         if filter_by:
             query = query.filter(Lot.farm_id == filter_by)
 
+        query = query.options(
+            joinedload(LeafAnalysis.common_analysis)
+            .joinedload(CommonAnalysis.lot)
+            .joinedload(Lot.farm),
+            selectinload(LeafAnalysis.nutrients),
+        )
+
         leaf_analyses = query.all()
+
+        leaf_analysis_ids = [la.id for la in leaf_analyses]
+        values_query = db.session.query(
+            leaf_analysis_nutrients.c.leaf_analysis_id,
+            leaf_analysis_nutrients.c.nutrient_id,
+            leaf_analysis_nutrients.c.value,
+        ).filter(leaf_analysis_nutrients.c.leaf_analysis_id.in_(leaf_analysis_ids))
+        values_rows = values_query.all()
+        nutrient_values_map = {}
+        for la_id, nutrient_id, value in values_rows:
+            nutrient_values_map.setdefault(la_id, {})[nutrient_id] = value
+
         response_data = [
-            self._serialize_leaf_analysis(leaf_analysis)
+            self._serialize_leaf_analysis(leaf_analysis, nutrient_values_map)
             for leaf_analysis in leaf_analyses
         ]
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
@@ -2419,7 +2438,14 @@ class LeafAnalysisView(MethodView):
 
     def _get_leaf_analysis(self, leaf_analysis_id):
         """Obtiene los detalles de un análisis de hoja específico."""
-        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
+        leaf_analysis = (
+            LeafAnalysis.query.options(
+                joinedload(LeafAnalysis.common_analysis)
+                .joinedload(CommonAnalysis.lot)
+                .joinedload(Lot.farm),
+                selectinload(LeafAnalysis.nutrients),
+            ).get_or_404(leaf_analysis_id)
+        )
         claims = get_jwt()
         if not self._has_access(leaf_analysis, claims):
             raise Forbidden("You do not have access to this leaf analysis.")
@@ -2533,13 +2559,17 @@ class LeafAnalysisView(MethodView):
         """Verifica si el usuario actual tiene acceso al análisis de hoja."""
         return check_resource_access(leaf_analysis, claims)
 
-    def _serialize_leaf_analysis(self, leaf_analysis):
+    def _serialize_leaf_analysis(self, leaf_analysis, nutrient_values_map=None):
         """Serializa un objeto LeafAnalysis a un diccionario."""
-        nutrient_values = (
-            db.session.query(leaf_analysis_nutrients)
-            .filter_by(leaf_analysis_id=leaf_analysis.id)
-            .all()
-        )
+        if nutrient_values_map is not None:
+            values_for_analysis = nutrient_values_map.get(leaf_analysis.id, {})
+        else:
+            nutrient_values = (
+                db.session.query(leaf_analysis_nutrients)
+                .filter_by(leaf_analysis_id=leaf_analysis.id)
+                .all()
+            )
+            values_for_analysis = {nv.nutrient_id: nv.value for nv in nutrient_values}
         analysis_dict = {
             "id": leaf_analysis.id,
             "common_analysis_id": leaf_analysis.common_analysis_id,
@@ -2549,18 +2579,13 @@ class LeafAnalysisView(MethodView):
             "lot_name": leaf_analysis.common_analysis.lot_name,
             "created_at": leaf_analysis.created_at.isoformat(),
             "updated_at": leaf_analysis.updated_at.isoformat(),
-            "nutrients_info": {  # Nueva clave para los detalles de los nutrientes
-                str(nv.nutrient_id): {
-                    "name": Nutrient.query.get(nv.nutrient_id).name,
-                    "symbol": Nutrient.query.get(nv.nutrient_id).symbol,
-                    "unit": Nutrient.query.get(nv.nutrient_id).unit,
-                }
-                for nv in nutrient_values
+            "nutrients_info": {
+                str(n.id): {"name": n.name, "symbol": n.symbol, "unit": n.unit}
+                for n in leaf_analysis.nutrients
             },
         }
-        # Aplanar los valores de los nutrientes directamente en el diccionario
-        for nv in nutrient_values:
-            analysis_dict[f"nutrient_{nv.nutrient_id}"] = nv.value
+        for nutrient in leaf_analysis.nutrients:
+            analysis_dict[f"nutrient_{nutrient.id}"] = values_for_analysis.get(nutrient.id)
         return analysis_dict
 
 
