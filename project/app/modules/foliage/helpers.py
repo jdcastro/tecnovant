@@ -1,5 +1,13 @@
-from .models import Nutrient, NutrientCategory
+from .models import (
+    Nutrient,
+    NutrientCategory,
+    leaf_analysis_nutrients,
+    objective_nutrients,
+)
 from app.extensions import db
+from decimal import Decimal
+from typing import Dict
+from app.modules.foliage_report.helpers import NutrientOptimizer
 
 # Macronutrientes
 macronutrients = [
@@ -144,3 +152,82 @@ def initialize_nutrients():
             print(f"Error initializing nutrients: {str(e)}")
     else:
         print("Nutrients already initialized")
+
+
+def calculate_liebig_balance(
+    objective_id: int, analysis_id: int
+) -> Dict[str, Dict[str, Decimal]]:
+    """Calculate nutrient balance and limiting nutrient using Liebig's law.
+
+    Args:
+        objective_id (int): Objective identifier.
+        analysis_id (int): Leaf analysis identifier.
+
+    Returns:
+        dict: Dictionary containing standard values, foliar values, balance and
+        limiting nutrient information.
+    """
+    # Retrieve target nutrient values for the objective
+    standard: Dict[str, Decimal] = {}
+    objective_rows = (
+        db.session.query(
+            objective_nutrients.c.nutrient_id,
+            objective_nutrients.c.target_value,
+        )
+        .filter(objective_nutrients.c.objective_id == objective_id)
+        .all()
+    )
+    for nutrient_id, target_value in objective_rows:
+        nutrient = Nutrient.query.get(nutrient_id)
+        if nutrient:
+            standard[nutrient.name] = Decimal(str(target_value))
+
+    # Retrieve foliar nutrient values for the analysis
+    foliar: Dict[str, Decimal] = {}
+    analysis_rows = (
+        db.session.query(
+            leaf_analysis_nutrients.c.nutrient_id,
+            leaf_analysis_nutrients.c.value,
+        )
+        .filter(leaf_analysis_nutrients.c.leaf_analysis_id == analysis_id)
+        .all()
+    )
+    for nutrient_id, value in analysis_rows:
+        nutrient = Nutrient.query.get(nutrient_id)
+        if nutrient:
+            foliar[nutrient.name] = Decimal(str(value))
+
+    # Calculate balance values (foliar - standard)
+    balance: Dict[str, Decimal] = {}
+    all_nutrients = set(standard.keys()) | set(foliar.keys())
+    for name in all_nutrients:
+        foliar_val = foliar.get(name, Decimal("0"))
+        target_val = standard.get(name, Decimal("0"))
+        balance[name] = foliar_val - target_val
+
+    # Determine limiting nutrient using NutrientOptimizer
+    limiting_info = {}
+    if standard:
+        optimizer = NutrientOptimizer(
+            foliar,
+            standard,
+            {},
+            {n: Decimal("0") for n in standard.keys()},
+        )
+        limit_name = optimizer.identificar_limitante()
+        nutrient_obj = Nutrient.query.filter_by(name=limit_name).first()
+        if nutrient_obj:
+            limiting_info = {
+                "id": nutrient_obj.id,
+                "name": nutrient_obj.name,
+                "symbol": nutrient_obj.symbol,
+            }
+        else:
+            limiting_info = {"name": limit_name}
+
+    return {
+        "standard": {k: float(v) for k, v in standard.items()},
+        "foliar": {k: float(v) for k, v in foliar.items()},
+        "balance": {k: float(v) for k, v in balance.items()},
+        "limiting_nutrient_info": limiting_info,
+    }
