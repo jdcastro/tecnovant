@@ -13,7 +13,7 @@ from .config import Config
 from .extensions import jwt, db, migrate, cache
 from .helpers.error_handler import setup_logging, error_handler
 from .helpers.mail import mail
-from .helpers.helpers_functions import merge_dicts, inject_user
+from .helpers.helpers_functions import merge_dicts, inject_user, safe_url_for
 
 
 def init_extensions(app):
@@ -111,6 +111,7 @@ def create_app():
 
     app.jinja_env.filters["merge"] = merge_dicts
     app.jinja_env.filters["merge_dicts"] = merge_dicts
+    app.jinja_env.globals["safe_url_for"] = safe_url_for
 
     @app.context_processor
     def inject_context():

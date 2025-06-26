@@ -6,7 +6,7 @@
 {# "name": "Administración", "url": "#", "icon": icon_window, "pro": true #}
 {% set sidebar_menu = {
     "menu": [
-        {"name": "Home", "url": url_for('core.dashboard'), "icon": icon_home},
+        {"name": "Home", "url": safe_url_for('core.dashboard'), "icon": icon_home},
     ]
 } %}
 
@@ -16,8 +16,8 @@
         "url": "#",
         "icon": icon_users,
         "submenu": [
-            {"name": "Clientes", "url": url_for('core.amd_clients')},
-            {"name": "Usuarios", "url": url_for('core.amd_users')},
+            {"name": "Clientes", "url": safe_url_for('core.amd_clients')},
+            {"name": "Usuarios", "url": safe_url_for('core.amd_users')},
         ]
     } %}
     {% set sidebar_menu = {
@@ -31,17 +31,17 @@
         "url": "#",
         "icon": icon_window,
         "submenu": [
-            {"name": "Nutrientes", "url": url_for('foliage.nutrientes') },
-            {"name": "Tipos de Cultivos", "url": url_for('foliage.amd_crops') },
-            {"name": "Objetivos de Cultivo", "url": url_for('foliage.amd_objectives') }, 
+            {"name": "Nutrientes", "url": safe_url_for('foliage.nutrientes') },
+            {"name": "Tipos de Cultivos", "url": safe_url_for('foliage.amd_crops') },
+            {"name": "Objetivos de Cultivo", "url": safe_url_for('foliage.amd_objectives') },
 
-            {"name": "Fincas", "url": url_for('foliage.amd_farms') },
-            {"name": "Lotes", "url": url_for('foliage.amd_lots') },
-            {"name": "Lote/Cultivo", "url": url_for('foliage.amd_lot_crops') }, 
+            {"name": "Fincas", "url": safe_url_for('foliage.amd_farms') },
+            {"name": "Lotes", "url": safe_url_for('foliage.amd_lots') },
+            {"name": "Lote/Cultivo", "url": safe_url_for('foliage.amd_lot_crops') },
             
-            {"name": "Productos", "url": url_for('foliage.amd_products') },
-            {"name": "Aportes de Productos", "url": url_for('foliage.amd_product_contributions') },
-            {"name": "Precios de Prod", "url": url_for('foliage.amd_product_prices') },
+            {"name": "Productos", "url": safe_url_for('foliage.amd_products') },
+            {"name": "Aportes de Productos", "url": safe_url_for('foliage.amd_product_contributions') },
+            {"name": "Precios de Prod", "url": safe_url_for('foliage.amd_product_prices') },
         ]
     } %}
     {% set sidebar_menu = {
@@ -55,11 +55,11 @@
         "url": "#",
         "icon": icon_microscope,
         "submenu": [
-            {"name": "Análisis Común", "url": url_for('foliage.amd_common_analyses') },
-            {"name": "Análisis Foliar", "url": url_for('foliage.amd_leaf_analyses') },
-            {"name": "Análisis de Suelo", "url": url_for('foliage.amd_soil_analyses') },
-            {"name": "Consumo - Apl. Nutrientes", "url": url_for('foliage.amd_nutrient_applications') }, 
-            {"name": "Producción", "url": url_for('foliage.amd_productions') }, 
+            {"name": "Análisis Común", "url": safe_url_for('foliage.amd_common_analyses') },
+            {"name": "Análisis Foliar", "url": safe_url_for('foliage.amd_leaf_analyses') },
+            {"name": "Análisis de Suelo", "url": safe_url_for('foliage.amd_soil_analyses') },
+            {"name": "Consumo - Apl. Nutrientes", "url": safe_url_for('foliage.amd_nutrient_applications') },
+            {"name": "Producción", "url": safe_url_for('foliage.amd_productions') },
         ]
     } %}
     {% set sidebar_menu = {
@@ -73,10 +73,10 @@
     "icon": icon_file_chart_bar,
     "notifications": 3,
     "submenu": [
-        {"name": "Recomendaciones", "url": url_for('foliage_report.listar_reportes') },
-        {"name": "Generar reporte", "url": url_for('foliage_report.generar_informe') },
-        
-        {"name": "Ejemplo reporte", "url": url_for('foliage_report.vista_report')}
+        {"name": "Recomendaciones", "url": safe_url_for('foliage_report.listar_reportes') },
+        {"name": "Generar reporte", "url": safe_url_for('foliage_report.generar_informe') },
+
+        {"name": "Ejemplo reporte", "url": safe_url_for('foliage_report.vista_report')}
     ]
 } %}
 {# "name": "Panel de Informes", "url": url_for('foliage_report.reports_dashboard') #}

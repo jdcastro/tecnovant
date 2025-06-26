@@ -29,3 +29,18 @@ def inject_user():
         pass  # Si no hay token o hay un error, simplemente pasa
 
     return {"user_id": user_id, "username": username, "rol": rol}
+
+
+def safe_url_for(endpoint, **values):
+    """Return a URL for the given endpoint or a fallback if missing.
+
+    If the endpoint does not exist, this function returns the URL for
+    ``core.not_authorized`` to avoid ``BuildError`` exceptions in templates.
+    """
+    from flask import url_for
+    from werkzeug.routing import BuildError
+
+    try:
+        return url_for(endpoint, **values)
+    except BuildError:
+        return url_for("core.not_authorized")
