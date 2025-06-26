@@ -2430,7 +2430,7 @@ class LeafAnalysisView(MethodView):
                 raise BadRequest("Page number must be 1 or greater.")
             if per_page < 1 or per_page > 100:
                 raise BadRequest("Per_page must be between 1 and 100.")
-            pagination = query.paginate(page, per_page, error_out=False)
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
             leaf_analyses = pagination.items
         else:
             leaf_analyses = query.all()
