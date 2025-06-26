@@ -162,19 +162,43 @@
             analysesListDiv.innerHTML = '<p class="text-gray-500">Seleccione un lote para ver análisis.</p>';
         }
 
-        function updateCropInfo(cropId) {
+        function updateCropInfo(cropId, objectiveId = null) {
             if (!cropId || cropId === 'null') {
                 cropInfoDiv.classList.add('hidden');
                 cropInfoContent.textContent = '';
                 return;
             }
-            fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
+
+            const cropPromise = fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
                 .then(response => {
                     if (!response.ok) throw new Error('Error al cargar cultivo');
                     return response.json();
-                })
-                .then(crop => {
-                    cropInfoContent.textContent = `ID: ${crop.id} - ${crop.name}`;
+                });
+
+            let objectivePromise = Promise.resolve(null);
+            if (objectiveId) {
+                objectivePromise = fetch(`{{ url_for('foliage_api.objectives', id=0) }}`.replace('0', objectiveId))
+                    .then(response => {
+                        if (!response.ok) throw new Error('Error al cargar objetivo');
+                        return response.json();
+                    });
+            }
+
+            Promise.all([cropPromise, objectivePromise])
+                .then(([crop, objective]) => {
+                    let html = `<p><strong>ID:</strong> ${crop.id} - ${crop.name}</p>`;
+                    if (objective) {
+                        html += `<p class="mt-2"><strong>Objetivo:</strong> ${objective.id} (Target ${objective.target_value})</p>`;
+                        if (objective.nutrient_targets && objective.nutrient_targets.length) {
+                            html += '<ul class="list-disc list-inside ml-4">';
+                            objective.nutrient_targets.forEach(nt => {
+                                const symbol = nt.nutrient_symbol || nt.nutrient_name;
+                                html += `<li>${symbol}: ${nt.target_value}</li>`;
+                            });
+                            html += '</ul>';
+                        }
+                    }
+                    cropInfoContent.innerHTML = html;
                     cropInfoDiv.classList.remove('hidden');
                 })
                 .catch(error => {
@@ -376,6 +400,7 @@
                         document.getElementById('debug-objectives-data').textContent = JSON.stringify(objectives, null, 2);
                     }
                     objectiveSelect.disabled = false;
+                    updateCropInfo(cropId, objectiveSelect.value);
                 })
                 .catch(error => {
                     console.error(error);
@@ -383,6 +408,13 @@
                     errorMessage.textContent = 'Error al cargar objetivos.';
                     errorMessage.classList.remove('hidden');
                 });
+        });
+
+        // Update info when objective changes
+        objectiveSelect.addEventListener('change', function() {
+            const cropId = selectedCropIdInput.value;
+            const objectiveId = this.value;
+            updateCropInfo(cropId, objectiveId);
         });
 
 
