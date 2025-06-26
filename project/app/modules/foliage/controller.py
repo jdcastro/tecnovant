@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt
 from flask import request, jsonify, Response
 from flask.views import MethodView
 from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized, Conflict
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 
 # Local application imports
@@ -469,7 +469,7 @@ class CropView(MethodView):
     decorators = [jwt_required()]
 
     @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, crop_id=None):
+    def get(self, id=None):
         """
         Obtiene una lista de cultivos o un cultivo específico.
         Args:
@@ -477,6 +477,7 @@ class CropView(MethodView):
         Returns:
             JSON: Lista de cultivos o detalles de un cultivo específico.
         """
+        crop_id = id
         if crop_id:
             return self._get_crop(crop_id)
         return self._get_crop_list()
@@ -643,11 +644,31 @@ class CropView(MethodView):
 
     def _serialize_crop(self, crop):
         """Serializa un objeto Crop a un diccionario."""
+        # Obtener los objetivos asociados al cultivo
+        objectives_data = []
+        for objective in crop.objectives: # Asumiendo que crop.objectives es la relación
+            nutrient_targets = (
+                db.session.query(objective_nutrients)
+                .filter_by(objective_id=objective.id)
+                .all()
+            )
+            objectives_data.extend([
+                {
+                    "nutrient_id": target.nutrient_id,
+                    "target_value": target.target_value,
+                    "nutrient_name": Nutrient.query.get(target.nutrient_id).name,
+                    "nutrient_symbol": Nutrient.query.get(target.nutrient_id).symbol,
+                    "nutrient_unit": Nutrient.query.get(target.nutrient_id).unit,
+                }
+                for target in nutrient_targets
+            ])
+
         return {
             "id": crop.id,
             "name": crop.name,
             "created_at": crop.created_at.isoformat(),
             "updated_at": crop.updated_at.isoformat(),
+            "objective_nutrients": objectives_data, # Añadir los nutrientes objetivo
         }
 
 
@@ -1640,6 +1661,7 @@ class ProductPriceView(MethodView):
         if existing_price:
             raise Conflict("Ya existe un precio para este producto")
         price = data["price"]
+        supplier = data.get("supplier")
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
@@ -1656,6 +1678,7 @@ class ProductPriceView(MethodView):
         product_price = ProductPrice(
             product_id=product_id,
             price=price,
+            supplier=supplier,
             start_date=start_date,
             end_date=end_date,
         )
@@ -1670,6 +1693,8 @@ class ProductPriceView(MethodView):
         product_price = ProductPrice.query.get_or_404(product_price_id)
         if "price" in data:
             product_price.price = data["price"]
+        if "supplier" in data:
+            product_price.supplier = data["supplier"]
         if "start_date" in data:
             product_price.start_date = datetime.strptime(
                 data["start_date"], "%Y-%m-%d"
@@ -1701,6 +1726,7 @@ class ProductPriceView(MethodView):
             "product_id": product_price.product_id,
             "product_name": product_price.product.name,
             "price": product_price.price,
+            "supplier": product_price.supplier,
             "start_date": (
                 product_price.start_date.isoformat()
                 if product_price.start_date
@@ -2374,8 +2400,14 @@ class LeafAnalysisView(MethodView):
         return self._delete_leaf_analysis(leaf_analysis_id)
 
     # Métodos auxiliares
-    def _get_leaf_analysis_list(self, filter_by=None):
-        """Obtiene una lista de todos los análisis de hojas según el rol del usuario y el filtro por finca."""
+    def _get_leaf_analysis_list(self, filter_by=None, page=None, per_page=None):
+        """Obtiene una lista de todos los análisis de hojas según el rol del usuario y el filtro por finca.
+
+        Args:
+            filter_by (int, optional): ID de la finca para filtrar los resultados.
+            page (int, optional): Número de página para la paginación.
+            per_page (int, optional): Cantidad de elementos por página.
+        """
         claims = get_jwt()
         user_role = claims.get("rol")
         leaf_analyses = []
@@ -2404,17 +2436,66 @@ class LeafAnalysisView(MethodView):
         if filter_by:
             query = query.filter(Lot.farm_id == filter_by)
 
-        leaf_analyses = query.all()
-        response_data = [
-            self._serialize_leaf_analysis(leaf_analysis)
+        query = query.options(
+            joinedload(LeafAnalysis.common_analysis)
+            .joinedload(CommonAnalysis.lot)
+            .joinedload(Lot.farm),
+            selectinload(LeafAnalysis.nutrients),
+        )
+
+        pagination = None
+        if page is not None or per_page is not None:
+            page = page if page is not None else 1
+            per_page = per_page if per_page is not None else 10
+            if page < 1:
+                raise BadRequest("Page number must be 1 or greater.")
+            if per_page < 1 or per_page > 100:
+                raise BadRequest("Per_page must be between 1 and 100.")
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+            leaf_analyses = pagination.items
+        else:
+            leaf_analyses = query.all()
+
+        leaf_analysis_ids = [la.id for la in leaf_analyses]
+        values_query = db.session.query(
+            leaf_analysis_nutrients.c.leaf_analysis_id,
+            leaf_analysis_nutrients.c.nutrient_id,
+            leaf_analysis_nutrients.c.value,
+        ).filter(leaf_analysis_nutrients.c.leaf_analysis_id.in_(leaf_analysis_ids))
+        values_rows = values_query.all()
+        nutrient_values_map = {}
+        for la_id, nutrient_id, value in values_rows:
+            nutrient_values_map.setdefault(la_id, {})[nutrient_id] = value
+
+        items = [
+            self._serialize_leaf_analysis(leaf_analysis, nutrient_values_map)
             for leaf_analysis in leaf_analyses
         ]
+
+        if pagination:
+            response_data = {
+                "items": items,
+                "total": pagination.total,
+                "pages": pagination.pages,
+                "page": pagination.page,
+                "per_page": pagination.per_page,
+            }
+        else:
+            response_data = items
+
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
 
     def _get_leaf_analysis(self, leaf_analysis_id):
         """Obtiene los detalles de un análisis de hoja específico."""
-        leaf_analysis = LeafAnalysis.query.get_or_404(leaf_analysis_id)
+        leaf_analysis = (
+            LeafAnalysis.query.options(
+                joinedload(LeafAnalysis.common_analysis)
+                .joinedload(CommonAnalysis.lot)
+                .joinedload(Lot.farm),
+                selectinload(LeafAnalysis.nutrients),
+            ).get_or_404(leaf_analysis_id)
+        )
         claims = get_jwt()
         if not self._has_access(leaf_analysis, claims):
             raise Forbidden("You do not have access to this leaf analysis.")
@@ -2528,13 +2609,17 @@ class LeafAnalysisView(MethodView):
         """Verifica si el usuario actual tiene acceso al análisis de hoja."""
         return check_resource_access(leaf_analysis, claims)
 
-    def _serialize_leaf_analysis(self, leaf_analysis):
+    def _serialize_leaf_analysis(self, leaf_analysis, nutrient_values_map=None):
         """Serializa un objeto LeafAnalysis a un diccionario."""
-        nutrient_values = (
-            db.session.query(leaf_analysis_nutrients)
-            .filter_by(leaf_analysis_id=leaf_analysis.id)
-            .all()
-        )
+        if nutrient_values_map is not None:
+            values_for_analysis = nutrient_values_map.get(leaf_analysis.id, {})
+        else:
+            nutrient_values = (
+                db.session.query(leaf_analysis_nutrients)
+                .filter_by(leaf_analysis_id=leaf_analysis.id)
+                .all()
+            )
+            values_for_analysis = {nv.nutrient_id: nv.value for nv in nutrient_values}
         analysis_dict = {
             "id": leaf_analysis.id,
             "common_analysis_id": leaf_analysis.common_analysis_id,
@@ -2544,18 +2629,13 @@ class LeafAnalysisView(MethodView):
             "lot_name": leaf_analysis.common_analysis.lot_name,
             "created_at": leaf_analysis.created_at.isoformat(),
             "updated_at": leaf_analysis.updated_at.isoformat(),
-            "nutrients_info": {  # Nueva clave para los detalles de los nutrientes
-                str(nv.nutrient_id): {
-                    "name": Nutrient.query.get(nv.nutrient_id).name,
-                    "symbol": Nutrient.query.get(nv.nutrient_id).symbol,
-                    "unit": Nutrient.query.get(nv.nutrient_id).unit,
-                }
-                for nv in nutrient_values
+            "nutrients_info": {
+                str(n.id): {"name": n.name, "symbol": n.symbol, "unit": n.unit}
+                for n in leaf_analysis.nutrients
             },
         }
-        # Aplanar los valores de los nutrientes directamente en el diccionario
-        for nv in nutrient_values:
-            analysis_dict[f"nutrient_{nv.nutrient_id}"] = nv.value
+        for nutrient in leaf_analysis.nutrients:
+            analysis_dict[f"nutrient_{nutrient.id}"] = values_for_analysis.get(nutrient.id)
         return analysis_dict
 
 

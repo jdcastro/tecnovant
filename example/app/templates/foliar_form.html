@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe Foliar</title>
+  <script src="/static/js/foliar.js" defer></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.1/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="p-6 bg-gray-100">
+  <h1 class="text-2xl font-bold mb-4">Informe Foliar</h1>
+  <div class="grid grid-cols-3 gap-4">
+    <div class="col-span-2 space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <label class="block mb-1 font-medium">Finca</label>
+        <select id="farm" class="w-full border p-2 rounded"></select>
+
+        <label class="block mt-4 mb-1 font-medium">Lote</label>
+        <select id="lot" class="w-full border p-2 rounded"></select>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        
+    <h2 class="font-semibold mb-2">Modo de Comparación</h2>
+    <div class="mb-4 space-y-2">
+        <label class="block"><input type="radio" name="mode" value="optimum" checked class="mr-2"> Comparar con valores óptimos</label>
+        <label class="block"><input type="radio" name="mode" value="dual" class="mr-2"> Comparar dos análisis (Principal vs Comparación)</label>
+    </div>
+    <h2 class="font-semibold mb-2">Análisis disponibles</h2>
+    
+        
+    <div id="analysis-list" class="space-y-2"></div>
+    <div id="dual-selection" class="mt-4 hidden">
+        <label class="block mb-1 font-medium">Análisis Principal</label>
+        <select id="analysis-primary" class="w-full border p-2 rounded mb-2"></select>
+        <label class="block mb-1 font-medium">Análisis de Comparación</label>
+        <select id="analysis-compare" class="w-full border p-2 rounded"></select>
+    </div>
+    
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="font-semibold mb-2">Valores Óptimos</h2>
+      <div id="objective" class="text-sm text-gray-700"></div>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-white p-4 rounded shadow">
+    <h2 class="font-semibold mb-2">Balance</h2>
+    <div id="balance-result" class="text-sm text-gray-800"></div>
+  </div>
+</body>
+</html>
