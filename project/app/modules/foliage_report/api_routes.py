@@ -117,6 +117,23 @@ def get_objectives_for_crop(crop_id):
     return jsonify(objectives_data)
 
 
+@api.route("/get-objectives")
+@login_required
+def get_all_objectives():
+    """Return a list of all objectives with their crop names."""
+    objectives = Objective.query.all()
+    data = [
+        {
+            "cultivo": obj.crop.name,
+            "crop_id": obj.crop_id,
+            "id": obj.id,
+            "name": f"ID: {obj.id} - Target: {obj.target_value}",
+        }
+        for obj in objectives
+    ]
+    return jsonify(data)
+
+
 @api.route("/analyses")
 @login_required
 def get_analyses():
