@@ -644,11 +644,31 @@ class CropView(MethodView):
 
     def _serialize_crop(self, crop):
         """Serializa un objeto Crop a un diccionario."""
+        # Obtener los objetivos asociados al cultivo
+        objectives_data = []
+        for objective in crop.objectives: # Asumiendo que crop.objectives es la relación
+            nutrient_targets = (
+                db.session.query(objective_nutrients)
+                .filter_by(objective_id=objective.id)
+                .all()
+            )
+            objectives_data.extend([
+                {
+                    "nutrient_id": target.nutrient_id,
+                    "target_value": target.target_value,
+                    "nutrient_name": Nutrient.query.get(target.nutrient_id).name,
+                    "nutrient_symbol": Nutrient.query.get(target.nutrient_id).symbol,
+                    "nutrient_unit": Nutrient.query.get(target.nutrient_id).unit,
+                }
+                for target in nutrient_targets
+            ])
+
         return {
             "id": crop.id,
             "name": crop.name,
             "created_at": crop.created_at.isoformat(),
             "updated_at": crop.updated_at.isoformat(),
+            "objective_nutrients": objectives_data, # Añadir los nutrientes objetivo
         }
 
 
