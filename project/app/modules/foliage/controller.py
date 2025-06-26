@@ -1640,6 +1640,7 @@ class ProductPriceView(MethodView):
         if existing_price:
             raise Conflict("Ya existe un precio para este producto")
         price = data["price"]
+        supplier = data.get("supplier")
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
@@ -1656,6 +1657,7 @@ class ProductPriceView(MethodView):
         product_price = ProductPrice(
             product_id=product_id,
             price=price,
+            supplier=supplier,
             start_date=start_date,
             end_date=end_date,
         )
@@ -1670,6 +1672,8 @@ class ProductPriceView(MethodView):
         product_price = ProductPrice.query.get_or_404(product_price_id)
         if "price" in data:
             product_price.price = data["price"]
+        if "supplier" in data:
+            product_price.supplier = data["supplier"]
         if "start_date" in data:
             product_price.start_date = datetime.strptime(
                 data["start_date"], "%Y-%m-%d"
@@ -1701,6 +1705,7 @@ class ProductPriceView(MethodView):
             "product_id": product_price.product_id,
             "product_name": product_price.product.name,
             "price": product_price.price,
+            "supplier": product_price.supplier,
             "start_date": (
                 product_price.start_date.isoformat()
                 if product_price.start_date
