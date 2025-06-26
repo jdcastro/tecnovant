@@ -2379,8 +2379,14 @@ class LeafAnalysisView(MethodView):
         return self._delete_leaf_analysis(leaf_analysis_id)
 
     # Métodos auxiliares
-    def _get_leaf_analysis_list(self, filter_by=None):
-        """Obtiene una lista de todos los análisis de hojas según el rol del usuario y el filtro por finca."""
+    def _get_leaf_analysis_list(self, filter_by=None, page=None, per_page=None):
+        """Obtiene una lista de todos los análisis de hojas según el rol del usuario y el filtro por finca.
+
+        Args:
+            filter_by (int, optional): ID de la finca para filtrar los resultados.
+            page (int, optional): Número de página para la paginación.
+            per_page (int, optional): Cantidad de elementos por página.
+        """
         claims = get_jwt()
         user_role = claims.get("rol")
         leaf_analyses = []
@@ -2416,7 +2422,18 @@ class LeafAnalysisView(MethodView):
             selectinload(LeafAnalysis.nutrients),
         )
 
-        leaf_analyses = query.all()
+        pagination = None
+        if page is not None or per_page is not None:
+            page = page if page is not None else 1
+            per_page = per_page if per_page is not None else 10
+            if page < 1:
+                raise BadRequest("Page number must be 1 or greater.")
+            if per_page < 1 or per_page > 100:
+                raise BadRequest("Per_page must be between 1 and 100.")
+            pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+            leaf_analyses = pagination.items
+        else:
+            leaf_analyses = query.all()
 
         leaf_analysis_ids = [la.id for la in leaf_analyses]
         values_query = db.session.query(
@@ -2429,10 +2446,22 @@ class LeafAnalysisView(MethodView):
         for la_id, nutrient_id, value in values_rows:
             nutrient_values_map.setdefault(la_id, {})[nutrient_id] = value
 
-        response_data = [
+        items = [
             self._serialize_leaf_analysis(leaf_analysis, nutrient_values_map)
             for leaf_analysis in leaf_analyses
         ]
+
+        if pagination:
+            response_data = {
+                "items": items,
+                "total": pagination.total,
+                "pages": pagination.pages,
+                "page": pagination.page,
+                "per_page": pagination.per_page,
+            }
+        else:
+            response_data = items
+
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
         return Response(json_data, status=200, mimetype="application/json")
 
