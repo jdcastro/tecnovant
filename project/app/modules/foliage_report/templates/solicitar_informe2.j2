@@ -273,34 +273,34 @@
                     errorMessage.classList.remove('hidden');
                 });
 
-            // Fetch objectives for the crop
-            if (cropId) {
-                objectiveSelect.disabled = false; // Enable before fetch
-                fetch(`{{ url_for('foliage_report_api.get_objectives_for_crop', crop_id=0) }}`.replace('0', cropId))
-                    .then(response => {
-                        if (!response.ok) throw new Error('Error al cargar objetivos');
-                        return response.json();
-                    })
-                    .then(objectives => {
-                        resetSelect(objectiveSelect, 'Seleccione un objetivo...');
-                        objectives.forEach(obj => {
-                            const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
-                            objectiveSelect.add(option);
-                        });
-                        if (document.getElementById('debug-objectives-data')) {
-                            document.getElementById('debug-objectives-data').textContent = JSON.stringify(objectives, null, 2);
+            // Fetch all objectives and pre-select those matching the crop
+            objectiveSelect.disabled = false; // Enable before fetch
+            fetch(`{{ url_for('foliage_report_api.get_all_objectives') }}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al cargar objetivos');
+                    return response.json();
+                })
+                .then(objectives => {
+                    resetSelect(objectiveSelect, 'Seleccione un objetivo...');
+                    objectives.forEach(obj => {
+                        const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
+                        option.dataset.cropId = obj.crop_id;
+                        if (cropId && String(obj.crop_id) === String(cropId)) {
+                            option.selected = true;
                         }
-                        objectiveSelect.disabled = false;
-                    })
-                    .catch(error => {
-                        console.error(error);
-                        resetSelect(objectiveSelect, 'Error al cargar objetivos');
-                        errorMessage.textContent = 'Error al cargar objetivos.';
-                        errorMessage.classList.remove('hidden');
+                        objectiveSelect.add(option);
                     });
-            } else {
-                resetSelect(objectiveSelect, 'Cultivo no definido para este lote.');
-            }
+                    if (document.getElementById('debug-objectives-data')) {
+                        document.getElementById('debug-objectives-data').textContent = JSON.stringify(objectives, null, 2);
+                    }
+                    objectiveSelect.disabled = false;
+                })
+                .catch(error => {
+                    console.error(error);
+                    resetSelect(objectiveSelect, 'Error al cargar objetivos');
+                    errorMessage.textContent = 'Error al cargar objetivos.';
+                    errorMessage.classList.remove('hidden');
+                });
         });
 
 
