@@ -174,7 +174,18 @@
                     return response.json();
                 })
                 .then(crop => {
-                    cropInfoContent.textContent = `ID: ${crop.id} - ${crop.name}`;
+                    let content = `<p><strong>ID:</strong> ${crop.id}</p>`;
+                    content += `<p><strong>Nombre:</strong> ${crop.name}</p>`;
+                    if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
+                        content += '<p><strong>Nutrientes Objetivo:</strong></p><ul>';
+                        crop.objective_nutrients.forEach(on => {
+                            content += `<li>${on.nutrient_name} (${on.nutrient_symbol}): ${on.target_value} ${on.nutrient_unit}</li>`;
+                        });
+                        content += '</ul>';
+                    } else {
+                        content += '<p>No hay nutrientes objetivo definidos para este cultivo.</p>';
+                    }
+                    cropInfoContent.innerHTML = content;
                     cropInfoDiv.classList.remove('hidden');
                 })
                 .catch(error => {
