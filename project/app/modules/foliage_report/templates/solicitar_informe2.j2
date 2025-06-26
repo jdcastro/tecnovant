@@ -237,9 +237,14 @@
             lotSelect.disabled = false; // Enable before fetch
             fetch(`{{ url_for('foliage_report_api.get_lots') }}?farm_id=${farmId}`)
                 .then(response => {
-                     if (!response.ok) throw new Error('Error al cargar lotes');
-                     return response.json();
-                 })
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            const msg = data && data.error ? data.error : 'Error al cargar lotes';
+                            throw new Error(msg);
+                        });
+                    }
+                    return response.json();
+                })
                 .then(lots => {
                     resetSelect(lotSelect, 'Seleccione un lote...');
                     lots.forEach(lot => {
@@ -255,7 +260,7 @@
                 .catch(error => {
                     console.error(error);
                     resetSelect(lotSelect, 'Error al cargar lotes');
-                    errorMessage.textContent = 'Error al cargar lotes.';
+                    errorMessage.textContent = error.message || 'Error al cargar lotes.';
                     errorMessage.classList.remove('hidden');
                 });
         });
