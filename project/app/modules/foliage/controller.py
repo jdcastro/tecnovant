@@ -469,7 +469,7 @@ class CropView(MethodView):
     decorators = [jwt_required()]
 
     @check_permission(required_roles=["administrator", "reseller"])
-    def get(self, crop_id=None):
+    def get(self, id=None):
         """
         Obtiene una lista de cultivos o un cultivo específico.
         Args:
@@ -477,6 +477,7 @@ class CropView(MethodView):
         Returns:
             JSON: Lista de cultivos o detalles de un cultivo específico.
         """
+        crop_id = id
         if crop_id:
             return self._get_crop(crop_id)
         return self._get_crop_list()
