@@ -583,16 +583,27 @@ def amd_leaf_analyses():
 
     # Get data
     leaf_analysis_view = LeafAnalysisView()
-    filter_value = request.args.get("filter_value")
-    if filter_value:
-        filter_value = int(filter_value)
-        response = leaf_analysis_view._get_leaf_analysis_list(filter_by=filter_value)
-    else:
-        response = leaf_analysis_view._get_leaf_analysis_list()
+    filter_value = request.args.get("filter_value", type=int)
+    page = request.args.get("page", type=int)
+    per_page = request.args.get("per_page", type=int)
+    response = leaf_analysis_view._get_leaf_analysis_list(
+        filter_by=filter_value, page=page, per_page=per_page
+    )
     filter_field = "farm_id"
     farms = Farm.query.all()
     filter_options = farms
-    items = response.get_json()
+    data = response.get_json()
+    if isinstance(data, dict) and "items" in data:
+        items = data["items"]
+        pagination = {
+            "total": data["total"],
+            "pages": data["pages"],
+            "page": data["page"],
+            "per_page": data["per_page"],
+        }
+    else:
+        items = data
+        pagination = None
     status_code = response.status_code
 
     # Get CommonAnalysisView
@@ -646,6 +657,7 @@ def amd_leaf_analyses():
         render_template(
             "leaf_analyses.j2",
             items=items,
+            pagination=pagination,
             nutrient_ids=nutrient_ids,
             form_fields=form_fields,
             filter_field=filter_field,

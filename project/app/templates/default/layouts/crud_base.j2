@@ -214,6 +214,21 @@ base_input_classes, table_header_class, table_cell_class %}
                 </tbody>
             </table>
         </div>
+        {% if pagination %}
+        <div class="flex justify-center items-center gap-4 my-4">
+            {% if pagination.page > 1 %}
+                {% set prev_args = request.args.to_dict() %}
+                {% set _ = prev_args.update({'page': pagination.page - 1, 'per_page': pagination.per_page}) %}
+                <a href="{{ url_for(request.endpoint, **prev_args) }}" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }}">Anterior</a>
+            {% endif %}
+            <span class="{{ text_color }}">Página {{ pagination.page }} de {{ pagination.pages }}</span>
+            {% if pagination.page < pagination.pages %}
+                {% set next_args = request.args.to_dict() %}
+                {% set _ = next_args.update({'page': pagination.page + 1, 'per_page': pagination.per_page}) %}
+                <a href="{{ url_for(request.endpoint, **next_args) }}" class="{{ base_button_classes }} {{ border_color }} {{ bg_color }} {{ text_color }} {{ hover_bg_color }}">Siguiente</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
