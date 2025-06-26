@@ -37,6 +37,7 @@ from .helpers import (
     LeafAnalysisResource,
     ReportView,
 )
+from app.modules.foliage.helpers import calculate_liebig_balance
 
 
 class RecommendationView(MethodView):
@@ -375,6 +376,13 @@ class RecommendationGenerator(MethodView):
             analysis_data_for_report.get("soil"), default=str
         )
 
+        # Liebig balance data
+        liebig_data = calculate_liebig_balance(
+            objective_id,
+            common_analysis.leaf_analysis.id,
+        )
+        liebig_data_json = json.dumps(liebig_data, default=str)
+
         # Optimal comparison from the objective
         # Necesitamos un método para formatear los datos del objetivo como optimal_levels
         # Formato esperado: {'Nutriente': {'min': X, 'max': Y, 'ideal': Z, 'unit': 'unidad'}}
@@ -405,6 +413,7 @@ class RecommendationGenerator(MethodView):
                 automatic_recommendations=recomendacion_texto,
                 text_recommendations="",
                 optimal_comparison=optimal_comparison_json,
+                minimum_law_analyses=liebig_data_json,
                 soil_analysis_details=soil_details_json,
                 foliar_analysis_details=foliar_details_json,
                 # Considerar añadir objective_id y common_analysis_ids_used si se modifica el modelo

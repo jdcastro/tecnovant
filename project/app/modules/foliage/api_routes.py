@@ -2,6 +2,7 @@
 
 from . import foliage_api as api
 from flask import request, jsonify, Response
+from .helpers import calculate_liebig_balance
 from .controller import (
     FarmView,
     LotView,
@@ -236,3 +237,15 @@ api.add_url_rule(
     view_func=crop_csv_import_view,
     methods=["POST"],
 )
+
+
+@api.route("/get_balance_data")
+def get_balance_data():
+    """Return Liebig balance calculation for given objective and analysis."""
+    objective_id = request.args.get("objective_id", type=int)
+    analysis_id = request.args.get("analysis_id", type=int)
+    if not objective_id or not analysis_id:
+        return jsonify({"error": "objective_id and analysis_id are required"}), 400
+
+    data = calculate_liebig_balance(objective_id, analysis_id)
+    return jsonify(data)
