@@ -163,7 +163,7 @@
         }
 
         function updateCropInfo(cropId) {
-            if (!cropId) {
+            if (!cropId || cropId === 'null') {
                 cropInfoDiv.classList.add('hidden');
                 cropInfoContent.textContent = '';
                 return;
@@ -191,14 +191,28 @@
                 analysisInfoContent.innerHTML = '';
                 return;
             }
-            let html = '<ul class="list-disc list-inside">';
+            let html = '';
             selected.forEach(cb => {
                 const a = analysisDataMap[cb.value];
-                if (a) {
-                    html += `<li>ID: ${a.id} - ${a.date}</li>`;
+                if (!a) return;
+                html += `<div class="mb-4">
+                            <h4 class="font-semibold">Análisis ${a.id} - ${a.date}</h4>
+                            <p class="text-sm">Lote: ${a.lot.name} | Finca: ${a.lot.farm.name}</p>`;
+                if (a.leaf_analysis && a.leaf_analysis.nutrients && a.leaf_analysis.nutrients.length) {
+                    html += '<ul class="list-disc list-inside ml-4">';
+                    a.leaf_analysis.nutrients.forEach(n => {
+                        html += `<li>${n.nutrient_name}: ${n.value}</li>`;
+                    });
+                    html += '</ul>';
                 }
+                if (a.soil_analysis && (a.soil_analysis.energy !== null || a.soil_analysis.grazing !== null)) {
+                    html += '<p class="text-sm mt-1 ml-4">';
+                    if (a.soil_analysis.energy !== null) html += `Energía: ${a.soil_analysis.energy} `;
+                    if (a.soil_analysis.grazing !== null) html += `Pastoreo: ${a.soil_analysis.grazing}`;
+                    html += '</p>';
+                }
+                html += '</div>';
             });
-            html += '</ul>';
             analysisInfoContent.innerHTML = html;
             analysisInfoDiv.classList.remove('hidden');
         }
@@ -250,7 +264,7 @@
                     resetSelect(lotSelect, 'Seleccione un lote...');
                     lots.forEach(lot => {
                         const option = new Option(lot.name, lot.id);
-                        option.dataset.cropId = lot.crop_id; // Store crop_id
+                        option.dataset.cropId = lot.crop_id != null ? lot.crop_id : '';
                         lotSelect.add(option);
                     });
                     if (document.getElementById('debug-lots-data')) {
@@ -271,7 +285,8 @@
         lotSelect.addEventListener('change', function() {
             const lotId = this.value;
             const selectedOption = this.options[this.selectedIndex];
-            const cropId = selectedOption.dataset.cropId;
+            let cropId = selectedOption.dataset.cropId;
+            if (!cropId || cropId === 'null') cropId = '';
 
             clearAnalysesList();
             resetSelect(objectiveSelect, 'Cargando objetivos...');
@@ -349,7 +364,9 @@
                     resetSelect(objectiveSelect, 'Seleccione un objetivo...');
                     objectives.forEach(obj => {
                         const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
-                        option.dataset.cropId = obj.crop_id;
+
+                        option.dataset.cropId = obj.crop_id != null ? obj.crop_id : '';
+
                         if (cropId && String(obj.crop_id) === String(cropId)) {
                             option.selected = true;
                         }
