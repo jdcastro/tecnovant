@@ -64,7 +64,10 @@ def get_farms():
 def get_lots():
     claims = get_jwt()
     farm_id = request.args.get("farm_id")
-    farm = Farm.query.get_or_404(farm_id)
+    if not farm_id or not str(farm_id).isdigit():
+        return jsonify({"error": "farm_id required"}), 400
+
+    farm = Farm.query.get_or_404(int(farm_id))
 
     # Verificar si el usuario tiene acceso a esta finca
     if not check_resource_access(farm, claims):

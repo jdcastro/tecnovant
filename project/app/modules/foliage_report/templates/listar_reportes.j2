@@ -182,7 +182,12 @@ function loadLots(farmId) {
     
     if (farmId) {
         fetch(`{{ url_for('foliage_report_api.get_lots') }}?farm_id=${farmId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => { throw new Error(data.error || 'Error al cargar lotes'); });
+            }
+            return response.json();
+        })
         .then(lots => {
             lots.forEach(lot => {
                 const option = document.createElement('option');
@@ -194,6 +199,9 @@ function loadLots(farmId) {
                 }
                 lotSelect.appendChild(option);
             });
+        })
+        .catch(error => {
+            console.error(error);
         });
     }
 }
