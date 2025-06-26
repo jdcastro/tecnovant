@@ -165,7 +165,11 @@
         function updateCropInfo(cropId) {
             if (!cropId || cropId === 'null') {
                 cropInfoDiv.classList.add('hidden');
+<<<<<<< 4sv3ya-codex/mostrar-todos-los-cultivos-en-opciones-del-informe
                 cropInfoContent.innerHTML = '';
+=======
+                cropInfoContent.textContent = '';
+>>>>>>> main
                 return;
             }
             fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
@@ -174,6 +178,7 @@
                     return response.json();
                 })
                 .then(crop => {
+<<<<<<< 4sv3ya-codex/mostrar-todos-los-cultivos-en-opciones-del-informe
                     let html = `ID: ${crop.id} - ${crop.name}`;
                     const objId = objectiveSelect.value;
                     if (objId) {
@@ -196,6 +201,9 @@
                             });
                     }
                     cropInfoContent.innerHTML = html;
+=======
+                    cropInfoContent.textContent = `ID: ${crop.id} - ${crop.name}`;
+>>>>>>> main
                     cropInfoDiv.classList.remove('hidden');
                 })
                 .catch(error => {
@@ -385,7 +393,13 @@
                     resetSelect(objectiveSelect, 'Seleccione un objetivo...');
                     objectives.forEach(obj => {
                         const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
+<<<<<<< 4sv3ya-codex/mostrar-todos-los-cultivos-en-opciones-del-informe
                         option.dataset.cropId = obj.crop_id != null ? obj.crop_id : '';
+=======
+
+                        option.dataset.cropId = obj.crop_id != null ? obj.crop_id : '';
+
+>>>>>>> main
                         if (cropId && String(obj.crop_id) === String(cropId)) {
                             option.selected = true;
                         }
@@ -395,7 +409,10 @@
                         document.getElementById('debug-objectives-data').textContent = JSON.stringify(objectives, null, 2);
                     }
                     objectiveSelect.disabled = false;
+<<<<<<< 4sv3ya-codex/mostrar-todos-los-cultivos-en-opciones-del-informe
                     updateCropInfo(cropId);
+=======
+>>>>>>> main
                 })
                 .catch(error => {
                     console.error(error);
@@ -403,10 +420,13 @@
                     errorMessage.textContent = 'Error al cargar objetivos.';
                     errorMessage.classList.remove('hidden');
                 });
+<<<<<<< 4sv3ya-codex/mostrar-todos-los-cultivos-en-opciones-del-informe
         });
 
         objectiveSelect.addEventListener('change', function() {
             updateCropInfo(selectedCropIdInput.value);
+=======
+>>>>>>> main
         });
 
 
