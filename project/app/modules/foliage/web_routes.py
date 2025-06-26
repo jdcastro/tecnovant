@@ -524,16 +524,23 @@ def amd_common_analyses():
 
     items = response.get_json()
     status_code = response.status_code
-    # if filter_value:
-    #     lots = LotCrop.query.join(Lot).join(Farm).filter(Farm.id == filter_value).all()
-    # else:
-    #     lots = LotCrop.query.all()
-    # lots_dic = {f"{lot.lot.name} - {lot.crop.name}": lot.id for lot in lots}
+
+    # Collect the lot_ids used in the items returned so they are always available
+    item_lot_ids = {item.get("lot_id") for item in items if item.get("lot_id")}
 
     if filter_value:
         lots = Lot.query.join(Farm).filter(Farm.id == filter_value).all()
     else:
         lots = Lot.query.all()
+
+    # Ensure lots also include those referenced by the items
+    if item_lot_ids:
+        additional_lots = Lot.query.filter(Lot.id.in_(item_lot_ids)).all()
+        lots_map = {lot.id: lot for lot in lots}
+        for lot in additional_lots:
+            lots_map[lot.id] = lot
+        lots = list(lots_map.values())
+
     lots_dic = {lot.name: lot.id for lot in lots}
 
     filter_field = "farm_id"
