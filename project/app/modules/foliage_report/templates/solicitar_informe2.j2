@@ -77,15 +77,12 @@
     </div>
 </form>
 
-<div id="info-box" class="mt-4 space-y-4">
-    <div id="crop-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
-        <h2 class="text-lg font-semibold mb-2">Información del Cultivo</h2>
-        <div id="crop-info-content" class="text-sm"></div>
+<div id="balance-section" class="mt-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
+    <h2 class="text-lg font-semibold mb-2">Balance de Nutrientes</h2>
+    <div class="overflow-auto">
+        <table id="balance-table" class="min-w-full text-sm border-collapse"></table>
     </div>
-    <div id="analysis-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
-        <h2 class="text-lg font-semibold mb-2">Información del Análisis</h2>
-        <div id="analysis-info-content" class="text-sm"></div>
-    </div>
+    <p id="limiting-nutrient" class="mt-2 text-sm font-medium"></p>
 </div>
 
 {% if DEBUG %}
@@ -145,10 +142,9 @@
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
-        const cropInfoDiv = document.getElementById('crop-info');
-        const cropInfoContent = document.getElementById('crop-info-content');
-        const analysisInfoDiv = document.getElementById('analysis-info');
-        const analysisInfoContent = document.getElementById('analysis-info-content');
+        const balanceSection = document.getElementById('balance-section');
+        const balanceTable = document.getElementById('balance-table');
+        const limitingNutrientEl = document.getElementById('limiting-nutrient');
         let analysisDataMap = {};
 
         // Function to clear and disable a select element
@@ -162,71 +158,46 @@
             analysesListDiv.innerHTML = '<p class="text-gray-500">Seleccione un lote para ver análisis.</p>';
         }
 
-        function updateCropInfo(cropId) {
-            if (!cropId || cropId === 'null') {
-                cropInfoDiv.classList.add('hidden');
-                cropInfoContent.textContent = '';
+        function updateBalanceTable() {
+            const objectiveId = objectiveSelect.value;
+            const selected = Array.from(document.querySelectorAll('#analyses-list input[name="selected_analyses"]:checked'));
+            const analysisId = selected.length > 0 ? selected[0].value : null;
+            if (!objectiveId || !analysisId) {
+                balanceSection.classList.add('hidden');
+                balanceTable.innerHTML = '';
+                limitingNutrientEl.textContent = '';
                 return;
             }
-            fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
-                .then(response => {
-                    if (!response.ok) throw new Error('Error al cargar cultivo');
-                    return response.json();
+            fetch(`/api/foliage/report/get_balance_data?objective_id=${objectiveId}&analysis_id=${analysisId}`)
+                .then(resp => resp.json())
+                .then(data => {
+                    const standard = data.standard || {};
+                    const foliar = data.foliar || {};
+                    const balance = data.balance || {};
+                    const nutrients = Array.from(new Set([...Object.keys(standard), ...Object.keys(foliar), ...Object.keys(balance)]));
+                    let headerRow = '<tr><th class="border px-2 py-1"></th>';
+                    nutrients.forEach(n => { headerRow += `<th class="border px-2 py-1">${n}</th>`; });
+                    headerRow += '</tr>';
+                    let rowStd = '<tr><td class="font-semibold border px-2 py-1">Estandar</td>';
+                    nutrients.forEach(n => { rowStd += `<td class="border px-2 py-1">${standard[n] !== undefined ? standard[n] : ''}</td>`; });
+                    rowStd += '</tr>';
+                    let rowFol = '<tr><td class="font-semibold border px-2 py-1">Foliar</td>';
+                    nutrients.forEach(n => { rowFol += `<td class="border px-2 py-1">${foliar[n] !== undefined ? foliar[n] : ''}</td>`; });
+                    rowFol += '</tr>';
+                    let rowBal = '<tr><td class="font-semibold border px-2 py-1">Balance</td>';
+                    nutrients.forEach(n => { rowBal += `<td class="border px-2 py-1">${balance[n] !== undefined ? balance[n] : ''}</td>`; });
+                    rowBal += '</tr>';
+                    balanceTable.innerHTML = `<tbody>${headerRow}${rowStd}${rowFol}${rowBal}</tbody>`;
+                    const limit = data.limiting_nutrient_info;
+                    limitingNutrientEl.textContent = limit && limit.name ? `Nutriente limitante: ${limit.name}` : '';
+                    balanceSection.classList.remove('hidden');
                 })
-                .then(crop => {
-                    let content = `<p><strong>ID:</strong> ${crop.id}</p>`;
-                    content += `<p><strong>Nombre:</strong> ${crop.name}</p>`;
-                    if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
-                        content += '<p><strong>Nutrientes Objetivo:</strong></p><ul>';
-                        crop.objective_nutrients.forEach(on => {
-                            content += `<li>${on.nutrient_name} (${on.nutrient_symbol}): ${on.target_value} ${on.nutrient_unit}</li>`;
-                        });
-                        content += '</ul>';
-                    } else {
-                        content += '<p>No hay nutrientes objetivo definidos para este cultivo.</p>';
-                    }
-                    cropInfoContent.innerHTML = content;
-                    cropInfoDiv.classList.remove('hidden');
-                })
-                .catch(error => {
-                    console.error(error);
-                    cropInfoContent.textContent = 'Error al cargar datos del cultivo';
-                    cropInfoDiv.classList.remove('hidden');
+                .catch(err => {
+                    console.error(err);
+                    balanceSection.classList.add('hidden');
                 });
         }
 
-        function updateAnalysisInfo() {
-            const selected = Array.from(document.querySelectorAll('#analyses-list input[name="selected_analyses"]:checked'));
-            if (selected.length === 0) {
-                analysisInfoDiv.classList.add('hidden');
-                analysisInfoContent.innerHTML = '';
-                return;
-            }
-            let html = '';
-            selected.forEach(cb => {
-                const a = analysisDataMap[cb.value];
-                if (!a) return;
-                html += `<div class="mb-4">
-                            <h4 class="font-semibold">Análisis ${a.id} - ${a.date}</h4>
-                            <p class="text-sm">Lote: ${a.lot.name} | Finca: ${a.lot.farm.name}</p>`;
-                if (a.leaf_analysis && a.leaf_analysis.nutrients && a.leaf_analysis.nutrients.length) {
-                    html += '<ul class="list-disc list-inside ml-4">';
-                    a.leaf_analysis.nutrients.forEach(n => {
-                        html += `<li>${n.nutrient_name}: ${n.value}</li>`;
-                    });
-                    html += '</ul>';
-                }
-                if (a.soil_analysis && (a.soil_analysis.energy !== null || a.soil_analysis.grazing !== null)) {
-                    html += '<p class="text-sm mt-1 ml-4">';
-                    if (a.soil_analysis.energy !== null) html += `Energía: ${a.soil_analysis.energy} `;
-                    if (a.soil_analysis.grazing !== null) html += `Pastoreo: ${a.soil_analysis.grazing}`;
-                    html += '</p>';
-                }
-                html += '</div>';
-            });
-            analysisInfoContent.innerHTML = html;
-            analysisInfoDiv.classList.remove('hidden');
-        }
         
         // Cargar fincas (si no se poblaron desde el servidor)
         if (farmSelect.options.length <= 1) { // Only fetch if not pre-populated
@@ -258,10 +229,8 @@
             clearAnalysesList();
             resetSelect(objectiveSelect, 'Seleccione un objetivo...');
             selectedCropIdInput.value = '';
-            updateCropInfo(null);
-            updateAnalysisInfo();
+            updateBalanceTable();
 
-            if (!farmId) {
                  resetSelect(lotSelect, 'Seleccione un lote...');
                  return;
             }
@@ -302,8 +271,7 @@
             clearAnalysesList();
             resetSelect(objectiveSelect, 'Cargando objetivos...');
             selectedCropIdInput.value = cropId || '';
-            updateCropInfo(cropId);
-            updateAnalysisInfo();
+            updateBalanceTable();
 
 
             if (!lotId) {
@@ -345,14 +313,14 @@
                                 div.appendChild(label);
                                 analysesListDiv.appendChild(div);
                                 analysisDataMap[analysis.id] = analysis;
-                                input.addEventListener('change', updateAnalysisInfo);
+                                input.addEventListener('change', updateBalanceTable);
                             }
                         });
                          if (analysesListDiv.childElementCount === 0) { // If all analyses were filtered out
                             analysesListDiv.innerHTML = '<p class="text-gray-500">No hay análisis de follaje disponibles para este lote.</p>';
                         }
                     }
-                    updateAnalysisInfo();
+                    updateBalanceTable();
                     if (document.getElementById('debug-analyses-data')) {
                         document.getElementById('debug-analyses-data').textContent = JSON.stringify(analyses, null, 2);
                     }
@@ -398,10 +366,7 @@
 
         // Actualizar información del cultivo cuando cambia el objetivo seleccionado
         objectiveSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            let cropId = selectedOption.dataset.cropId;
-             if (!cropId || cropId === 'null') cropId = '';
-            updateCropInfo(cropId);
+            updateBalanceTable();
         });
 
 
