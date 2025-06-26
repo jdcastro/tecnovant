@@ -77,6 +77,17 @@
     </div>
 </form>
 
+<div id="info-box" class="mt-4 space-y-4">
+    <div id="crop-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
+        <h2 class="text-lg font-semibold mb-2">Información del Cultivo</h2>
+        <div id="crop-info-content" class="text-sm"></div>
+    </div>
+    <div id="analysis-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
+        <h2 class="text-lg font-semibold mb-2">Información del Análisis</h2>
+        <div id="analysis-info-content" class="text-sm"></div>
+    </div>
+</div>
+
 {% if DEBUG %}
 <div class="my-4 p-4 bg-gray-100 dark:bg-gray-900 rounded-lg shadow">
     <h2 class="text-xl font-semibold mb-3">Datos de Depuración (JSON)</h2>
@@ -134,6 +145,11 @@
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
+        const cropInfoDiv = document.getElementById('crop-info');
+        const cropInfoContent = document.getElementById('crop-info-content');
+        const analysisInfoDiv = document.getElementById('analysis-info');
+        const analysisInfoContent = document.getElementById('analysis-info-content');
+        let analysisDataMap = {};
 
         // Function to clear and disable a select element
         function resetSelect(selectElement, defaultOptionText) {
@@ -144,6 +160,82 @@
         // Function to clear analyses list
         function clearAnalysesList() {
             analysesListDiv.innerHTML = '<p class="text-gray-500">Seleccione un lote para ver análisis.</p>';
+        }
+
+        function updateCropInfo(cropId) {
+            if (!cropId || cropId === 'null') {
+                cropInfoDiv.classList.add('hidden');
+                cropInfoContent.innerHTML = '';
+                return;
+            }
+            fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al cargar cultivo');
+                    return response.json();
+                })
+                .then(crop => {
+                    let html = `ID: ${crop.id} - ${crop.name}`;
+                    const objId = objectiveSelect.value;
+                    if (objId) {
+                        return fetch(`{{ url_for('foliage_api.objectives', id=0) }}`.replace('0', objId))
+                            .then(resp => {
+                                if (!resp.ok) throw new Error('Error al cargar objetivo');
+                                return resp.json();
+                            })
+                            .then(obj => {
+                                html += `<div class="mt-2 font-medium">Objetivo ${obj.id} - Target ${obj.target_value}</div>`;
+                                if (obj.nutrient_targets && obj.nutrient_targets.length) {
+                                    html += '<ul class="list-disc list-inside ml-4">';
+                                    obj.nutrient_targets.forEach(nt => {
+                                        html += `<li>${nt.nutrient_name}: ${nt.target_value}</li>`;
+                                    });
+                                    html += '</ul>';
+                                }
+                                cropInfoContent.innerHTML = html;
+                                cropInfoDiv.classList.remove('hidden');
+                            });
+                    }
+                    cropInfoContent.innerHTML = html;
+                    cropInfoDiv.classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error(error);
+                    cropInfoContent.textContent = 'Error al cargar datos del cultivo';
+                    cropInfoDiv.classList.remove('hidden');
+                });
+        }
+
+        function updateAnalysisInfo() {
+            const selected = Array.from(document.querySelectorAll('#analyses-list input[name="selected_analyses"]:checked'));
+            if (selected.length === 0) {
+                analysisInfoDiv.classList.add('hidden');
+                analysisInfoContent.innerHTML = '';
+                return;
+            }
+            let html = '';
+            selected.forEach(cb => {
+                const a = analysisDataMap[cb.value];
+                if (!a) return;
+                html += `<div class="mb-4">
+                            <h4 class="font-semibold">Análisis ${a.id} - ${a.date}</h4>
+                            <p class="text-sm">Lote: ${a.lot.name} | Finca: ${a.lot.farm.name}</p>`;
+                if (a.leaf_analysis && a.leaf_analysis.nutrients && a.leaf_analysis.nutrients.length) {
+                    html += '<ul class="list-disc list-inside ml-4">';
+                    a.leaf_analysis.nutrients.forEach(n => {
+                        html += `<li>${n.nutrient_name}: ${n.value}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                if (a.soil_analysis && (a.soil_analysis.energy !== null || a.soil_analysis.grazing !== null)) {
+                    html += '<p class="text-sm mt-1 ml-4">';
+                    if (a.soil_analysis.energy !== null) html += `Energía: ${a.soil_analysis.energy} `;
+                    if (a.soil_analysis.grazing !== null) html += `Pastoreo: ${a.soil_analysis.grazing}`;
+                    html += '</p>';
+                }
+                html += '</div>';
+            });
+            analysisInfoContent.innerHTML = html;
+            analysisInfoDiv.classList.remove('hidden');
         }
         
         // Cargar fincas (si no se poblaron desde el servidor)
@@ -176,6 +268,8 @@
             clearAnalysesList();
             resetSelect(objectiveSelect, 'Seleccione un objetivo...');
             selectedCropIdInput.value = '';
+            updateCropInfo(null);
+            updateAnalysisInfo();
 
             if (!farmId) {
                  resetSelect(lotSelect, 'Seleccione un lote...');
@@ -191,7 +285,7 @@
                     resetSelect(lotSelect, 'Seleccione un lote...');
                     lots.forEach(lot => {
                         const option = new Option(lot.name, lot.id);
-                        option.dataset.cropId = lot.crop_id; // Store crop_id
+                        option.dataset.cropId = lot.crop_id != null ? lot.crop_id : '';
                         lotSelect.add(option);
                     });
                     if (document.getElementById('debug-lots-data')) {
@@ -212,11 +306,14 @@
         lotSelect.addEventListener('change', function() {
             const lotId = this.value;
             const selectedOption = this.options[this.selectedIndex];
-            const cropId = selectedOption.dataset.cropId;
+            let cropId = selectedOption.dataset.cropId;
+            if (!cropId || cropId === 'null') cropId = '';
 
             clearAnalysesList();
             resetSelect(objectiveSelect, 'Cargando objetivos...');
             selectedCropIdInput.value = cropId || '';
+            updateCropInfo(cropId);
+            updateAnalysisInfo();
 
 
             if (!lotId) {
@@ -235,6 +332,7 @@
                 })
                 .then(analyses => {
                     analysesListDiv.innerHTML = ''; // Clear loading message
+                    analysisDataMap = {};
                     if (analyses.length === 0) {
                         analysesListDiv.innerHTML = '<p class="text-gray-500">No hay análisis disponibles para este lote.</p>';
                     } else {
@@ -256,12 +354,15 @@
                                 div.appendChild(input);
                                 div.appendChild(label);
                                 analysesListDiv.appendChild(div);
+                                analysisDataMap[analysis.id] = analysis;
+                                input.addEventListener('change', updateAnalysisInfo);
                             }
                         });
                          if (analysesListDiv.childElementCount === 0) { // If all analyses were filtered out
                             analysesListDiv.innerHTML = '<p class="text-gray-500">No hay análisis de follaje disponibles para este lote.</p>';
                         }
                     }
+                    updateAnalysisInfo();
                     if (document.getElementById('debug-analyses-data')) {
                         document.getElementById('debug-analyses-data').textContent = JSON.stringify(analyses, null, 2);
                     }
@@ -273,34 +374,39 @@
                     errorMessage.classList.remove('hidden');
                 });
 
-            // Fetch objectives for the crop
-            if (cropId) {
-                objectiveSelect.disabled = false; // Enable before fetch
-                fetch(`{{ url_for('foliage_report_api.get_objectives_for_crop', crop_id=0) }}`.replace('0', cropId))
-                    .then(response => {
-                        if (!response.ok) throw new Error('Error al cargar objetivos');
-                        return response.json();
-                    })
-                    .then(objectives => {
-                        resetSelect(objectiveSelect, 'Seleccione un objetivo...');
-                        objectives.forEach(obj => {
-                            const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
-                            objectiveSelect.add(option);
-                        });
-                        if (document.getElementById('debug-objectives-data')) {
-                            document.getElementById('debug-objectives-data').textContent = JSON.stringify(objectives, null, 2);
+            // Fetch all objectives and pre-select those matching the crop
+            objectiveSelect.disabled = false; // Enable before fetch
+            fetch(`{{ url_for('foliage_report_api.get_all_objectives') }}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error al cargar objetivos');
+                    return response.json();
+                })
+                .then(objectives => {
+                    resetSelect(objectiveSelect, 'Seleccione un objetivo...');
+                    objectives.forEach(obj => {
+                        const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
+                        option.dataset.cropId = obj.crop_id != null ? obj.crop_id : '';
+                        if (cropId && String(obj.crop_id) === String(cropId)) {
+                            option.selected = true;
                         }
-                        objectiveSelect.disabled = false;
-                    })
-                    .catch(error => {
-                        console.error(error);
-                        resetSelect(objectiveSelect, 'Error al cargar objetivos');
-                        errorMessage.textContent = 'Error al cargar objetivos.';
-                        errorMessage.classList.remove('hidden');
+                        objectiveSelect.add(option);
                     });
-            } else {
-                resetSelect(objectiveSelect, 'Cultivo no definido para este lote.');
-            }
+                    if (document.getElementById('debug-objectives-data')) {
+                        document.getElementById('debug-objectives-data').textContent = JSON.stringify(objectives, null, 2);
+                    }
+                    objectiveSelect.disabled = false;
+                    updateCropInfo(cropId);
+                })
+                .catch(error => {
+                    console.error(error);
+                    resetSelect(objectiveSelect, 'Error al cargar objetivos');
+                    errorMessage.textContent = 'Error al cargar objetivos.';
+                    errorMessage.classList.remove('hidden');
+                });
+        });
+
+        objectiveSelect.addEventListener('change', function() {
+            updateCropInfo(selectedCropIdInput.value);
         });
 
 
