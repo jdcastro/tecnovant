@@ -364,7 +364,9 @@
                     resetSelect(objectiveSelect, 'Seleccione un objetivo...');
                     objectives.forEach(obj => {
                         const option = new Option(`${obj.cultivo} - ${obj.name}`, obj.id);
+
                         option.dataset.cropId = obj.crop_id != null ? obj.crop_id : '';
+
                         if (cropId && String(obj.crop_id) === String(cropId)) {
                             option.selected = true;
                         }
