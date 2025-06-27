@@ -177,11 +177,14 @@
                     let content = `<p><strong>ID:</strong> ${crop.id}</p>`;
                     content += `<p><strong>Nombre:</strong> ${crop.name}</p>`;
                     if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
-                        content += '<p><strong>Nutrientes Objetivo:</strong></p><ul>';
+                        content += '<p><strong>Nutrientes Objetivo:</strong></p>';
                         crop.objective_nutrients.forEach(on => {
-                            content += `<li>${on.nutrient_name} (${on.nutrient_symbol}): ${on.target_value} ${on.nutrient_unit}</li>`;
+                            content += `<div class="mb-1 flex items-center ml-4">
+                                            <label class="mr-2 text-sm font-medium">${on.nutrient_name} (${on.nutrient_symbol})</label>
+                                            <input type="number" step="any" value="${on.target_value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
+                                            <span class="ml-1 text-sm">${on.nutrient_unit}</span>
+                                        </div>`;
                         });
-                        content += '</ul>';
                     } else {
                         content += '<p>No hay nutrientes objetivo definidos para este cultivo.</p>';
                     }
@@ -210,11 +213,12 @@
                             <h4 class="font-semibold">Análisis ${a.id} - ${a.date}</h4>
                             <p class="text-sm">Lote: ${a.lot.name} | Finca: ${a.lot.farm.name}</p>`;
                 if (a.leaf_analysis && a.leaf_analysis.nutrients && a.leaf_analysis.nutrients.length) {
-                    html += '<ul class="list-disc list-inside ml-4">';
                     a.leaf_analysis.nutrients.forEach(n => {
-                        html += `<li>${n.nutrient_name}: ${n.value}</li>`;
+                        html += `<div class="ml-4 mb-1 flex items-center">
+                                    <label class="mr-2 text-sm font-medium">${n.nutrient_name}</label>
+                                    <input type="number" step="any" value="${n.value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
+                                </div>`;
                     });
-                    html += '</ul>';
                 }
                 if (a.soil_analysis && (a.soil_analysis.energy !== null || a.soil_analysis.grazing !== null)) {
                     html += '<p class="text-sm mt-1 ml-4">';
