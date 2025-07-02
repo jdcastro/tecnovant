@@ -154,6 +154,14 @@ class ProductPriceSchema(Schema):
     updated_at = fields.DateTime(dump_only=True)
 
 
+class NutrientCVSchema(Schema):
+    id = fields.Int(dump_only=True)
+    nutrient_id = fields.Int(required=True)
+    cv = fields.Decimal(as_string=True, required=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+
+
 class RecommendationSchema(Schema):
     id = fields.Int(dump_only=True)
     lot_id = fields.Int(required=True)

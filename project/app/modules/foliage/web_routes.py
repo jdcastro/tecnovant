@@ -20,6 +20,7 @@ from .controller import (
     ProductContributionView,
     ProductionView,
     ProductPriceView,
+    NutrientCVView,
     ProductView,
     SoilAnalysisView,
 )
@@ -490,6 +491,42 @@ def amd_product_prices():
             "product_prices.j2",
             items=items,
             product_options=product_options,
+            **context,
+            request=request,
+        ),
+        200,
+    )
+
+
+# --------------------------------------------------------
+# Nutrient CV
+# --------------------------------------------------------
+
+@web.route("/nutrient_cvs")
+@login_required
+def amd_nutrient_cvs():
+    """Página: Gestión de coeficientes de variación"""
+    user_id = get_jwt_identity()
+    context = {
+        "dashboard": True,
+        "title": "Gestión de CV de nutrientes",
+        "description": "Administración de coeficientes de variación por nutriente.",
+        "author": "Johnny De Castro",
+        "site_title": "Panel de Control",
+        "data_menu": get_dashboard_menu(),
+    }
+    nutrient_cv_view = NutrientCVView()
+    response = nutrient_cv_view._get_nutrient_cv_list()
+    items = response.get_json()
+    status_code = response.status_code
+    nutrient_options = {n.name: n.id for n in Nutrient.query.all()}
+    if status_code != 200:
+        return render_template("error.j2"), status_code
+    return (
+        render_template(
+            "nutrient_cvs.j2",
+            items=items,
+            nutrient_options=nutrient_options,
             **context,
             request=request,
         ),

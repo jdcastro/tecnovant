@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 
 from marshmallow import Schema, ValidationError, fields, validates
@@ -272,6 +273,11 @@ class Nutrient(db.Model):
         secondary=product_contribution_nutrients,
         back_populates="nutrients",
     )
+    cv_value = db.relationship(
+        "NutrientCV",
+        uselist=False,
+        back_populates="nutrient",
+    )
 
     def __repr__(self):
         return f"<Nutrient {self.name} ({self.symbol})>"
@@ -510,6 +516,29 @@ class ProductPrice(db.Model):
 
     def __repr__(self):
         return f"<ProductPrice {self.id}>"
+
+
+class NutrientCV(db.Model):
+    """Model representing coefficient of variation for a nutrient"""
+
+    __tablename__ = "nutrient_cvs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nutrient_id = db.Column(db.Integer, db.ForeignKey("nutrients.id"), nullable=False)
+    cv = db.Column(db.Numeric(5, 2), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    nutrient = db.relationship("Nutrient", back_populates="cv_value")
+
+    __table_args__ = (
+        db.UniqueConstraint("nutrient_id", name="uq_nutrient_cv_nutrient_id"),
+    )
+
+    def __repr__(self):
+        return f"<NutrientCV {self.id} - Nutrient {self.nutrient_id}>"
 
 
 # Validación de nutrientes
