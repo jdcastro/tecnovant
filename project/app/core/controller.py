@@ -3,51 +3,50 @@ from functools import wraps
 
 # Third party imports
 from flask import (
-    request,
+    Response,
+    current_app,
+    flash,
     jsonify,
     redirect,
-    url_for,
     render_template,
-    current_app,
-    Response,
+    request,
     stream_with_context,
-    flash,
+    url_for,
 )
 from flask.views import MethodView
 from flask_jwt_extended import (
-    jwt_required,
-    get_jwt_identity,
-    get_jwt,
-    verify_jwt_in_request,
     create_access_token,
     create_refresh_token,
     get_csrf_token,
+    get_jwt,
+    get_jwt_identity,
+    jwt_required,
     set_access_cookies,
     set_refresh_cookies,
     unset_jwt_cookies,
+    verify_jwt_in_request,
 )
-from werkzeug.exceptions import (
-    BadRequest,
-    NotFound,
-    Forbidden,
-    Unauthorized,
-    InternalServerError,
-)
-from werkzeug.security import check_password_hash
+from itsdangerous import BadTimeSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
+from werkzeug.exceptions import (
+    BadRequest,
+    Forbidden,
+    InternalServerError,
+    NotFound,
+    Unauthorized,
+)
+from werkzeug.security import check_password_hash
 
 # Local application imports
 from app.extensions import db
 from app.helpers.mail import send_email
+
+from .models import Organization  # PermissionEnum,; ActionEnum,
 from .models import (
-    User,
-    Organization,
     ResellerPackage,
     RoleEnum,
-    # PermissionEnum,
-    # ActionEnum,
+    User,
     verify_user_in_organization,
 )
 

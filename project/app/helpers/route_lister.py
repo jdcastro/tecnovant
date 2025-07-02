@@ -14,7 +14,7 @@ License:
 """
 
 # Python standard library imports
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 # Third party imports
 from flask import current_app, json
@@ -100,7 +100,7 @@ class RouteLister(MethodView):
         docstring = func.__doc__
         return docstring.strip() if docstring else ""
 
-    from typing import List, Dict, Tuple
+    from typing import Dict, List, Tuple
 
     @staticmethod
     def _parse_docstring(

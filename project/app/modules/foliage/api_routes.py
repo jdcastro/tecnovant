@@ -1,26 +1,28 @@
 """REST API endpoints for foliage-related resources."""
 
-from . import foliage_api as api
-from flask import request, jsonify, Response
-from .controller import (
-    FarmView,
-    LotView,
-    CropView,
-    LotCropView,
-    CommonAnalysisView,
-    NutrientView,
-    LeafAnalysisView,
-    NutrientApplicationView,
-    ObjectiveView,
-    ProductView,
-    ProductContributionView,
-    ProductPriceView,
-    SoilAnalysisView,
-    ProductionView,
-)
+from flask import Response, jsonify, request
+
 from app.helpers.csv_handler import CsvHandler
-from .models import Farm, Crop, Lot
+
+from . import foliage_api as api
+from .controller import (
+    CommonAnalysisView,
+    CropView,
+    FarmView,
+    LeafAnalysisView,
+    LotCropView,
+    LotView,
+    NutrientApplicationView,
+    NutrientView,
+    ObjectiveView,
+    ProductContributionView,
+    ProductionView,
+    ProductPriceView,
+    ProductView,
+    SoilAnalysisView,
+)
 from .csv_controller import CropCsvImportView
+from .models import Crop, Farm, Lot
 
 # 👌
 farm_view = FarmView.as_view("farms_view")

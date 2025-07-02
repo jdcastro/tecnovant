@@ -5,30 +5,30 @@ from datetime import datetime
 from flask import jsonify, request
 from flask_jwt_extended import get_jwt
 
-from . import foliage_report_api as api
-from app.core.controller import login_required, check_resource_access
+from app.core.controller import check_resource_access, login_required
 from app.core.models import Organization
+from app.extensions import db
 from app.modules.foliage.models import (
-    Farm,
-    Lot,
     CommonAnalysis,
+    Crop,
+    Farm,
+    LeafAnalysis,
+    Lot,
+    LotCrop,
     Nutrient,
     Objective,
-    LotCrop,
-    Crop,
-    LeafAnalysis,
     SoilAnalysis,
     leaf_analysis_nutrients,
 )
-from app.extensions import db
+
+from . import foliage_report_api as api
 from .controller import (
+    DeleteRecommendationView,
+    RecommendationFilterView,
     RecommendationGenerator,
     RecommendationView,
-    RecommendationFilterView,
-    DeleteRecommendationView,
 )
 from .helpers import ReportView
-
 
 report_view = ReportView.as_view("report_view")
 api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])

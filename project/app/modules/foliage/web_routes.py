@@ -1,28 +1,29 @@
 # Third party imports
+from flask import jsonify, render_template, request, url_for
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from flask import render_template, url_for, request, jsonify
+
+from app.core.controller import login_required
+from app.core.models import get_clients_for_user
 
 # Local application imports
 from . import foliage as web
 from .controller import (
-    NutrientView,
-    FarmView,
-    LotView,
-    CropView,
-    ObjectiveView,
-    ProductView,
-    ProductContributionView,
-    ProductPriceView,
     CommonAnalysisView,
-    LotCropView,
+    CropView,
+    FarmView,
     LeafAnalysisView,
-    SoilAnalysisView,
+    LotCropView,
+    LotView,
     NutrientApplicationView,
+    NutrientView,
+    ObjectiveView,
+    ProductContributionView,
     ProductionView,
+    ProductPriceView,
+    ProductView,
+    SoilAnalysisView,
 )
-from .models import Farm, Crop, Nutrient, Product, Lot, LotCrop, CommonAnalysis
-from app.core.models import get_clients_for_user
-from app.core.controller import login_required
+from .models import CommonAnalysis, Crop, Farm, Lot, LotCrop, Nutrient, Product
 
 
 def get_dashboard_menu():

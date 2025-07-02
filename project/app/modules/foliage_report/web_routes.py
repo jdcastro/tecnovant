@@ -1,16 +1,24 @@
-import json 
+import json
 from decimal import Decimal
 
-from flask import render_template, url_for, request, current_app
+from flask import current_app, render_template, request, url_for
 from flask_jwt_extended import get_jwt, jwt_required
 from werkzeug.exceptions import Forbidden
 
+from app.core.controller import check_resource_access, login_required
 from app.extensions import db
-from . import foliage_report as web
-from .helpers import calcular_cv_nutriente, determinar_coeficientes_variacion, contribuciones_de_producto, ObjectiveResource, LeafAnalysisResource, NutrientOptimizer, ReportView
-from app.modules.foliage.models import Recommendation, Lot, Farm, Crop, CommonAnalysis
-from app.core.controller import login_required, check_resource_access
+from app.modules.foliage.models import CommonAnalysis, Crop, Farm, Lot, Recommendation
 
+from . import foliage_report as web
+from .helpers import (
+    LeafAnalysisResource,
+    NutrientOptimizer,
+    ObjectiveResource,
+    ReportView,
+    calcular_cv_nutriente,
+    contribuciones_de_producto,
+    determinar_coeficientes_variacion,
+)
 
 
 def get_dashboard_menu():
@@ -25,15 +33,15 @@ def get_dashboard_menu():
 
 
 @web.route("/listar_reportes/")
-@login_required 
+@login_required
 def listar_reportes():
     claims = get_jwt()
     user_role = claims.get("rol")
-    
+
     # Obtener parámetros de filtro de la URL
-    farm_id = request.args.get('farm_id', type=int)
-    lot_id = request.args.get('lot_id', type=int)
-    
+    farm_id = request.args.get("farm_id", type=int)
+    lot_id = request.args.get("lot_id", type=int)
+
     context = {
         "dashboard": True,
         "title": "Informes de Análisis",
@@ -44,15 +52,17 @@ def listar_reportes():
         "entity_name": "Reportes",
         "entity_name_lower": "reporte",
         "selected_farm_id": farm_id,  # Para mantener la selección
-        "selected_lot_id": lot_id     # Para mantener la selección
+        "selected_lot_id": lot_id,  # Para mantener la selección
     }
 
     # Query base
     query = Recommendation.query.options(
-        db.joinedload(Recommendation.lot).joinedload(Lot.farm).joinedload(Farm.organization),
-        db.joinedload(Recommendation.crop)
+        db.joinedload(Recommendation.lot)
+        .joinedload(Lot.farm)
+        .joinedload(Farm.organization),
+        db.joinedload(Recommendation.crop),
     ).filter(Recommendation.active == True)
-    
+
     # APLICAR FILTROS AQUÍ
     if lot_id:
         # Si se especifica un lote, filtrar por ese lote específico
@@ -66,19 +76,25 @@ def listar_reportes():
 
     for rec in all_recommendations:
         if check_resource_access(rec.lot.farm, claims):
-             accessible_recommendations.append(rec)
+            accessible_recommendations.append(rec)
 
     # Serializar solo los datos necesarios para la tabla
     items_list = []
     for rec in accessible_recommendations:
-        items_list.append({
-            "id": rec.id,
-            "title": rec.title,
-            "finca_lote": f"{rec.lot.farm.name} / {rec.lot.name}" if rec.lot and rec.lot.farm else "N/A",
-            "crop": rec.crop.name if rec.crop else "N/A",
-            "date": rec.date.strftime('%Y-%m-%d') if rec.date else "N/A",
-            "autor": rec.author or "Sistema"
-        })
+        items_list.append(
+            {
+                "id": rec.id,
+                "title": rec.title,
+                "finca_lote": (
+                    f"{rec.lot.farm.name} / {rec.lot.name}"
+                    if rec.lot and rec.lot.farm
+                    else "N/A"
+                ),
+                "crop": rec.crop.name if rec.crop else "N/A",
+                "date": rec.date.strftime("%Y-%m-%d") if rec.date else "N/A",
+                "autor": rec.author or "Sistema",
+            }
+        )
 
     total_informes = len(items_list)
 
@@ -87,16 +103,15 @@ def listar_reportes():
         **context,
         request=request,
         total_informes=total_informes,
-        items=items_list 
+        items=items_list,
     )
 
 
-
 @web.route("/vista_reporte/<int:report_id>")
-@jwt_required() 
+@jwt_required()
 # @login_required
 def vista_reporte(report_id):
-    
+
     claims = get_jwt()
     context = {
         "dashboard": True,
@@ -109,7 +124,7 @@ def vista_reporte(report_id):
 
     # # Obtener la recomendación/reporte
     # report = Recommendation.query.get_or_404(report_id)
-    # report_creator = ReportView() 
+    # report_creator = ReportView()
     # # Verificar acceso
     # if not check_resource_access(report.lot.farm, claims):
     #      raise Forbidden("No tienes acceso a este reporte.")
@@ -127,7 +142,6 @@ def vista_reporte(report_id):
     #     if not common_analysis:
     #         raise ValueError("No se encontró el CommonAnalysis asociado.")
 
-        
     #     analysisData = {
     #         "common": {
     #             "id": common_analysis.id,
@@ -189,7 +203,6 @@ def vista_reporte(report_id):
     #             # Si es solo texto, crea una estructura básica
     #              recommendations_list = [{"title": "Recomendación Automática", "description": report.automatic_recommendations, "priority": "media", "action": "Revisar"}]
 
-
     #     # Nutriente limitante (si lo guardaste)
     #     limitingNutrientData = None
     #     if report.limiting_nutrient_id:
@@ -197,7 +210,6 @@ def vista_reporte(report_id):
     #         # para reconstruir la estructura que espera la plantilla.
     #         # Esto es un placeholder, ajusta según cómo guardes la info.
     #          limitingNutrientData = {"name": report.limiting_nutrient_id, "percentage": 50, "type": "foliar/soil"} # Datos ficticios
-
 
     # except (json.JSONDecodeError, ValueError, AttributeError) as e:
     #     current_app.logger.error(f"Error al procesar datos del reporte {report_id}: {e}", exc_info=True)
@@ -211,8 +223,6 @@ def vista_reporte(report_id):
     #     limitingNutrientData = None
     #     # Podrías añadir un mensaje de error al contexto
 
-
-
     # # Pasar los datos dinámicos a la plantilla
     # analysisData = {}
     # optimalLevels = {}
@@ -221,11 +231,11 @@ def vista_reporte(report_id):
     # historicalData = []
     # recommendations_list = []
     # limitingNutrientData = None
-    # # report_creator = ReportView() 
+    # # report_creator = ReportView()
     # return render_template(
     #     'ver_reporte.j2',
     #     report_id=report_id,
-        
+
     #     **context,
     #     request=request,
     #     analysisData=analysisData,
@@ -238,10 +248,9 @@ def vista_reporte(report_id):
     #     recommendations=recommendations_list
     # )
 
-
     report = Recommendation.query.options(
         db.joinedload(Recommendation.lot).joinedload(Lot.farm),
-        db.joinedload(Recommendation.crop)
+        db.joinedload(Recommendation.crop),
     ).get_or_404(report_id)
 
     if not check_resource_access(report.lot.farm, claims):
@@ -253,37 +262,58 @@ def vista_reporte(report_id):
 
     foliarChartData = []
     soilChartData = []
-    historicalData = [] # Per requirement, leave as empty list
+    historicalData = []  # Per requirement, leave as empty list
     recommendations_list = []
     limitingNutrientData = None
 
     nutrient_name_map_full_to_short = {
-        "nitrogeno": "N", "fosforo": "P", "potasio": "K", "calcio": "Ca", "magnesio": "Mg", "azufre": "S",
-        "hierro": "Fe", "manganeso": "Mn", "zinc": "Zn", "cobre": "Cu", "boro": "B"
+        "nitrogeno": "N",
+        "fosforo": "P",
+        "potasio": "K",
+        "calcio": "Ca",
+        "magnesio": "Mg",
+        "azufre": "S",
+        "hierro": "Fe",
+        "manganeso": "Mn",
+        "zinc": "Zn",
+        "cobre": "Cu",
+        "boro": "B",
         # Add other mappings if necessary, especially for soil nutrients like pH, M.O., CIC
     }
     nutrient_name_map_key_to_display = {
-        "nitrogeno": "Nitrógeno", "fosforo": "Fósforo", "potasio": "Potasio", "calcio": "Calcio",
-        "magnesio": "Magnesio", "azufre": "Azufre", "hierro": "Hierro", "manganeso": "Manganeso",
-        "zinc": "Zinc", "cobre": "Cobre", "boro": "Boro",
-        "ph": "pH", "materiaOrganica": "Materia Orgánica", "cic": "CIC"
+        "nitrogeno": "Nitrógeno",
+        "fosforo": "Fósforo",
+        "potasio": "Potasio",
+        "calcio": "Calcio",
+        "magnesio": "Magnesio",
+        "azufre": "Azufre",
+        "hierro": "Hierro",
+        "manganeso": "Manganeso",
+        "zinc": "Zinc",
+        "cobre": "Cobre",
+        "boro": "Boro",
+        "ph": "pH",
+        "materiaOrganica": "Materia Orgánica",
+        "cic": "CIC",
         # Add other mappings as they appear in foliar_details or soil_details keys
     }
 
     try:
-        foliar_details = json.loads(report.foliar_analysis_details or '{}')
-        soil_details = json.loads(report.soil_analysis_details or '{}')
-        optimal_levels_json = json.loads(report.optimal_comparison or '{}') # This is optimalLevels
+        foliar_details = json.loads(report.foliar_analysis_details or "{}")
+        soil_details = json.loads(report.soil_analysis_details or "{}")
+        optimal_levels_json = json.loads(
+            report.optimal_comparison or "{}"
+        )  # This is optimalLevels
 
         # Reconstruct analysisData
-        analysisData['foliar'] = foliar_details
-        analysisData['soil'] = soil_details
-        analysisData['common'] = {
+        analysisData["foliar"] = foliar_details
+        analysisData["soil"] = soil_details
+        analysisData["common"] = {
             # 'id': foliar_details.get('common_analysis_id'), # Assuming common_analysis_id was stored
-            'fechaAnalisis': report.date.isoformat(), # Use report date as analysis date
-            'finca': report.lot.farm.name if report.lot and report.lot.farm else 'N/A',
-            'lote': report.lot.name if report.lot else 'N/A',
-            'cultivo': report.crop.name if report.crop else 'N/A',
+            "fechaAnalisis": report.date.isoformat(),  # Use report date as analysis date
+            "finca": report.lot.farm.name if report.lot and report.lot.farm else "N/A",
+            "lote": report.lot.name if report.lot else "N/A",
+            "cultivo": report.crop.name if report.crop else "N/A",
             # Other common fields like proteinas, descanso can be added if they are in foliar_details
         }
         # Update nutrient_name_map_key_to_display with keys from actual data
@@ -293,7 +323,6 @@ def vista_reporte(report_id):
         for key in soil_details.keys():
             if key not in nutrient_name_map_key_to_display:
                 nutrient_name_map_key_to_display[key] = key.replace("_", " ").title()
-
 
         # Reconstruct optimalLevels (already done by optimal_levels_json)
         # The structure from Recommendation.optimal_comparison should be:
@@ -305,48 +334,61 @@ def vista_reporte(report_id):
         # Based on ver_reporte2.j2, it expects optimalLevels.foliar and optimalLevels.soil.
         # The optimal_comparison from previous step is flat: {'NutrientName': {'min': X, ...}}
         # We need to segregate this into foliar and soil based on known nutrient types or by inspecting analysisData.
-        
+
         optimalLevels = {"foliar": {}, "soil": {}}
         for nutrient_key, levels_data in optimal_levels_json.items():
-            if nutrient_key in analysisData['foliar']:
-                optimalLevels['foliar'][nutrient_key] = levels_data
-            elif nutrient_key in analysisData['soil']:
-                optimalLevels['soil'][nutrient_key] = levels_data
-            else: # Fallback if nutrient not in foliar or soil data, put in foliar by default or log
-                optimalLevels['foliar'][nutrient_key] = levels_data 
-                current_app.logger.warning(f"Nutrient {nutrient_key} from optimal_comparison not found in foliar or soil analysisData. Added to foliar optimalLevels by default.")
-
+            if nutrient_key in analysisData["foliar"]:
+                optimalLevels["foliar"][nutrient_key] = levels_data
+            elif nutrient_key in analysisData["soil"]:
+                optimalLevels["soil"][nutrient_key] = levels_data
+            else:  # Fallback if nutrient not in foliar or soil data, put in foliar by default or log
+                optimalLevels["foliar"][nutrient_key] = levels_data
+                current_app.logger.warning(
+                    f"Nutrient {nutrient_key} from optimal_comparison not found in foliar or soil analysisData. Added to foliar optimalLevels by default."
+                )
 
         # Reconstruct foliarChartData
-        if analysisData.get('foliar') and optimalLevels.get('foliar'):
-            for nutrient_key, actual_value in analysisData['foliar'].items():
-                if isinstance(actual_value, (int, float)): # Ensure it's a plottable value
-                    levels = optimalLevels['foliar'].get(nutrient_key)
-                    short_name = nutrient_name_map_full_to_short.get(nutrient_key.lower(), nutrient_key[:3].upper())
-                    if levels and 'min' in levels and 'max' in levels:
-                        foliarChartData.append({
-                            "name": short_name,
-                            "actual": float(actual_value),
-                            "min": float(levels['min']),
-                            "max": float(levels['max'])
-                        })
-        
+        if analysisData.get("foliar") and optimalLevels.get("foliar"):
+            for nutrient_key, actual_value in analysisData["foliar"].items():
+                if isinstance(
+                    actual_value, (int, float)
+                ):  # Ensure it's a plottable value
+                    levels = optimalLevels["foliar"].get(nutrient_key)
+                    short_name = nutrient_name_map_full_to_short.get(
+                        nutrient_key.lower(), nutrient_key[:3].upper()
+                    )
+                    if levels and "min" in levels and "max" in levels:
+                        foliarChartData.append(
+                            {
+                                "name": short_name,
+                                "actual": float(actual_value),
+                                "min": float(levels["min"]),
+                                "max": float(levels["max"]),
+                            }
+                        )
+
         # Reconstruct soilChartData
-        if analysisData.get('soil') and optimalLevels.get('soil'):
-            for nutrient_key, actual_value in analysisData['soil'].items():
-                if isinstance(actual_value, (int, float)): # Ensure it's a plottable value
-                    levels = optimalLevels['soil'].get(nutrient_key)
+        if analysisData.get("soil") and optimalLevels.get("soil"):
+            for nutrient_key, actual_value in analysisData["soil"].items():
+                if isinstance(
+                    actual_value, (int, float)
+                ):  # Ensure it's a plottable value
+                    levels = optimalLevels["soil"].get(nutrient_key)
                     # Soil chart names might be direct keys like 'pH', 'M.O.'
-                    short_name = nutrient_name_map_full_to_short.get(nutrient_key.lower(), nutrient_key.replace("_", " ").title()[:4])
-                    if levels and 'min' in levels and 'max' in levels:
-                        soilChartData.append({
-                            "name": short_name, # Or nutrient_key.title() if more appropriate
-                            "actual": float(actual_value),
-                            "min": float(levels['min']),
-                            "max": float(levels['max']),
-                            "unit": levels.get('unit', '') 
-                        })
-        
+                    short_name = nutrient_name_map_full_to_short.get(
+                        nutrient_key.lower(), nutrient_key.replace("_", " ").title()[:4]
+                    )
+                    if levels and "min" in levels and "max" in levels:
+                        soilChartData.append(
+                            {
+                                "name": short_name,  # Or nutrient_key.title() if more appropriate
+                                "actual": float(actual_value),
+                                "min": float(levels["min"]),
+                                "max": float(levels["max"]),
+                                "unit": levels.get("unit", ""),
+                            }
+                        )
+
         # Reconstruct recommendations_list
         if report.automatic_recommendations:
             try:
@@ -354,14 +396,30 @@ def vista_reporte(report_id):
                 parsed_recs = json.loads(report.automatic_recommendations)
                 if isinstance(parsed_recs, list):
                     recommendations_list = parsed_recs
-                elif isinstance(parsed_recs, dict): # If it's a single recommendation dict
+                elif isinstance(
+                    parsed_recs, dict
+                ):  # If it's a single recommendation dict
                     recommendations_list = [parsed_recs]
-                else: # If it's simple text after JSON load (unlikely but possible)
-                    recommendations_list = [{"title": "Recomendación Automática", "description": str(parsed_recs), "priority": "media", "action": "Revisar"}]
+                else:  # If it's simple text after JSON load (unlikely but possible)
+                    recommendations_list = [
+                        {
+                            "title": "Recomendación Automática",
+                            "description": str(parsed_recs),
+                            "priority": "media",
+                            "action": "Revisar",
+                        }
+                    ]
             except json.JSONDecodeError:
                 # If it's just plain text
-                recommendations_list = [{"title": "Recomendación Automática", "description": report.automatic_recommendations, "priority": "media", "action": "Revisar"}]
-        
+                recommendations_list = [
+                    {
+                        "title": "Recomendación Automática",
+                        "description": report.automatic_recommendations,
+                        "priority": "media",
+                        "action": "Revisar",
+                    }
+                ]
+
         # Reconstruct limitingNutrientData
         if report.limiting_nutrient_id:
             nutrient_name = report.limiting_nutrient_id
@@ -369,52 +427,81 @@ def vista_reporte(report_id):
             nutrient_type = None
             optimal_val_for_limiting = None
 
-            if nutrient_name in analysisData['foliar']:
-                actual_value = analysisData['foliar'][nutrient_name]
-                nutrient_type = 'foliar'
-                if optimalLevels['foliar'] and nutrient_name in optimalLevels['foliar']:
-                    optimal_val_for_limiting = optimalLevels['foliar'][nutrient_name].get('ideal', (optimalLevels['foliar'][nutrient_name].get('min', 0) + optimalLevels['foliar'][nutrient_name].get('max', 0)) / 2)
-            elif nutrient_name in analysisData['soil']:
-                actual_value = analysisData['soil'][nutrient_name]
-                nutrient_type = 'soil'
-                if optimalLevels['soil'] and nutrient_name in optimalLevels['soil']:
-                    optimal_val_for_limiting = optimalLevels['soil'][nutrient_name].get('ideal', (optimalLevels['soil'][nutrient_name].get('min', 0) + optimalLevels['soil'][nutrient_name].get('max', 0)) / 2)
-            
-            if actual_value is not None and optimal_val_for_limiting is not None and optimal_val_for_limiting != 0:
-                percentage = (Decimal(str(actual_value)) / Decimal(str(optimal_val_for_limiting))) * 100
+            if nutrient_name in analysisData["foliar"]:
+                actual_value = analysisData["foliar"][nutrient_name]
+                nutrient_type = "foliar"
+                if optimalLevels["foliar"] and nutrient_name in optimalLevels["foliar"]:
+                    optimal_val_for_limiting = optimalLevels["foliar"][
+                        nutrient_name
+                    ].get(
+                        "ideal",
+                        (
+                            optimalLevels["foliar"][nutrient_name].get("min", 0)
+                            + optimalLevels["foliar"][nutrient_name].get("max", 0)
+                        )
+                        / 2,
+                    )
+            elif nutrient_name in analysisData["soil"]:
+                actual_value = analysisData["soil"][nutrient_name]
+                nutrient_type = "soil"
+                if optimalLevels["soil"] and nutrient_name in optimalLevels["soil"]:
+                    optimal_val_for_limiting = optimalLevels["soil"][nutrient_name].get(
+                        "ideal",
+                        (
+                            optimalLevels["soil"][nutrient_name].get("min", 0)
+                            + optimalLevels["soil"][nutrient_name].get("max", 0)
+                        )
+                        / 2,
+                    )
+
+            if (
+                actual_value is not None
+                and optimal_val_for_limiting is not None
+                and optimal_val_for_limiting != 0
+            ):
+                percentage = (
+                    Decimal(str(actual_value)) / Decimal(str(optimal_val_for_limiting))
+                ) * 100
                 limitingNutrientData = {
                     "name": nutrient_name,
                     "value": float(actual_value),
                     "optimal": float(optimal_val_for_limiting),
                     "percentage": float(percentage),
-                    "type": nutrient_type
+                    "type": nutrient_type,
                 }
-            elif actual_value is not None: # Optimal not found, but actual is
-                limitingNutrientData = { "name": nutrient_name, "value": float(actual_value), "optimal": "N/A", "percentage": "N/A", "type": nutrient_type}
-
+            elif actual_value is not None:  # Optimal not found, but actual is
+                limitingNutrientData = {
+                    "name": nutrient_name,
+                    "value": float(actual_value),
+                    "optimal": "N/A",
+                    "percentage": "N/A",
+                    "type": nutrient_type,
+                }
 
     except json.JSONDecodeError as e:
-        current_app.logger.error(f"Error deserializando JSON para reporte {report_id}: {e}")
+        current_app.logger.error(
+            f"Error deserializando JSON para reporte {report_id}: {e}"
+        )
         # context["error_message"] = "Error al cargar detalles del reporte. Algunos datos pueden estar corruptos."
     except Exception as e:
-        current_app.logger.error(f"Error procesando datos del reporte {report_id}: {e}", exc_info=True)
+        current_app.logger.error(
+            f"Error procesando datos del reporte {report_id}: {e}", exc_info=True
+        )
         # context["error_message"] = "Error inesperado al procesar datos del reporte."
 
-
     return render_template(
-        'ver_reporte2.j2', # Changed template
+        "ver_reporte2.j2",  # Changed template
         **context,
         # Pass reconstructed data
         analysisData=analysisData,
         optimalLevels=optimalLevels,
         foliarChartData=foliarChartData,
         soilChartData=soilChartData,
-        historicalData=historicalData, # Empty as per instructions
-        nutrientNames=nutrient_name_map_key_to_display, # Pass the map
+        historicalData=historicalData,  # Empty as per instructions
+        nutrientNames=nutrient_name_map_key_to_display,  # Pass the map
         limitingNutrient=limitingNutrientData,
-        recommendations=recommendations_list
+        recommendations=recommendations_list,
     )
-
 
 
 @web.route("/vista_report")
@@ -470,7 +557,7 @@ def vista_report():
             "cic": 15.2,
         },
     }
-    
+
     optimalLevels = {
         "foliar": {
             "nitrogeno": {"min": 2.8, "max": 3.5},
@@ -499,21 +586,87 @@ def vista_report():
     }
 
     foliarChartData = [
-        {"name": "N", "actual": analysisData["foliar"]["nitrogeno"], "min": optimalLevels["foliar"]["nitrogeno"]["min"], "max": optimalLevels["foliar"]["nitrogeno"]["max"]},
-        {"name": "P", "actual": analysisData["foliar"]["fosforo"], "min": optimalLevels["foliar"]["fosforo"]["min"], "max": optimalLevels["foliar"]["fosforo"]["max"]},
-        {"name": "K", "actual": analysisData["foliar"]["potasio"], "min": optimalLevels["foliar"]["potasio"]["min"], "max": optimalLevels["foliar"]["potasio"]["max"]},
-        {"name": "Ca", "actual": analysisData["foliar"]["calcio"], "min": optimalLevels["foliar"]["calcio"]["min"], "max": optimalLevels["foliar"]["calcio"]["max"]},
-        {"name": "Mg", "actual": analysisData["foliar"]["magnesio"], "min": optimalLevels["foliar"]["magnesio"]["min"], "max": optimalLevels["foliar"]["magnesio"]["max"]},
-        {"name": "S", "actual": analysisData["foliar"]["azufre"], "min": optimalLevels["foliar"]["azufre"]["min"], "max": optimalLevels["foliar"]["azufre"]["max"]},
+        {
+            "name": "N",
+            "actual": analysisData["foliar"]["nitrogeno"],
+            "min": optimalLevels["foliar"]["nitrogeno"]["min"],
+            "max": optimalLevels["foliar"]["nitrogeno"]["max"],
+        },
+        {
+            "name": "P",
+            "actual": analysisData["foliar"]["fosforo"],
+            "min": optimalLevels["foliar"]["fosforo"]["min"],
+            "max": optimalLevels["foliar"]["fosforo"]["max"],
+        },
+        {
+            "name": "K",
+            "actual": analysisData["foliar"]["potasio"],
+            "min": optimalLevels["foliar"]["potasio"]["min"],
+            "max": optimalLevels["foliar"]["potasio"]["max"],
+        },
+        {
+            "name": "Ca",
+            "actual": analysisData["foliar"]["calcio"],
+            "min": optimalLevels["foliar"]["calcio"]["min"],
+            "max": optimalLevels["foliar"]["calcio"]["max"],
+        },
+        {
+            "name": "Mg",
+            "actual": analysisData["foliar"]["magnesio"],
+            "min": optimalLevels["foliar"]["magnesio"]["min"],
+            "max": optimalLevels["foliar"]["magnesio"]["max"],
+        },
+        {
+            "name": "S",
+            "actual": analysisData["foliar"]["azufre"],
+            "min": optimalLevels["foliar"]["azufre"]["min"],
+            "max": optimalLevels["foliar"]["azufre"]["max"],
+        },
     ]
 
     soilChartData = [
-        {"name": "pH", "actual": analysisData["soil"]["ph"], "min": optimalLevels["soil"]["ph"]["min"], "max": optimalLevels["soil"]["ph"]["max"], "unit": ""},
-        {"name": "M.O.", "actual": analysisData["soil"]["materiaOrganica"], "min": optimalLevels["soil"]["materiaOrganica"]["min"], "max": optimalLevels["soil"]["materiaOrganica"]["max"], "unit": "%"},
-        {"name": "N", "actual": analysisData["soil"]["nitrogeno"], "min": optimalLevels["soil"]["nitrogeno"]["min"], "max": optimalLevels["soil"]["nitrogeno"]["max"], "unit": "%"},
-        {"name": "P", "actual": analysisData["soil"]["fosforo"], "min": optimalLevels["soil"]["fosforo"]["min"], "max": optimalLevels["soil"]["fosforo"]["max"], "unit": "ppm"},
-        {"name": "K", "actual": analysisData["soil"]["potasio"], "min": optimalLevels["soil"]["potasio"]["min"], "max": optimalLevels["soil"]["potasio"]["max"], "unit": "ppm"},
-        {"name": "CIC", "actual": analysisData["soil"]["cic"], "min": optimalLevels["soil"]["cic"]["min"], "max": optimalLevels["soil"]["cic"]["max"], "unit": "meq/100g"},
+        {
+            "name": "pH",
+            "actual": analysisData["soil"]["ph"],
+            "min": optimalLevels["soil"]["ph"]["min"],
+            "max": optimalLevels["soil"]["ph"]["max"],
+            "unit": "",
+        },
+        {
+            "name": "M.O.",
+            "actual": analysisData["soil"]["materiaOrganica"],
+            "min": optimalLevels["soil"]["materiaOrganica"]["min"],
+            "max": optimalLevels["soil"]["materiaOrganica"]["max"],
+            "unit": "%",
+        },
+        {
+            "name": "N",
+            "actual": analysisData["soil"]["nitrogeno"],
+            "min": optimalLevels["soil"]["nitrogeno"]["min"],
+            "max": optimalLevels["soil"]["nitrogeno"]["max"],
+            "unit": "%",
+        },
+        {
+            "name": "P",
+            "actual": analysisData["soil"]["fosforo"],
+            "min": optimalLevels["soil"]["fosforo"]["min"],
+            "max": optimalLevels["soil"]["fosforo"]["max"],
+            "unit": "ppm",
+        },
+        {
+            "name": "K",
+            "actual": analysisData["soil"]["potasio"],
+            "min": optimalLevels["soil"]["potasio"]["min"],
+            "max": optimalLevels["soil"]["potasio"]["max"],
+            "unit": "ppm",
+        },
+        {
+            "name": "CIC",
+            "actual": analysisData["soil"]["cic"],
+            "min": optimalLevels["soil"]["cic"]["min"],
+            "max": optimalLevels["soil"]["cic"]["max"],
+            "unit": "meq/100g",
+        },
     ]
 
     historicalData = [
@@ -612,40 +765,78 @@ def vista_report():
         limitingNutrient = findLimitingNutrient()
 
         if limitingNutrient:
-            nutrientName = nutrientNames[limitingNutrient["name"]] or limitingNutrient["name"]
-            recommendations.append({
-                "title": f"Corregir deficiencia de {nutrientName}",
-                "description": f"El {nutrientName} es el nutriente limitante según la Ley de Liebig. Está al limitingNutrient['percentage']% del nivel óptimo.",
-                "priority": "alta",
-                "action": "Aplicar fertilizante foliar rico en {nutrientName}" if limitingNutrient["type"] == "foliar" else f"Incorporar {nutrientName} al suelo mediante fertilización",
-            })
+            nutrientName = (
+                nutrientNames[limitingNutrient["name"]] or limitingNutrient["name"]
+            )
+            recommendations.append(
+                {
+                    "title": f"Corregir deficiencia de {nutrientName}",
+                    "description": f"El {nutrientName} es el nutriente limitante según la Ley de Liebig. Está al limitingNutrient['percentage']% del nivel óptimo.",
+                    "priority": "alta",
+                    "action": (
+                        "Aplicar fertilizante foliar rico en {nutrientName}"
+                        if limitingNutrient["type"] == "foliar"
+                        else f"Incorporar {nutrientName} al suelo mediante fertilización"
+                    ),
+                }
+            )
 
-        phStatus = getNutrientStatus(analysisData["soil"]["ph"], optimalLevels["soil"]["ph"]["min"], optimalLevels["soil"]["ph"]["max"])
+        phStatus = getNutrientStatus(
+            analysisData["soil"]["ph"],
+            optimalLevels["soil"]["ph"]["min"],
+            optimalLevels["soil"]["ph"]["max"],
+        )
         if phStatus != "óptimo":
-            recommendations.append({
-                "title": "Corregir acidez del suelo" if phStatus == "deficiente" else "Reducir alcalinidad del suelo",
-                "description": f"El pH actual ({analysisData['soil']['ph']}) está {'por debajo' if phStatus == 'deficiente' else 'por encima'} del rango óptimo.",
-                "priority": "media",
-                "action": "Aplicar cal agrícola para elevar el pH" if phStatus == "deficiente" else "Aplicar azufre elemental o materia orgánica para reducir el pH",
-            })
+            recommendations.append(
+                {
+                    "title": (
+                        "Corregir acidez del suelo"
+                        if phStatus == "deficiente"
+                        else "Reducir alcalinidad del suelo"
+                    ),
+                    "description": f"El pH actual ({analysisData['soil']['ph']}) está {'por debajo' if phStatus == 'deficiente' else 'por encima'} del rango óptimo.",
+                    "priority": "media",
+                    "action": (
+                        "Aplicar cal agrícola para elevar el pH"
+                        if phStatus == "deficiente"
+                        else "Aplicar azufre elemental o materia orgánica para reducir el pH"
+                    ),
+                }
+            )
 
-        moStatus = getNutrientStatus(analysisData["soil"]["materiaOrganica"], optimalLevels["soil"]["materiaOrganica"]["min"], optimalLevels["soil"]["materiaOrganica"]["max"])
+        moStatus = getNutrientStatus(
+            analysisData["soil"]["materiaOrganica"],
+            optimalLevels["soil"]["materiaOrganica"]["min"],
+            optimalLevels["soil"]["materiaOrganica"]["max"],
+        )
         if moStatus == "deficiente":
-            recommendations.append({
-                "title": "Aumentar materia orgánica",
-                "description": f"El nivel de materia orgánica ({analysisData['soil']['materiaOrganica']}%) está por debajo del óptimo.",
-                "priority": "media",
-                "action": "Incorporar compost, estiércol bien descompuesto o abonos verdes",
-            })
+            recommendations.append(
+                {
+                    "title": "Aumentar materia orgánica",
+                    "description": f"El nivel de materia orgánica ({analysisData['soil']['materiaOrganica']}%) está por debajo del óptimo.",
+                    "priority": "media",
+                    "action": "Incorporar compost, estiércol bien descompuesto o abonos verdes",
+                }
+            )
 
         return recommendations
 
     limitingNutrient = findLimitingNutrient()
     recommendations = generateRecommendations()
 
-    return render_template('ver_reporte2.j2', **context, 
-            request=request,  analysisData=analysisData, optimalLevels=optimalLevels, foliarChartData=foliarChartData, soilChartData=soilChartData, historicalData=historicalData, nutrientNames=nutrientNames, limitingNutrient=limitingNutrient, recommendations=recommendations)
-
+    return render_template(
+        "ver_reporte2.j2",
+        **context,
+        request=request,
+        analysisData=analysisData,
+        optimalLevels=optimalLevels,
+        foliarChartData=foliarChartData,
+        soilChartData=soilChartData,
+        historicalData=historicalData,
+        nutrientNames=nutrientNames,
+        limitingNutrient=limitingNutrient,
+        recommendations=recommendations,
+    )
 
 
 @web.route("/solicitar_informe")
@@ -662,10 +853,9 @@ def generar_informe():
         "data_menu": get_dashboard_menu(),
     }
     return render_template("solicitar_informe2.j2", **context, request=request)
+
+
 # return render_template("solicitar_informe.j2", **context, request=request)
-
-
-
 
 
 @web.route("/cv_nutrientes")
@@ -679,7 +869,7 @@ def cv_nutrientes():
     productos_contribuciones = contribuciones_de_producto()
     objective_resource = ObjectiveResource()
     response = objective_resource.get_objective_list()
-    
+
     # Obtener demandas ideales para el cultivo de papa
     crop_objectives = response.papa
     demandas_ideales = crop_objectives.get(index=0)
@@ -689,7 +879,7 @@ def cv_nutrientes():
     leaf_analysis_resource = LeafAnalysisResource()
     response = leaf_analysis_resource.get_leaf_analysis_list()
     data_string = response.get_json()
-    data = json.loads(data_string)  
+    data = json.loads(data_string)
     nutrientes_actuales_raw = data["4"][0]["nutrients"]
 
     # Convertir los valores de nutrientes_actuales a Decimal
@@ -705,9 +895,14 @@ def cv_nutrientes():
     # Asegurar que nutrientes_actuales es un diccionario
     if not isinstance(nutrientes_actuales, dict):
         raise ValueError("nutrientes_actuales no es un diccionario")
-    
+
     # Instanciar y usar la clase
-    optimizador = NutrientOptimizer(nutrientes_actuales, demandas_ideales_dict, productos_contribuciones, coeficientes_variacion)
+    optimizador = NutrientOptimizer(
+        nutrientes_actuales,
+        demandas_ideales_dict,
+        productos_contribuciones,
+        coeficientes_variacion,
+    )
     limitante = optimizador.identificar_limitante()
     recomendacion = optimizador.generar_recomendacion(lot_id=1)
     return f"Nutriente limitante: {limitante}\n{recomendacion}"
@@ -735,7 +930,7 @@ def reports_dashboard():
                 "lot": "Lote 1",
                 "type": "foliar",
                 "crop": "Café",
-                "status": "Listo"
+                "status": "Listo",
             },
             {
                 "id": 102,
@@ -744,8 +939,8 @@ def reports_dashboard():
                 "lot": "Lote 2",
                 "type": "suelo",
                 "crop": "Cacao",
-                "status": "En análisis"
-            }
-        ]
+                "status": "En análisis",
+            },
+        ],
     }
     return render_template("reports.j2", **context)

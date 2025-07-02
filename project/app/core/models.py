@@ -10,18 +10,21 @@ Licensed under the Apache License, Version 2.0
 http://www.apache.org/licenses/LICENSE-2.0
 """
 
+import time
+import uuid
+import weakref
+
 # Python standard library imports
 from datetime import datetime
 from enum import Enum
 from functools import lru_cache
 from threading import Timer
-import time, weakref, uuid
 from typing import List
 
+from sqlalchemy.orm import joinedload
 
 # Third party imports
 from werkzeug.security import check_password_hash, generate_password_hash
-from sqlalchemy.orm import joinedload
 
 # Local application imports
 from app.extensions import db

@@ -1,5 +1,6 @@
-from .models import Nutrient, NutrientCategory
 from app.extensions import db
+
+from .models import Nutrient, NutrientCategory
 
 # Macronutrientes
 macronutrients = [

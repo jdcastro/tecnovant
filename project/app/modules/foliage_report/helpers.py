@@ -1,16 +1,22 @@
 # Python standard library imports
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, List, Tuple
-from datetime import datetime
-from statistics import mean, stdev
 import json
+from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
+from statistics import mean, stdev
+from typing import Dict, List, Tuple
+
+from flask import current_app, jsonify
+from flask.views import MethodView
+from flask_jwt_extended import get_jwt, jwt_required
 
 # Third party imports
 from scipy.optimize import linprog
-from flask import jsonify, current_app
-from flask.views import MethodView
-from flask_jwt_extended import jwt_required, get_jwt
 from werkzeug.exceptions import Forbidden
+
+from app.core.models import ResellerPackage, RoleEnum
+from app.extensions import db
+from app.modules.foliage.controller import ProductContributionView
+from app.modules.foliage.helpers import macronutrients, micronutrients
 
 # Local application imports
 from app.modules.foliage.models import (
@@ -18,18 +24,14 @@ from app.modules.foliage.models import (
     LeafAnalysis,
     Lot,
     LotCrop,
-    Objective,
     Nutrient,
+    Objective,
     ProductContribution,
+    Recommendation,
     leaf_analysis_nutrients,
-    product_contribution_nutrients,
     objective_nutrients,
+    product_contribution_nutrients,
 )
-from app.modules.foliage.models import Recommendation
-from app.modules.foliage.controller import ProductContributionView
-from app.modules.foliage.helpers import macronutrients, micronutrients
-from app.extensions import db
-from app.core.models import RoleEnum, ResellerPackage
 
 
 class LeyLiebig:
@@ -133,8 +135,9 @@ class LeyLiebig:
         return nutrientes
 
 
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, Tuple
-from decimal import Decimal, ROUND_HALF_UP
+
 from scipy.optimize import linprog
 
 

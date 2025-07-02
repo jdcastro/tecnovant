@@ -7,4 +7,4 @@ foliage = Blueprint(
 )
 foliage_api = Blueprint("foliage_api", __name__, url_prefix="/api/foliage")
 
-from . import web_routes, api_routes
+from . import api_routes, web_routes

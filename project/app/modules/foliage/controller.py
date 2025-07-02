@@ -2,38 +2,40 @@
 import json
 from datetime import date, datetime, timedelta
 
-# Third party imports
-from flask_jwt_extended import jwt_required, get_jwt
-from flask import request, jsonify, Response
+from flask import Response, jsonify, request
 from flask.views import MethodView
-from werkzeug.exceptions import BadRequest, NotFound, Forbidden, Unauthorized, Conflict
-from sqlalchemy.orm import joinedload, selectinload
 
+# Third party imports
+from flask_jwt_extended import get_jwt, jwt_required
+from sqlalchemy.orm import joinedload, selectinload
+from werkzeug.exceptions import BadRequest, Conflict, Forbidden, NotFound, Unauthorized
+
+from app.core.controller import check_permission, check_resource_access
+from app.core.models import Organization, ResellerPackage, RoleEnum, User
 
 # Local application imports
 from app.extensions import db
-from app.core.controller import check_permission, check_resource_access
-from app.core.models import User, RoleEnum, ResellerPackage, Organization
+
 from .models import (
-    Farm,
-    Lot,
-    Crop,
-    LotCrop,
     CommonAnalysis,
-    NutrientApplication,
-    Nutrient,
+    Crop,
+    Farm,
     LeafAnalysis,
+    Lot,
+    LotCrop,
+    Nutrient,
+    NutrientApplication,
     Objective,
-    objective_nutrients,
-    product_contribution_nutrients,
-    leaf_analysis_nutrients,
-    nutrient_application_nutrients,
-    SoilAnalysis,
-    Production,
     Product,
     ProductContribution,
+    Production,
     ProductPrice,
     Recommendation,
+    SoilAnalysis,
+    leaf_analysis_nutrients,
+    nutrient_application_nutrients,
+    objective_nutrients,
+    product_contribution_nutrients,
 )
 
 # helper
@@ -646,29 +648,35 @@ class CropView(MethodView):
         """Serializa un objeto Crop a un diccionario."""
         # Obtener los objetivos asociados al cultivo
         objectives_data = []
-        for objective in crop.objectives: # Asumiendo que crop.objectives es la relación
+        for (
+            objective
+        ) in crop.objectives:  # Asumiendo que crop.objectives es la relación
             nutrient_targets = (
                 db.session.query(objective_nutrients)
                 .filter_by(objective_id=objective.id)
                 .all()
             )
-            objectives_data.extend([
-                {
-                    "nutrient_id": target.nutrient_id,
-                    "target_value": target.target_value,
-                    "nutrient_name": Nutrient.query.get(target.nutrient_id).name,
-                    "nutrient_symbol": Nutrient.query.get(target.nutrient_id).symbol,
-                    "nutrient_unit": Nutrient.query.get(target.nutrient_id).unit,
-                }
-                for target in nutrient_targets
-            ])
+            objectives_data.extend(
+                [
+                    {
+                        "nutrient_id": target.nutrient_id,
+                        "target_value": target.target_value,
+                        "nutrient_name": Nutrient.query.get(target.nutrient_id).name,
+                        "nutrient_symbol": Nutrient.query.get(
+                            target.nutrient_id
+                        ).symbol,
+                        "nutrient_unit": Nutrient.query.get(target.nutrient_id).unit,
+                    }
+                    for target in nutrient_targets
+                ]
+            )
 
         return {
             "id": crop.id,
             "name": crop.name,
             "created_at": crop.created_at.isoformat(),
             "updated_at": crop.updated_at.isoformat(),
-            "objective_nutrients": objectives_data, # Añadir los nutrientes objetivo
+            "objective_nutrients": objectives_data,  # Añadir los nutrientes objetivo
         }
 
 
@@ -1950,9 +1958,7 @@ class CommonAnalysisView(MethodView):
         """Actualiza los datos de un análisis común existente."""
         common_analysis = CommonAnalysis.query.get_or_404(common_analysis_id)
         if "date" in data:
-            common_analysis.date = datetime.strptime(
-                data["date"], "%Y-%m-%d"
-            ).date()
+            common_analysis.date = datetime.strptime(data["date"], "%Y-%m-%d").date()
         if "lot_id" in data:
             common_analysis.lot_id = data["lot_id"]
         if "protein" in data:
@@ -2488,14 +2494,12 @@ class LeafAnalysisView(MethodView):
 
     def _get_leaf_analysis(self, leaf_analysis_id):
         """Obtiene los detalles de un análisis de hoja específico."""
-        leaf_analysis = (
-            LeafAnalysis.query.options(
-                joinedload(LeafAnalysis.common_analysis)
-                .joinedload(CommonAnalysis.lot)
-                .joinedload(Lot.farm),
-                selectinload(LeafAnalysis.nutrients),
-            ).get_or_404(leaf_analysis_id)
-        )
+        leaf_analysis = LeafAnalysis.query.options(
+            joinedload(LeafAnalysis.common_analysis)
+            .joinedload(CommonAnalysis.lot)
+            .joinedload(Lot.farm),
+            selectinload(LeafAnalysis.nutrients),
+        ).get_or_404(leaf_analysis_id)
         claims = get_jwt()
         if not self._has_access(leaf_analysis, claims):
             raise Forbidden("You do not have access to this leaf analysis.")
@@ -2635,7 +2639,9 @@ class LeafAnalysisView(MethodView):
             },
         }
         for nutrient in leaf_analysis.nutrients:
-            analysis_dict[f"nutrient_{nutrient.id}"] = values_for_analysis.get(nutrient.id)
+            analysis_dict[f"nutrient_{nutrient.id}"] = values_for_analysis.get(
+                nutrient.id
+            )
         return analysis_dict
 
 

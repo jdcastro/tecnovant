@@ -12,14 +12,15 @@ License:
     Apache License 2.0 - http://www.apache.org/licenses/LICENSE-2.0
 """
 
-# Python standard library imports
-from functools import wraps
 import logging
 import re
 
+# Python standard library imports
+from functools import wraps
+
 # Third party imports
-from flask import request, jsonify
-from marshmallow import Schema, fields, ValidationError, validate
+from flask import jsonify, request
+from marshmallow import Schema, ValidationError, fields, validate
 
 
 class APIValidator:

@@ -14,11 +14,12 @@ License:
 
 # Python standard library imports
 import threading
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
+
+from flask import current_app
 
 # Third party imports
 from flask_mail import Mail, Message
-from flask import current_app
 from werkzeug.datastructures import FileStorage
 
 # Local application imports

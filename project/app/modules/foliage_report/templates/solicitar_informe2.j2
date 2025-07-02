@@ -86,6 +86,10 @@
         <h2 class="text-lg font-semibold mb-2">Información del Análisis</h2>
         <div id="analysis-info-content" class="text-sm"></div>
     </div>
+    <div id="claculate-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
+        <h2 class="text-lg font-semibold mb-2">Información del Análisis</h2>
+        <div id="claculate-info-content" class="text-sm"></div>
+    </div>
 </div>
 
 {% if DEBUG %}
@@ -162,41 +166,58 @@
             analysesListDiv.innerHTML = '<p class="text-gray-500">Seleccione un lote para ver análisis.</p>';
         }
 
-        function updateCropInfo(cropId) {
-            if (!cropId || cropId === 'null') {
-                cropInfoDiv.classList.add('hidden');
-                cropInfoContent.textContent = '';
-                return;
-            }
-            fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
-                .then(response => {
-                    if (!response.ok) throw new Error('Error al cargar cultivo');
-                    return response.json();
-                })
-                .then(crop => {
-                    let content = `<p><strong>ID:</strong> ${crop.id}</p>`;
-                    content += `<p><strong>Nombre:</strong> ${crop.name}</p>`;
-                    if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
-                        content += '<p><strong>Nutrientes Objetivo:</strong></p>';
-                        crop.objective_nutrients.forEach(on => {
-                            content += `<div class="mb-1 flex items-center ml-4">
-                                            <label class="mr-2 text-sm font-medium">${on.nutrient_name} (${on.nutrient_symbol})</label>
-                                            <input type="number" step="any" value="${on.target_value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
-                                            <span class="ml-1 text-sm">${on.nutrient_unit}</span>
-                                        </div>`;
-                        });
-                    } else {
-                        content += '<p>No hay nutrientes objetivo definidos para este cultivo.</p>';
-                    }
-                    cropInfoContent.innerHTML = content;
-                    cropInfoDiv.classList.remove('hidden');
-                })
-                .catch(error => {
-                    console.error(error);
-                    cropInfoContent.textContent = 'Error al cargar datos del cultivo';
-                    cropInfoDiv.classList.remove('hidden');
+function updateCropInfo(cropId) {
+    if (!cropId || cropId === 'null') {
+        cropInfoDiv.classList.add('hidden');
+        cropInfoContent.innerHTML = '';
+        return;
+    }
+    fetch(`{{ url_for('foliage_api.crops_view', id=0) }}`.replace('0', cropId))
+        .then(response => {
+            if (!response.ok) throw new Error('Error al cargar cultivo');
+            return response.json();
+        })
+        .then(crop => {
+            let content = `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">ID</label>
+                        <input type="text" value="${crop.id}" disabled class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-sm font-medium mb-1">Nombre</label>
+                        <input type="text" value="${crop.name}" disabled class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                </div>
+            `;
+
+            if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
+                content += `<div class="grid grid-cols-1 md:grid-cols-13 gap-13">`;
+                crop.objective_nutrients.forEach(on => {
+                    content += `
+                        <div>
+                            <label class="block text-tiny font-medium mb-1">${on.nutrient_name}</label><!-- ${on.nutrient_symbol} -->
+                            <div class="flex items-center gap-2">
+                                <input type="number" step="any" inputmode="decimal" value="${on.target_value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                        </div>
+                    `;
                 });
-        }
+                content += `</div>`;
+            } else {
+                content += '<p class="text-sm text-gray-500">No hay nutrientes objetivo definidos para este cultivo.</p>';
+            }
+
+            cropInfoContent.innerHTML = content;
+            cropInfoDiv.classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error(error);
+            cropInfoContent.textContent = 'Error al cargar datos del cultivo';
+            cropInfoDiv.classList.remove('hidden');
+        });
+}
+
 
         function updateAnalysisInfo() {
             const selected = Array.from(document.querySelectorAll('#analyses-list input[name="selected_analyses"]:checked'));
@@ -209,27 +230,32 @@
             selected.forEach(cb => {
                 const a = analysisDataMap[cb.value];
                 if (!a) return;
-                html += `<div class="mb-4">
-                            <h4 class="font-semibold">Análisis ${a.id} - ${a.date}</h4>
-                            <p class="text-sm">Lote: ${a.lot.name} | Finca: ${a.lot.farm.name}</p>`;
+
+                html += `
+                    <div class="mb-4">
+                        <h4 class="font-semibold mb-2">Análisis ${a.id} - ${a.date}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-13 gap-13">
+                `;
+
                 if (a.leaf_analysis && a.leaf_analysis.nutrients && a.leaf_analysis.nutrients.length) {
                     a.leaf_analysis.nutrients.forEach(n => {
-                        html += `<div class="ml-4 mb-1 flex items-center">
-                                    <label class="mr-2 text-sm font-medium">${n.nutrient_name}</label>
-                                    <input type="number" step="any" value="${n.value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600" />
-                                </div>`;
+                        html += `
+                            <div>
+                                <label class="block text-tiny font-medium mb-1">${n.nutrient_name}</label>
+                                <input type="number" step="any" inputmode="decimal" value="${n.value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                        `;
                     });
                 }
-                if (a.soil_analysis && (a.soil_analysis.energy !== null || a.soil_analysis.grazing !== null)) {
-                    html += '<p class="text-sm mt-1 ml-4">';
-                    if (a.soil_analysis.energy !== null) html += `Energía: ${a.soil_analysis.energy} `;
-                    if (a.soil_analysis.grazing !== null) html += `Pastoreo: ${a.soil_analysis.grazing}`;
-                    html += '</p>';
-                }
-                html += '</div>';
+
+                html += `
+                        </div>
+                    </div>
+                `;
             });
             analysisInfoContent.innerHTML = html;
             analysisInfoDiv.classList.remove('hidden');
+
         }
         
         // Cargar fincas (si no se poblaron desde el servidor)

@@ -1,26 +1,27 @@
 """📃 Rutas de páginas de la aplicación (jinja2)"""
 
 # Third party imports
-from flask import render_template, redirect, url_for, request
+from flask import redirect, render_template, request, url_for
 from flask_jwt_extended import (
-    verify_jwt_in_request,
+    get_jwt,
     get_jwt_identity,
     jwt_required,
-    get_jwt,
+    verify_jwt_in_request,
 )
-
-# from sqlalchemy.orm import joinedload
 
 # Local application imports
 from . import core as web
 from .controller import (
-    UserView,
-    OrgView,
     InstallationView,
-    login_required,
+    OrgView,
     ResetPasswordFormView,
+    UserView,
+    login_required,
 )
-from .models import User, get_clients_for_user, RoleEnum
+from .models import RoleEnum, User, get_clients_for_user
+
+# from sqlalchemy.orm import joinedload
+
 
 __doc__ = """
 paginas de bienvenida y contenido general

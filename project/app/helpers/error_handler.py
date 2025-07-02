@@ -12,14 +12,15 @@ License:
 
 """
 
-# Python standard library imports
-import logging
-from logging.handlers import RotatingFileHandler
-import traceback
 import json
 
+# Python standard library imports
+import logging
+import traceback
+from logging.handlers import RotatingFileHandler
+
 # Third party imports
-from flask import request, render_template, Response, Flask
+from flask import Flask, Response, render_template, request
 from werkzeug.exceptions import HTTPException
 
 

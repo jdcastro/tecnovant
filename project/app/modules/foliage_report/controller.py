@@ -1,41 +1,43 @@
 # Python standard library imports
-from functools import wraps
 import json
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+from functools import wraps
 
-# Third party imports
-from werkzeug.exceptions import InternalServerError, BadRequest, NotFound, Forbidden
+from flask import Response, current_app, jsonify, request
 from flask.views import MethodView
 from flask_jwt_extended import get_jwt, jwt_required
-from flask import request, jsonify, Response, current_app
 
+# Third party imports
+from werkzeug.exceptions import BadRequest, Forbidden, InternalServerError, NotFound
+
+from app.core.controller import check_permission, check_resource_access
+from app.core.models import ResellerPackage, RoleEnum
 
 # Local application imports
 from app.extensions import db
-from app.core.controller import check_permission, check_resource_access
-from app.core.models import ResellerPackage, RoleEnum
 from app.modules.foliage.models import (
     CommonAnalysis,
-    LeafAnalysis,
-    SoilAnalysis,
-    Farm,
-    Lot,
     Crop,
+    Farm,
+    LeafAnalysis,
+    Lot,
     LotCrop,
-    Recommendation,
     Nutrient,
     Objective,
-    objective_nutrients,
+    Recommendation,
+    SoilAnalysis,
     leaf_analysis_nutrients,
+    objective_nutrients,
 )
+
 from .helpers import (
-    NutrientOptimizer,
-    determinar_coeficientes_variacion,
-    contribuciones_de_producto,
-    ObjectiveResource,
     LeafAnalysisResource,
+    NutrientOptimizer,
+    ObjectiveResource,
     ReportView,
+    contribuciones_de_producto,
+    determinar_coeficientes_variacion,
 )
 
 

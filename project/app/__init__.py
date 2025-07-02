@@ -1,8 +1,8 @@
 """🚀 Application factory and extension initialization."""
 
 # Python standard library imports
-import os
 import logging
+import os
 from importlib import import_module
 
 # Third party imports
@@ -10,10 +10,10 @@ from flask import Flask
 
 # Local application imports
 from .config import Config
-from .extensions import jwt, db, migrate, cache
-from .helpers.error_handler import setup_logging, error_handler
+from .extensions import cache, db, jwt, migrate
+from .helpers.error_handler import error_handler, setup_logging
+from .helpers.helpers_functions import inject_user, merge_dicts
 from .helpers.mail import mail
-from .helpers.helpers_functions import merge_dicts, inject_user
 
 
 def init_extensions(app):
@@ -123,8 +123,9 @@ def create_app():
     """
     List all the routes in the application for debugging and api documentation purposes
     """
-    from .helpers.route_lister import RouteLister
     from flask import render_template
+
+    from .helpers.route_lister import RouteLister
 
     view = RouteLister.as_view("list_routes")
     app.add_url_rule("/list_endpoints", view_func=view)

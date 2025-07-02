@@ -1,15 +1,15 @@
 """Reusable CRUD mixin with role-based access controls."""
 
-from typing import List, Dict, Any
 import json
+from typing import Any, Dict, List
 
-from flask import Response, request, json
-from flask_jwt_extended import jwt_required, get_jwt
+from flask import Response, json, request
 from flask.views import MethodView
-from werkzeug.exceptions import BadRequest, Forbidden, NotFound
+from flask_jwt_extended import get_jwt, jwt_required
 from sqlalchemy.exc import SQLAlchemyError
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound
 
-from app.core.models import RoleEnum, User, ResellerPackage
+from app.core.models import ResellerPackage, RoleEnum, User
 from app.extensions import db
 
 

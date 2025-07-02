@@ -3,7 +3,7 @@ from marshmallow import fields
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
 # Local application imports
-from .models import User, Organization, ResellerPackage, RoleEnum
+from .models import Organization, ResellerPackage, RoleEnum, User
 
 
 class UserSchema(SQLAlchemyAutoSchema):

@@ -1,21 +1,21 @@
 """Define REST API routes for the core module."""
 
 # Third party imports
-from flask import jsonify, request, current_app, views
+from flask import current_app, jsonify, request, views
 from flask_jwt_extended import unset_jwt_cookies
 
 # Local application imports
 from . import core_api as api
 from .controller import (
-    login_required,
-    LoginView,
-    RefreshView,
-    UserView,
-    OrgView,
-    ProfileView,
     ChangePasswordView,
     ForgotPasswordRequestView,
+    LoginView,
+    OrgView,
+    ProfileView,
+    RefreshView,
     ResetPasswordSubmitView,
+    UserView,
+    login_required,
 )
 
 #############################################
