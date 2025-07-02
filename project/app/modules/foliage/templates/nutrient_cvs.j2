@@ -1,0 +1,11 @@
+{% extends "layouts/crud_base.j2" %}
+{% set entity_name = "Coeficientes_variacion" %}
+{% set entity_name_lower = "coeficiente_variacion" %}
+{% set show_select_box = False %}
+{% set table_headers = ["ID", "Nutriente", "CV", "Fecha de creación", "Fecha de actualización"] %}
+{% set item_fields = ["id", "nutrient_name", "cv", "created_at", "updated_at"] %}
+{% set form_fields = {
+    'nutrient_id': {'type': 'select', 'label': 'Nutriente', 'options': nutrient_options, 'required': True, 'new_value': False},
+    'cv': {'type': 'number', 'label': 'CV', 'required': True, 'step': '0.01'}
+} %}
+{% set api_url = url_for('foliage_api.nutrient_cvs') %}

@@ -32,6 +32,7 @@ from .models import (
     ProductPrice,
     Recommendation,
     SoilAnalysis,
+    NutrientCV,
     leaf_analysis_nutrients,
     nutrient_application_nutrients,
     objective_nutrients,
@@ -1755,6 +1756,100 @@ class ProductPriceView(MethodView):
             ),
         }
 
+
+# Vista para coeficientes de variación de nutrientes (nutrient_cvs)
+class NutrientCVView(MethodView):
+    """Class to manage CRUD operations for nutrient CV values"""
+
+    decorators = [jwt_required()]
+
+    @check_permission(required_roles=["administrator", "reseller"])
+    def get(self, nutrient_cv_id=None):
+        if nutrient_cv_id:
+            return self._get_nutrient_cv(nutrient_cv_id)
+        return self._get_nutrient_cv_list()
+
+    @check_permission(required_roles=["administrator"])
+    def post(self):
+        data = request.get_json()
+        required_fields = ["nutrient_id", "cv"]
+        if not data or not all(k in data for k in required_fields):
+            raise BadRequest("Missing required fields")
+        return self._create_nutrient_cv(data)
+
+    @check_permission(required_roles=["administrator"])
+    def put(self, id: int):
+        data = request.get_json()
+        nutrient_cv_id = id
+        if not data or not nutrient_cv_id:
+            raise BadRequest("Missing nutrient_cv_id or data")
+        return self._update_nutrient_cv(nutrient_cv_id, data)
+
+    @check_permission(required_roles=["administrator"])
+    def delete(self, id=None):
+        nutrient_cv_id = id
+        if not nutrient_cv_id:
+            raise BadRequest("Missing nutrient_cv_id")
+        return self._delete_nutrient_cv(nutrient_cv_id)
+
+    # Helper Methods
+    def _get_nutrient_cv_list(self):
+        nutrient_cvs = NutrientCV.query.all()
+        response_data = [self._serialize_nutrient_cv(nc) for nc in nutrient_cvs]
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _get_nutrient_cv(self, nutrient_cv_id):
+        nutrient_cv = NutrientCV.query.get_or_404(nutrient_cv_id)
+        claims = get_jwt()
+        if not self._has_access(nutrient_cv, claims):
+            raise Forbidden("You do not have access to this resource")
+        response_data = self._serialize_nutrient_cv(nutrient_cv)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _create_nutrient_cv(self, data):
+        nutrient_id = data["nutrient_id"]
+        cv = data["cv"]
+        existing = NutrientCV.query.filter_by(nutrient_id=nutrient_id).first()
+        if existing:
+            raise Conflict("CV for this nutrient already exists")
+        nutrient_cv = NutrientCV(nutrient_id=nutrient_id, cv=cv)
+        db.session.add(nutrient_cv)
+        db.session.commit()
+        response_data = self._serialize_nutrient_cv(nutrient_cv)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=201, mimetype="application/json")
+
+    def _update_nutrient_cv(self, nutrient_cv_id, data):
+        nutrient_cv = NutrientCV.query.get_or_404(nutrient_cv_id)
+        if "nutrient_id" in data:
+            nutrient_cv.nutrient_id = data["nutrient_id"]
+        if "cv" in data:
+            nutrient_cv.cv = data["cv"]
+        db.session.commit()
+        response_data = self._serialize_nutrient_cv(nutrient_cv)
+        json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
+        return Response(json_data, status=200, mimetype="application/json")
+
+    def _delete_nutrient_cv(self, nutrient_cv_id):
+        nutrient_cv = NutrientCV.query.get_or_404(nutrient_cv_id)
+        db.session.delete(nutrient_cv)
+        db.session.commit()
+        return jsonify({"message": "Nutrient CV deleted successfully"}), 200
+
+    def _has_access(self, nutrient_cv, claims):
+        return check_resource_access(nutrient_cv, claims)
+
+    def _serialize_nutrient_cv(self, nutrient_cv):
+        return {
+            "id": nutrient_cv.id,
+            "nutrient_id": nutrient_cv.nutrient_id,
+            "nutrient_name": nutrient_cv.nutrient.name if nutrient_cv.nutrient else None,
+            "cv": float(nutrient_cv.cv),
+            "created_at": nutrient_cv.created_at.isoformat(),
+            "updated_at": nutrient_cv.updated_at.isoformat(),
+        }
 
 # 👌# Vista para análisis comunes (common_analyses)
 class CommonAnalysisView(MethodView):
