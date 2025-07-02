@@ -18,6 +18,7 @@ from .controller import (
     ProductContributionView,
     ProductionView,
     ProductPriceView,
+    NutrientCVView,
     ProductView,
     SoilAnalysisView,
 )
@@ -51,6 +52,15 @@ api.add_url_rule(
 )
 api.add_url_rule(
     "/nutrients/<int:id>", view_func=nutrient_view, methods=["GET", "PUT", "DELETE"]
+)
+
+# Nutrient CV endpoints
+nutrient_cv_view = NutrientCVView.as_view("nutrient_cvs")
+api.add_url_rule(
+    "/nutrient_cvs/", view_func=nutrient_cv_view, methods=["GET", "POST", "DELETE"]
+)
+api.add_url_rule(
+    "/nutrient_cvs/<int:id>", view_func=nutrient_cv_view, methods=["GET", "PUT", "DELETE"]
 )
 
 # 👌
