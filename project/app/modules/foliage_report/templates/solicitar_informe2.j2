@@ -90,9 +90,9 @@
         <h2 class="text-lg font-semibold mb-2">CV por Nutriente</h2>
         <div id="cv-info-content" class="text-sm"></div>
     </div>
-    <div id="claculate-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
-        <h2 class="text-lg font-semibold mb-2">Información del Análisis</h2>
-        <div id="claculate-info-content" class="text-sm"></div>
+    <div id="calc-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
+        <h2 class="text-lg font-semibold mb-2">Tabla de Cálculos</h2>
+        <div id="calc-info-content" class="text-sm overflow-auto"></div>
     </div>
 </div>
 
@@ -159,9 +159,13 @@
         const analysisInfoContent = document.getElementById('analysis-info-content');
         const cvInfoDiv = document.getElementById('cv-info');
         const cvInfoContent = document.getElementById('cv-info-content');
+        const calcInfoDiv = document.getElementById('calc-info');
+        const calcInfoContent = document.getElementById('calc-info-content');
         let analysisDataMap = {};
         let cvData = {};
         let nutrientOrder = [];
+        let targetValues = {};
+        let actualValues = {};
 
 
         // Function to clear and disable a select element
@@ -202,13 +206,15 @@ function updateCropInfo(cropId) {
 
             if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
                 nutrientOrder = crop.objective_nutrients.map(on => on.nutrient_name);
+                targetValues = {};
                 content += `<div class="grid grid-cols-1 md:grid-cols-13 gap-13">`;
                 crop.objective_nutrients.forEach(on => {
+                    targetValues[on.nutrient_name] = parseFloat(on.target_value);
                     content += `
                         <div>
                             <label class="block text-tiny font-medium mb-1">${on.nutrient_name}</label><!-- ${on.nutrient_symbol} -->
                             <div class="flex items-center gap-2">
-                                <input type="number" step="any" inputmode="decimal" value="${on.target_value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                                <input type="number" step="any" inputmode="decimal" value="${on.target_value}" data-nutrient="${on.nutrient_name}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
                             </div>
                         </div>
                     `;
@@ -216,11 +222,25 @@ function updateCropInfo(cropId) {
                 content += `</div>`;
             } else {
                 content += '<p class="text-sm text-gray-500">No hay nutrientes objetivo definidos para este cultivo.</p>';
+                targetValues = {};
             }
 
             cropInfoContent.innerHTML = content;
             cropInfoDiv.classList.remove('hidden');
+            cropInfoContent.querySelectorAll('input[data-nutrient]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const n = inp.dataset.nutrient;
+                    const v = parseFloat(inp.value);
+                    if (!isNaN(v)) {
+                        targetValues[n] = v;
+                    } else {
+                        delete targetValues[n];
+                    }
+                    updateCalculationTable();
+                });
+            });
             updateCVInfo();
+            updateCalculationTable();
         })
         .catch(error => {
             console.error(error);
@@ -255,6 +275,7 @@ function updateCropInfo(cropId) {
             if (!cvData || Object.keys(cvData).length === 0) {
                 cvInfoDiv.classList.add('hidden');
                 cvInfoContent.innerHTML = '';
+                updateCalculationTable();
                 return;
             }
             const order = nutrientOrder && nutrientOrder.length ? nutrientOrder : Object.keys(cvData);
@@ -272,6 +293,73 @@ function updateCropInfo(cropId) {
             html += '</div>';
             cvInfoContent.innerHTML = html;
             cvInfoDiv.classList.remove('hidden');
+            updateCalculationTable();
+        }
+
+        function updateCalculationTable() {
+            const hasData = Object.keys(actualValues).length && Object.keys(targetValues).length && Object.keys(cvData).length;
+            if (!hasData) {
+                calcInfoDiv.classList.add('hidden');
+                calcInfoContent.innerHTML = '';
+                return;
+            }
+            const order = nutrientOrder && nutrientOrder.length ? nutrientOrder : Object.keys(actualValues);
+            const td = v => `<td>${isNaN(v) ? '-' : v.toFixed(2)}</td>`;
+            let table = '<table class="min-w-full text-xs text-center"><thead><tr><th></th>';
+            order.forEach(n => { table += `<th>${n}</th>`; });
+            table += '</tr></thead><tbody>';
+
+            // %P row
+            table += '<tr><th class="text-left">%P</th>';
+            order.forEach(n => {
+                const act = actualValues[n];
+                const targ = targetValues[n];
+                const p = act != null && targ ? (act / targ) * 100 : NaN;
+                table += td(p);
+            });
+            table += '</tr>';
+
+            // I row
+            table += '<tr><th class="text-left">I</th>';
+            order.forEach(n => {
+                const act = actualValues[n];
+                const targ = targetValues[n];
+                const cv = cvData[n];
+                const p = act != null && targ ? (act / targ) * 100 : NaN;
+                const i = isNaN(p) || cv == null ? NaN : Math.abs(p - 100) * cv / 100;
+                table += td(i);
+            });
+            table += '</tr>';
+
+            // R row
+            table += '<tr><th class="text-left">R</th>';
+            order.forEach(n => {
+                const act = actualValues[n];
+                const targ = targetValues[n];
+                const cv = cvData[n];
+                const p = act != null && targ ? (act / targ) * 100 : NaN;
+                if (isNaN(p) || cv == null) { table += td(NaN); return; }
+                const i = Math.abs(p - 100) * cv / 100;
+                let r = p > 100 ? p - i : p + i;
+                if (r < 88) r = 88;
+                if (r > 108) r = 108;
+                table += td(r);
+            });
+            table += '</tr>';
+
+            // Diferencia row
+            table += '<tr><th class="text-left">Diferencia</th>';
+            order.forEach(n => {
+                const act = actualValues[n];
+                const targ = targetValues[n];
+                const diff = act != null && targ != null ? act - targ : NaN;
+                table += td(diff);
+            });
+            table += '</tr>';
+
+            table += '</tbody></table>';
+            calcInfoContent.innerHTML = table;
+            calcInfoDiv.classList.remove('hidden');
         }
 
 
@@ -292,6 +380,10 @@ function updateCropInfo(cropId) {
                 if (!a) return;
                 if (idx === 0 && a.leaf_analysis && a.leaf_analysis.nutrients) {
                     nutrientOrder = a.leaf_analysis.nutrients.map(n => n.nutrient_name);
+                    actualValues = {};
+                    a.leaf_analysis.nutrients.forEach(n => {
+                        actualValues[n.nutrient_name] = parseFloat(n.value);
+                    });
                 }
 
                 html += `
@@ -305,7 +397,7 @@ function updateCropInfo(cropId) {
                         html += `
                             <div>
                                 <label class="block text-tiny font-medium mb-1">${n.nutrient_name}</label>
-                                <input type="number" step="any" inputmode="decimal" value="${n.value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                                <input type="number" step="any" inputmode="decimal" value="${n.value}" data-nutrient="${n.nutrient_name}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
                             </div>
                         `;
                     });
@@ -318,7 +410,20 @@ function updateCropInfo(cropId) {
             });
             analysisInfoContent.innerHTML = html;
             analysisInfoDiv.classList.remove('hidden');
+            analysisInfoContent.querySelectorAll('input[data-nutrient]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const n = inp.dataset.nutrient;
+                    const v = parseFloat(inp.value);
+                    if (!isNaN(v)) {
+                        actualValues[n] = v;
+                    } else {
+                        delete actualValues[n];
+                    }
+                    updateCalculationTable();
+                });
+            });
             updateCVInfo();
+            updateCalculationTable();
 
         }
         
