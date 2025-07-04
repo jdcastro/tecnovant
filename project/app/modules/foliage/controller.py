@@ -792,6 +792,7 @@ class NutrientView(MethodView):
             name=data["name"],
             symbol=data["symbol"],
             unit=data["unit"],
+            cv=data.get("cv"),
         )
         db.session.add(nutrient)
         db.session.commit()
@@ -814,6 +815,8 @@ class NutrientView(MethodView):
             nutrient.symbol = data["symbol"]
         if "unit" in data:
             nutrient.unit = data["unit"]
+        if "cv" in data:
+            nutrient.cv = data["cv"]
         db.session.commit()
         response_data = self._serialize_nutrient(nutrient)
         json_data = json.dumps(response_data, ensure_ascii=False, indent=4)
@@ -880,6 +883,7 @@ class NutrientView(MethodView):
             "symbol": nutrient.symbol,
             "unit": nutrient.unit,
             "description": nutrient.description,
+            "cv": nutrient.cv,
             "created_at": nutrient.created_at.isoformat(),
             "updated_at": nutrient.updated_at.isoformat(),
         }
