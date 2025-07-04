@@ -214,7 +214,7 @@ function updateCropInfo(cropId) {
                         <div>
                             <label class="block text-tiny font-medium mb-1">${on.nutrient_name}</label><!-- ${on.nutrient_symbol} -->
                             <div class="flex items-center gap-2">
-                                <input type="number" step="any" inputmode="decimal" value="${on.target_value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                                <input type="number" step="any" inputmode="decimal" value="${on.target_value}" data-nutrient="${on.nutrient_name}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
                             </div>
                         </div>
                     `;
@@ -227,6 +227,18 @@ function updateCropInfo(cropId) {
 
             cropInfoContent.innerHTML = content;
             cropInfoDiv.classList.remove('hidden');
+            cropInfoContent.querySelectorAll('input[data-nutrient]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const n = inp.dataset.nutrient;
+                    const v = parseFloat(inp.value);
+                    if (!isNaN(v)) {
+                        targetValues[n] = v;
+                    } else {
+                        delete targetValues[n];
+                    }
+                    updateCalculationTable();
+                });
+            });
             updateCVInfo();
             updateCalculationTable();
         })
@@ -385,7 +397,7 @@ function updateCropInfo(cropId) {
                         html += `
                             <div>
                                 <label class="block text-tiny font-medium mb-1">${n.nutrient_name}</label>
-                                <input type="number" step="any" inputmode="decimal" value="${n.value}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
+                                <input type="number" step="any" inputmode="decimal" value="${n.value}" data-nutrient="${n.nutrient_name}" class="w-full border p-1 rounded dark:bg-gray-700 dark:border-gray-600">
                             </div>
                         `;
                     });
@@ -398,6 +410,18 @@ function updateCropInfo(cropId) {
             });
             analysisInfoContent.innerHTML = html;
             analysisInfoDiv.classList.remove('hidden');
+            analysisInfoContent.querySelectorAll('input[data-nutrient]').forEach(inp => {
+                inp.addEventListener('input', () => {
+                    const n = inp.dataset.nutrient;
+                    const v = parseFloat(inp.value);
+                    if (!isNaN(v)) {
+                        actualValues[n] = v;
+                    } else {
+                        delete actualValues[n];
+                    }
+                    updateCalculationTable();
+                });
+            });
             updateCVInfo();
             updateCalculationTable();
 
