@@ -28,7 +28,7 @@ from .controller import (
     RecommendationGenerator,
     RecommendationView,
 )
-from .helpers import ReportView
+from .helpers import ReportView, determinar_coeficientes_variacion
 
 report_view = ReportView.as_view("report_view")
 api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])
@@ -217,3 +217,21 @@ def get_analyses():
         analyses.append(analysis_data)
 
     return jsonify(analyses)
+
+
+@api.route("/cv-nutrients")
+@login_required
+def get_cv_nutrients():
+    """Return coefficient of variation for nutrients on a lot."""
+    lot_id = request.args.get("lot_id", type=int)
+    if not lot_id:
+        return jsonify({"error": "lot_id es requerido"}), 400
+
+    lot = Lot.query.get_or_404(lot_id)
+    claims = get_jwt()
+    if not check_resource_access(lot.farm, claims):
+        return jsonify({"error": "No tienes acceso a este lote"}), 403
+
+    coeficientes = determinar_coeficientes_variacion(lot_id)
+    data = {name: float(value) for name, value in coeficientes.items()}
+    return jsonify(data)
