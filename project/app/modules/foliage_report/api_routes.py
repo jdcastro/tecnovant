@@ -185,6 +185,7 @@ def get_analyses():
                     Nutrient.id == leaf_analysis_nutrients.c.nutrient_id,
                 )
                 .filter(leaf_analysis_nutrients.c.leaf_analysis_id == leaf_analysis.id)
+                .order_by(Nutrient.id)
                 .all()
             )
 
@@ -233,7 +234,8 @@ def get_cv_nutrients():
     if not check_resource_access(lot.farm, claims):
         return jsonify({"error": "No tienes acceso a este lote"}), 403
 
-    nutrients = Nutrient.query.all()
+
+    nutrients = Nutrient.query.order_by(Nutrient.id).all()
     data = {n.name: float(n.cv) if n.cv is not None else None for n in nutrients}
 
     return jsonify(data)

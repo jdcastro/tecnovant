@@ -161,6 +161,8 @@
         const cvInfoContent = document.getElementById('cv-info-content');
         let analysisDataMap = {};
         let cvData = {};
+        let nutrientOrder = [];
+
 
         // Function to clear and disable a select element
         function resetSelect(selectElement, defaultOptionText) {
@@ -199,6 +201,7 @@ function updateCropInfo(cropId) {
             `;
 
             if (crop.objective_nutrients && crop.objective_nutrients.length > 0) {
+                nutrientOrder = crop.objective_nutrients.map(on => on.nutrient_name);
                 content += `<div class="grid grid-cols-1 md:grid-cols-13 gap-13">`;
                 crop.objective_nutrients.forEach(on => {
                     content += `
@@ -217,6 +220,7 @@ function updateCropInfo(cropId) {
 
             cropInfoContent.innerHTML = content;
             cropInfoDiv.classList.remove('hidden');
+            updateCVInfo();
         })
         .catch(error => {
             console.error(error);
@@ -253,8 +257,11 @@ function updateCropInfo(cropId) {
                 cvInfoContent.innerHTML = '';
                 return;
             }
+            const order = nutrientOrder && nutrientOrder.length ? nutrientOrder : Object.keys(cvData);
             let html = '<div class="grid grid-cols-1 md:grid-cols-13 gap-13">';
-            Object.keys(cvData).forEach(nutrient => {
+            order.forEach(nutrient => {
+                if (!(nutrient in cvData)) return;
+
                 html += `
                     <div>
                         <label class="block text-tiny font-medium mb-1">${nutrient}</label>
@@ -274,12 +281,18 @@ function updateCropInfo(cropId) {
                 analysisInfoDiv.classList.add('hidden');
                 analysisInfoContent.innerHTML = '';
                 cvInfoDiv.classList.add('hidden');
+
+                nutrientOrder = [];
+
                 return;
             }
             let html = '';
-            selected.forEach(cb => {
+            selected.forEach((cb, idx) => {
                 const a = analysisDataMap[cb.value];
                 if (!a) return;
+                if (idx === 0 && a.leaf_analysis && a.leaf_analysis.nutrients) {
+                    nutrientOrder = a.leaf_analysis.nutrients.map(n => n.nutrient_name);
+                }
 
                 html += `
                     <div class="mb-4">

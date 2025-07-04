@@ -1142,6 +1142,7 @@ class ObjectiveView(MethodView):
         nutrient_targets = (
             db.session.query(objective_nutrients)
             .filter_by(objective_id=objective.id)
+            .order_by(objective_nutrients.c.nutrient_id)
             .all()
         )
         nutrient_targets_dict = [
