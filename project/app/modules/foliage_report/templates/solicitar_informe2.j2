@@ -163,6 +163,7 @@
         let cvData = {};
         let nutrientOrder = [];
 
+
         // Function to clear and disable a select element
         function resetSelect(selectElement, defaultOptionText) {
             selectElement.innerHTML = `<option value="" disabled selected>${defaultOptionText}</option>`;
@@ -260,6 +261,7 @@ function updateCropInfo(cropId) {
             let html = '<div class="grid grid-cols-1 md:grid-cols-13 gap-13">';
             order.forEach(nutrient => {
                 if (!(nutrient in cvData)) return;
+
                 html += `
                     <div>
                         <label class="block text-tiny font-medium mb-1">${nutrient}</label>
@@ -279,7 +281,9 @@ function updateCropInfo(cropId) {
                 analysisInfoDiv.classList.add('hidden');
                 analysisInfoContent.innerHTML = '';
                 cvInfoDiv.classList.add('hidden');
+
                 nutrientOrder = [];
+
                 return;
             }
             let html = '';
