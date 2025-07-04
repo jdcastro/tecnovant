@@ -217,3 +217,21 @@ def get_analyses():
         analyses.append(analysis_data)
 
     return jsonify(analyses)
+
+
+@api.route("/cv-nutrients")
+@login_required
+def get_cv_nutrients():
+    """Return coefficient of variation values stored for nutrients."""
+    lot_id = request.args.get("lot_id", type=int)
+    if not lot_id:
+        return jsonify({"error": "lot_id es requerido"}), 400
+
+    lot = Lot.query.get_or_404(lot_id)
+    claims = get_jwt()
+    if not check_resource_access(lot.farm, claims):
+        return jsonify({"error": "No tienes acceso a este lote"}), 403
+
+    nutrients = Nutrient.query.all()
+    data = {n.name: float(n.cv) if n.cv is not None else None for n in nutrients}
+    return jsonify(data)
