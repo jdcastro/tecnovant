@@ -249,6 +249,7 @@ class Nutrient(db.Model):
     unit = db.Column(db.String(20), nullable=False)
     description = db.Column(db.Text)
     category = db.Column(db.Enum(NutrientCategory))
+    cv = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

@@ -10,6 +10,7 @@ class NutrientSchema(Schema):
     unit = fields.Str(required=True)
     org_id = fields.Int()
     description = fields.Str(allow_none=True)
+    cv = fields.Float(allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
@@ -82,6 +83,7 @@ class NutrientSchema(Schema):
     unit = fields.Str(required=True)
     description = fields.Str(allow_none=True)
     category = fields.Str()
+    cv = fields.Float(allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
