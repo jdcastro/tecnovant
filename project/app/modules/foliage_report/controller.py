@@ -41,7 +41,7 @@ from .helpers import (
 
 
 class ReportView(MethodView):
-    """Clase para generar reportes integrados de análisis"""
+    """Clase para presentar reportes integrados de análisis"""
 
     decorators = [jwt_required()]
 
