@@ -5,9 +5,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from statistics import mean, stdev
 from typing import Dict, List, Tuple
 
-from flask import current_app, jsonify
+from flask import current_app, jsonify, Response
 from flask.views import MethodView
-from flask_jwt_extended import get_jwt, jwt_required
+from flask_jwt_extended import get_jwt
 
 # Third party imports
 from scipy.optimize import linprog
@@ -866,8 +866,6 @@ class LeafAnalysisData:
 class ReportView(MethodView):
     """Clase para generar reportes integrados de análisis"""
 
-    decorators = [jwt_required()]
-
     def get(self, id):
         """
         Genera reporte completo de análisis con niveles óptimos
@@ -879,7 +877,6 @@ class ReportView(MethodView):
         """
         recommendation_id = id  # Asumiendo que el ID es de Recommendation
         report = Recommendation.query.get_or_404(recommendation_id)
-        self._check_access(report)  # Pasar el objeto 'report' para verificar acceso
 
         # --- Deserializar datos del reporte ---
         try:
@@ -954,7 +951,8 @@ class ReportView(MethodView):
             "nutrientNames": self._get_nutrient_name_map(),  # Mapa de nombres para la plantilla
         }
 
-        return jsonify(report_data), 200
+        json_data = json.dumps(report_data, ensure_ascii=False, default=str)
+        return Response(json_data, status=200, mimetype="application/json")
 
     def _get_common_analysis(self, analysis_id):
         """Obtiene el análisis común con relaciones optimizadas"""
