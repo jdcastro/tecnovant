@@ -350,44 +350,48 @@ def vista_reporte(report_id):
         # Reconstruct foliarChartData
         if analysisData.get("foliar") and optimalLevels.get("foliar"):
             for nutrient_key, actual_value in analysisData["foliar"].items():
-                if isinstance(
-                    actual_value, (int, float)
-                ):  # Ensure it's a plottable value
-                    levels = optimalLevels["foliar"].get(nutrient_key)
-                    short_name = nutrient_name_map_full_to_short.get(
-                        nutrient_key.lower(), nutrient_key[:3].upper()
+                try:
+                    value = float(actual_value)
+                except (TypeError, ValueError):
+                    continue
+
+                levels = optimalLevels["foliar"].get(nutrient_key)
+                short_name = nutrient_name_map_full_to_short.get(
+                    nutrient_key.lower(), nutrient_key[:3].upper()
+                )
+                if levels and "min" in levels and "max" in levels:
+                    foliarChartData.append(
+                        {
+                            "name": short_name,
+                            "actual": value,
+                            "min": float(levels["min"]),
+                            "max": float(levels["max"]),
+                        }
                     )
-                    if levels and "min" in levels and "max" in levels:
-                        foliarChartData.append(
-                            {
-                                "name": short_name,
-                                "actual": float(actual_value),
-                                "min": float(levels["min"]),
-                                "max": float(levels["max"]),
-                            }
-                        )
 
         # Reconstruct soilChartData
         if analysisData.get("soil") and optimalLevels.get("soil"):
             for nutrient_key, actual_value in analysisData["soil"].items():
-                if isinstance(
-                    actual_value, (int, float)
-                ):  # Ensure it's a plottable value
-                    levels = optimalLevels["soil"].get(nutrient_key)
-                    # Soil chart names might be direct keys like 'pH', 'M.O.'
-                    short_name = nutrient_name_map_full_to_short.get(
-                        nutrient_key.lower(), nutrient_key.replace("_", " ").title()[:4]
+                try:
+                    value = float(actual_value)
+                except (TypeError, ValueError):
+                    continue
+
+                levels = optimalLevels["soil"].get(nutrient_key)
+                # Soil chart names might be direct keys like 'pH', 'M.O.'
+                short_name = nutrient_name_map_full_to_short.get(
+                    nutrient_key.lower(), nutrient_key.replace("_", " ").title()[:4]
+                )
+                if levels and "min" in levels and "max" in levels:
+                    soilChartData.append(
+                        {
+                            "name": short_name,  # Or nutrient_key.title() if more appropriate
+                            "actual": value,
+                            "min": float(levels["min"]),
+                            "max": float(levels["max"]),
+                            "unit": levels.get("unit", ""),
+                        }
                     )
-                    if levels and "min" in levels and "max" in levels:
-                        soilChartData.append(
-                            {
-                                "name": short_name,  # Or nutrient_key.title() if more appropriate
-                                "actual": float(actual_value),
-                                "min": float(levels["min"]),
-                                "max": float(levels["max"]),
-                                "unit": levels.get("unit", ""),
-                            }
-                        )
 
         # Reconstruct recommendations_list
         if report.automatic_recommendations:
