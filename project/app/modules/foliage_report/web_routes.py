@@ -10,11 +10,11 @@ from app.extensions import db
 from app.modules.foliage.models import CommonAnalysis, Crop, Farm, Lot, Recommendation
 
 from . import foliage_report as web
+from .controller import ReportView
 from .helpers import (
     LeafAnalysisResource,
     NutrientOptimizer,
     ObjectiveResource,
-    ReportView,
     calcular_cv_nutriente,
     contribuciones_de_producto,
     determinar_coeficientes_variacion,
