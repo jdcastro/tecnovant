@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from functools import wraps
+import unicodedata
 
 from flask import Response, current_app, jsonify, request
 from flask.views import MethodView
@@ -46,46 +47,110 @@ class ReportView(MethodView):
     decorators = [jwt_required()]
 
     def get(self, id):
-        recommendation = Recommendation.query.get_or_404(id)
+        recommendation = Recommendation.query.options(
+            db.joinedload(Recommendation.lot).joinedload(Lot.farm),
+            db.joinedload(Recommendation.crop),
+        ).get_or_404(id)
 
         def safe_json_load(data):
+            """Safely loads a JSON string, always returning a dictionary."""
             try:
-                return json.loads(data) if data else {}
-            except json.JSONDecodeError:
+                result = json.loads(data) if data else {}
+            except Exception:
+                result = {}
+            if result is None:
                 return {}
+            return result
+
+        def normalize_key(name: str) -> str:
+            key = unicodedata.normalize("NFD", name or "").encode("ascii", "ignore").decode("utf-8")
+            return key.replace(" ", "").lower()
+
+        foliar_raw = safe_json_load(recommendation.foliar_analysis_details)
+        soil_raw = safe_json_load(recommendation.soil_analysis_details)
+
+        foliar = {normalize_key(k): v for k, v in foliar_raw.items() if k != "id"}
+        soil = {normalize_key(k): v for k, v in soil_raw.items() if k != "id"}
+
+        analysisData = {
+            "common": {
+                "id": recommendation.id,
+                "fechaAnalisis": recommendation.date.isoformat(),
+                "finca": recommendation.lot.farm.name if recommendation.lot and recommendation.lot.farm else None,
+                "lote": recommendation.lot.name if recommendation.lot else None,
+            },
+            "foliar": foliar,
+            "soil": soil,
+        }
+
+        optimal_raw = safe_json_load(recommendation.optimal_comparison)
+        optimal_nutrients = {normalize_key(k): v for k, v in optimal_raw.items()}
+        optimalLevels = {
+            "foliar": {k: v for k, v in optimal_nutrients.items() if k in foliar},
+            "soil": {k: v for k, v in optimal_nutrients.items() if k in soil},
+        }
+
+        limitingNutrient = self._get_limiting_nutrient_data(
+            recommendation.limiting_nutrient_id, analysisData, optimalLevels
+        )
+
+        def build_foliar_chart():
+            result = []
+            for k in ["nitrogeno", "fosforo", "potasio", "calcio", "magnesio", "azufre"]:
+                if k in foliar and k in optimalLevels["foliar"]:
+                    opt = optimalLevels["foliar"][k]
+                    result.append({
+                        "name": k[0].upper(),
+                        "actual": foliar[k],
+                        "min": opt.get("min"),
+                        "max": opt.get("max"),
+                    })
+            return result
+
+        def build_soil_chart():
+            result = []
+            mapping = {
+                "ph": "pH",
+                "materiaorganica": "M.O.",
+                "nitrogeno": "N",
+                "fosforo": "P",
+                "potasio": "K",
+                "cic": "CIC",
+            }
+            for k, label in mapping.items():
+                if k in soil and k in optimalLevels["soil"]:
+                    opt = optimalLevels["soil"][k]
+                    result.append({
+                        "name": label,
+                        "actual": soil[k],
+                        "min": opt.get("min"),
+                        "max": opt.get("max"),
+                    })
+            return result
+
+        foliarChartData = build_foliar_chart()
+        soilChartData = build_soil_chart()
+
+        historicalData = self._get_historical_data(recommendation.lot_id, recommendation.date)
+
+        recommendations = []
+        if recommendation.automatic_recommendations:
+            recommendations.append({
+                "title": "Recomendación",
+                "description": recommendation.automatic_recommendations,
+                "priority": "media",
+                "action": "",
+            })
 
         response = {
-            "id": recommendation.id,
-            "date": recommendation.date.isoformat(),
-            "title": recommendation.title,
-            "author": recommendation.author,
-            "crop": {
-                "id": recommendation.crop.id,
-                "name": recommendation.crop.name,
-            } if recommendation.crop else None,
-            "lot": {
-                "id": recommendation.lot.id,
-                "name": recommendation.lot.name,
-                "farm": {
-                    "id": recommendation.lot.farm.id,
-                    "name": recommendation.lot.farm.name,
-                } if recommendation.lot.farm else None,
-            } if recommendation.lot else None,
-            "limiting_nutrient_id": recommendation.limiting_nutrient_id,
-            "automatic_recommendations": recommendation.automatic_recommendations or "",
-            "text_recommendations": recommendation.text_recommendations or "",
-            "optimal_comparison": safe_json_load(recommendation.optimal_comparison),
-            "minimum_law_analyses": safe_json_load(recommendation.minimum_law_analyses),
-            "soil_analysis_details": safe_json_load(recommendation.soil_analysis_details),
-            "foliar_analysis_details": safe_json_load(recommendation.foliar_analysis_details),
-            "applied": recommendation.applied,
-            "active": recommendation.active,
-            "created_at": recommendation.created_at.isoformat(),
-            "updated_at": recommendation.updated_at.isoformat(),
-            "organization": {
-                "id": recommendation.organization.id,
-                "name": recommendation.organization.name,
-            } if recommendation.organization else None
+            "analysisData": analysisData,
+            "optimalLevels": optimalLevels,
+            "foliarChartData": foliarChartData,
+            "soilChartData": soilChartData,
+            "historicalData": historicalData,
+            "nutrientNames": nutrient_names_map,
+            "limitingNutrient": limitingNutrient,
+            "recommendations": recommendations,
         }
 
         return jsonify(response)
@@ -276,7 +341,7 @@ class ReportView(MethodView):
 
         for key, value in analysisData.get("foliar", {}).items():
             if nutrient_names_map.get(key, key).lower() == limiting_name.lower():
-                levels = optimalLevels.get("nutrientes", {}).get(key)
+                levels = optimalLevels.get("foliar", {}).get(key)
                 if (
                     levels
                     and isinstance(levels, dict)
@@ -297,7 +362,7 @@ class ReportView(MethodView):
                 key != "ph"
                 and nutrient_names_map.get(key, key).lower() == limiting_name.lower()
             ):
-                levels = optimalLevels.get("nutrientes", {}).get(key)
+                levels = optimalLevels.get("soil", {}).get(key)
                 if (
                     levels
                     and isinstance(levels, dict)
