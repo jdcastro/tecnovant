@@ -37,7 +37,6 @@ from .helpers import (
     NutrientOptimizer,
     ObjectiveResource,
     contribuciones_de_producto,
-    determinar_coeficientes_variacion,
 )
 
 
@@ -691,8 +690,11 @@ class RecommendationGenerator(MethodView):
         # 3. Contribuciones de producto
         productos_contribuciones_data = contribuciones_de_producto()
 
-        # 4. Coeficientes de variación
-        coeficientes_variacion = determinar_coeficientes_variacion(lot_id)
+        # 4. Coeficientes de variación obtenidos desde el modelo Nutrient
+        coeficientes_variacion = {
+            n.name: Decimal(str(n.cv)) if n.cv is not None else Decimal("0")
+            for n in Nutrient.query.all()
+        }
 
         # --- Instanciar y usar NutrientOptimizer ---
         try:
