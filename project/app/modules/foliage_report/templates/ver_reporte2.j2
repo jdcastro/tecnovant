@@ -226,9 +226,13 @@
                             <div class="absolute inset-x-0 bottom-0 h-12 bg-green-800"></div>
                             <!-- Duelas del barril -->
                             <div class="absolute inset-0 flex justify-around">
-                                {% for nutrient in foliarChartData %}
-                                    {% set percentage = (nutrient.actual / ((nutrient.min + nutrient.max) / 2)) * 100 %}
-                                    {% set isLimiting = limitingNutrient and limitingNutrient.name == nutrient.name %}
+                                {% for nutrient_chart_item in foliarChartData %}
+                                    {% if nutrient_chart_item.min is not none and nutrient_chart_item.max is not none and nutrient_chart_item.max > nutrient_chart_item.min %}
+                                        {% set percentage_of_optimal = (nutrient_chart_item.actual / ((nutrient_chart_item.min + nutrient_chart_item.max) / 2)) * 100 %}
+                                    {% else %}
+                                        {% set percentage_of_optimal = 100 %} {# Default or handle case where min/max is not ideal #}
+                                    {% endif %}
+                                    {% set isLimiting = limitingNutrient and limitingNutrient.name == nutrient_chart_item.data_key %}
                                     <div class="relative h-full w-8 flex flex-col justify-end items-center">
                                         <div
                                             class="w-6 rounded-t-md {{ 'bg-red-500' if isLimiting else 'bg-blue-500' }}"
@@ -374,35 +378,46 @@
                                         </li>
                                     {% endif %}
                                 {% endfor %}
-                                    {% if not (analysisData.foliar|selectattr('is_deficiente', test='attr')|list|length > 0) %}
+                                    {# Check if any deficiencies were found and displayed #}
+                                    {% set has_foliar_deficiencies = false %}
+                                    {% for key, value in analysisData.foliar.items() %}
+                                        {% if key in optimalLevels.foliar and optimalLevels.foliar[key].min is not none and value is not none and value < optimalLevels.foliar[key].min %}
+                                            {% set has_foliar_deficiencies = true %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not has_foliar_deficiencies %}
                                         <li class="text-green-600 flex items-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                                            No se detectaron deficiencias significativas
+                                            No se detectaron deficiencias significativas.
                                         </li>
                                     {% endif %}
-
                             </ul>
                         </div>
                         <div>
                             <h3 class="text-md font-semibold mb-2">Excesos</h3>
                             <ul class="space-y-2">
                                 {% for key, value in analysisData.foliar.items() %}
-                                    {% if key in optimalLevels.foliar and value > optimalLevels.foliar[key].max %}
+                                    {% if key in optimalLevels.foliar and optimalLevels.foliar[key].max is not none and value is not none and value > optimalLevels.foliar[key].max %}
                                         <li class="flex items-start gap-2">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-yellow-500 mt-0.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                             <div>
                                                 <span class="font-medium">{{ nutrientNames[key] or key }}:</span> {{ value }}% (Máximo recomendado: {{ optimalLevels.foliar[key].max }}%)
                                             </div>
                                         </li>
+                                    {% endif %}
+                                {% endfor %}
+                                    {% set has_foliar_excesses = false %}
+                                    {% for key, value in analysisData.foliar.items() %}
+                                        {% if key in optimalLevels.foliar and optimalLevels.foliar[key].max is not none and value is not none and value > optimalLevels.foliar[key].max %}
+                                            {% set has_foliar_excesses = true %}
                                         {% endif %}
                                     {% endfor %}
-                                    {% if not (analysisData.foliar|selectattr('is_excesivo', test='attr')|list|length > 0) %}
+                                    {% if not has_foliar_excesses %}
                                         <li class="text-green-600 flex items-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                                            No se detectaron excesos significativos
+                                            No se detectaron excesos significativos.
                                         </li>
                                     {% endif %}
-
                             </ul>
                         </div>
                     </div>
@@ -529,30 +544,71 @@
                             <h3 class="text-md font-semibold mb-2">Deficiencias</h3>
                             <ul class="space-y-2">
                                 {% for key, value in analysisData.soil.items() %}
-                                    {% if key in optimalLevels.soil and key != 'ph' and key != 'textura' and value < optimalLevels.soil[key].min %}
+                                    {% if key in optimalLevels.soil and key != 'ph' and key != 'textura' and optimalLevels.soil[key].min is not none and value is not none and value < optimalLevels.soil[key].min %}
                                         <li class="flex items-start gap-2">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-red-500 mt-0.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                             <div>
                                                 <p>
-                                                    <span class="font-medium">{{ nutrientNames[key] or key }}:</span> {{ value }}%
-                                                    (Mínimo recomendado: {{ optimalLevels.soil[key].min }}%)
+                                                    <span class="font-medium">{{ nutrientNames[key] or key }}:</span> {{ value }}
+                                                    {% set unit = optimalLevels.soil[key].unit or '%' %}
+                                                    {{ unit }}
+                                                    (Mínimo recomendado: {{ optimalLevels.soil[key].min }} {{ unit }})
                                                 </p>
                                             </div>
                                         </li>
+                                    {% endif %}
+                                {% endfor %}
+                                    {% set has_soil_deficiencies = false %}
+                                    {% for key, value in analysisData.soil.items() %}
+                                        {% if key in optimalLevels.soil and key != 'ph' and key != 'textura' and optimalLevels.soil[key].min is not none and value is not none and value < optimalLevels.soil[key].min %}
+                                            {% set has_soil_deficiencies = true %}
                                         {% endif %}
                                     {% endfor %}
-                                    {% if not (analysisData.soil|selectattr('is_deficiente', test='attr')|list|length > 0) %}
+                                    {% if not has_soil_deficiencies %}
                                         <li class="text-green-600 flex items-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                                            No se detectaron deficiencias significativas
+                                            No se detectaron deficiencias significativas en nutrientes del suelo.
                                         </li>
                                     {% endif %}
                             </ul>
                         </div>
                         <div>
+                             <h3 class="text-md font-semibold mb-2">Excesos en Suelo</h3>
+                             <ul class="space-y-2">
+                                {% for key, value in analysisData.soil.items() %}
+                                    {% if key in optimalLevels.soil and key != 'ph' and key != 'textura' and optimalLevels.soil[key].max is not none and value is not none and value > optimalLevels.soil[key].max %}
+                                     <li class="flex items-start gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-yellow-500 mt-0.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        <div>
+                                            <p>
+                                                <span class="font-medium">{{ nutrientNames[key] or key }}:</span> {{ value }}
+                                                {% set unit = optimalLevels.soil[key].unit or '%' %}
+                                                {{ unit }}
+                                                (Máximo recomendado: {{ optimalLevels.soil[key].max }} {{ unit }})
+                                            </p>
+                                        </div>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                                {% set has_soil_excesses = false %}
+                                {% for key, value in analysisData.soil.items() %}
+                                     {% if key in optimalLevels.soil and key != 'ph' and key != 'textura' and optimalLevels.soil[key].max is not none and value is not none and value > optimalLevels.soil[key].max %}
+                                        {% set has_soil_excesses = true %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if not has_soil_excesses %}
+                                    <li class="text-green-600 flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        No se detectaron excesos significativos en nutrientes del suelo.
+                                    </li>
+                                {% endif %}
+                             </ul>
+                        </div>
+                        <div>
                             {% set ph_value = analysisData.soil.get('ph') %}
+                            {% set ph_optimal_levels = optimalLevels.soil.get('ph') %}
                             <h3 class="text-md font-semibold mb-2">Problemas de pH</h3>
-                            {% if ph_value is not none and ph_value < optimalLevels.soil.ph.min %}
+                            {% if ph_value is not none and ph_optimal_levels and ph_optimal_levels.min is not none and ph_value < ph_optimal_levels.min %}
                                 <div class="flex items-start gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-red-500 mt-0.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                     <div>

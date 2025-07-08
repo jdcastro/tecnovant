@@ -77,25 +77,127 @@ class ReportView(MethodView):
                 "Mo": "molibdeno",
                 "Si": "silicio"
             }
-            normalized_optimal = {
-                normalize_key(k): v for k, v in optimal.items()
-            }
+            # Ensure optimal_levels is a dictionary, specifically for foliar and soil keys
+            # The structure for optimal_levels is expected to be:
+            # {
+            #   "foliar": {"nutrient_name": {"min": X, "max": Y, "unit": "Z"}, ...},
+            #   "soil": {"nutrient_name": {"min": X, "max": Y, "unit": "Z"}, ...}
+            # }
+            # If optimal_comparison is a string, it's parsed from JSON.
+            # If it's already a dict (e.g. from RecommendationGenerator), it's used directly.
             
-            chart = []
-            for name, key in keys.items():
-                actual = foliar.get(key)
-                opt_key = normalize_key(key)
-                opt = normalized_optimal.get(opt_key)
+            optimal_levels_data = {}
+            if isinstance(recommendation.optimal_comparison, str):
+                optimal_levels_data = safe_json_load(recommendation.optimal_comparison)
+            elif isinstance(recommendation.optimal_comparison, dict):
+                optimal_levels_data = recommendation.optimal_comparison
 
-                if actual is not None and opt and "min" in opt and "max" in opt:
-                    chart.append({
-                        "name": name,
-                        "actual": actual,
-                        "min": opt["min"],
-                        "max": opt["max"]
+            # Fallback if optimal_levels_data is still not in the expected nested structure
+            # This might happen if `optimal_comparison` stores a flat dict of nutrients
+            # without the "foliar" or "soil" keys.
+            # We'll assume all such nutrients are "foliar" for now if not nested.
+            # And ensure "foliar" and "soil" keys exist.
+            if not isinstance(optimal_levels_data.get("foliar"), dict) or \
+               not isinstance(optimal_levels_data.get("soil"), dict):
+
+                # Attempt to intelligently restructure if it's a flat dictionary of nutrients
+                is_flat_nutrient_dict = all(
+                    isinstance(v, dict) and ("min" in v or "max" in v or "ideal" in v)
+                    for k, v in optimal_levels_data.items()
+                    if k not in ["foliar", "soil"] # Avoid recursion if already partially structured
+                )
+
+                if is_flat_nutrient_dict and not ("foliar" in optimal_levels_data or "soil" in optimal_levels_data):
+                    # Example: optimal_levels_data = {"nitrogeno": {"min": ...}, "fosforo": {"min": ...}}
+                    # This heuristic assumes such flat structures primarily refer to foliar.
+                    # A more robust solution might involve checking nutrient names against known soil/foliar types.
+                    current_app.logger.info("Restructuring flat optimal_levels_data, assuming foliar for top-level nutrients.")
+                    foliar_part = {k: v for k, v in optimal_levels_data.items()}
+                    optimal_levels_data = {"foliar": foliar_part, "soil": {}}
+                else:
+                    # If it's not a flat dict or already partially structured but malformed, default safely.
+                    current_app.logger.warning(
+                        f"optimal_levels_data is not in the expected nested format. Original: {optimal_levels_data}. Defaulting foliar/soil to empty dicts."
+                    )
+                    if not isinstance(optimal_levels_data.get("foliar"), dict):
+                        optimal_levels_data["foliar"] = {}
+                    if not isinstance(optimal_levels_data.get("soil"), dict):
+                        optimal_levels_data["soil"] = {}
+
+            # Ensure foliar_data and soil_data are dictionaries
+            foliar_analysis_data = safe_json_load(recommendation.foliar_analysis_details) \
+                if isinstance(recommendation.foliar_analysis_details, str) \
+                else (recommendation.foliar_analysis_details or {})
+
+            soil_analysis_data = safe_json_load(recommendation.soil_analysis_details) \
+                if isinstance(recommendation.soil_analysis_details, str) \
+                else (recommendation.soil_analysis_details or {})
+
+
+            # Build chart data for foliar and soil
+            foliar_chart_data = self._build_chart_data(
+                foliar_analysis_data,
+                optimal_levels_data.get("foliar", {}), # Safe access
+                is_soil=False
+            )
+            soil_chart_data = self._build_chart_data(
+                soil_analysis_data,
+                optimal_levels_data.get("soil", {}), # Safe access
+                is_soil=True
+            )
+
+            # Nutrient names map
+            nutrient_names = self._get_nutrient_name_map()
+
+            # Limiting nutrient data
+            # The limiting_nutrient_id stored in recommendation is just a name (string).
+            # We need to reconstruct the structure expected by the template:
+            # {"name": "nutrient_key", "value": X, "percentage": Y, "type": "foliar/soil"}
+            limiting_nutrient_details = self._get_limiting_nutrient_data(
+                recommendation.limiting_nutrient_id,
+                {"foliar": foliar_analysis_data, "soil": soil_analysis_data},
+                optimal_levels_data # Pass the entire optimal_levels_data structure
+            )
+
+            # Recommendations: automatic_recommendations is a text.
+            # The template `vista_report` had a function `generateRecommendations`
+            # which created a list of dicts. We need to adapt this.
+            # For now, we'll pass the raw text and potentially parse it or
+            # adjust the template if it expects a structured list.
+            # The `automatic_recommendations` field in the DB seems to store the text output
+            # from `NutrientOptimizer.generar_recomendacion`.
+            # The template `ver_reporte2.j2` iterates over `recommendations` expecting a list of dicts.
+            # This part needs careful adaptation.
+            # Let's try to parse the automatic_recommendations if it's a JSON string
+            # or simulate the structure if it's plain text.
+            parsed_recommendations = []
+            if recommendation.automatic_recommendations:
+                try:
+                    # If it's a JSON list of recommendations
+                    parsed_recs = json.loads(recommendation.automatic_recommendations)
+                    if isinstance(parsed_recs, list):
+                        parsed_recommendations = parsed_recs
+                    else: # If it's a single JSON object, wrap it in a list
+                        parsed_recommendations = [parsed_recs]
+                except json.JSONDecodeError:
+                    # If it's plain text, create a basic recommendation structure
+                    # This is a placeholder and might need more sophisticated parsing
+                    # based on the actual content of `automatic_recommendations`.
+                    parsed_recommendations.append({
+                        "title": "Recomendación Automática",
+                        "description": recommendation.automatic_recommendations,
+                        "priority": "media", # Default priority
+                        "action": "Revisar detalles en la descripción."
                     })
 
-            return chart
+            # Add text_recommendations if any
+            if recommendation.text_recommendations:
+                 parsed_recommendations.append({
+                        "title": "Recomendaciones Adicionales",
+                        "description": recommendation.text_recommendations,
+                        "priority": "media",
+                        "action": "Considerar estas notas adicionales."
+                    })
 
 
         response = {
@@ -103,19 +205,26 @@ class ReportView(MethodView):
             "date": recommendation.date.isoformat(),
             "title": recommendation.title,
             "author": recommendation.author,
-            "analysisData" : { 
+            "analysisData": {
                 "common": {
-                    "id": recommendation.id,
-                    "fechaAnalisis": recommendation.date.isoformat(),
+                    "id": recommendation.id, # or common_analysis.id if available
+                    "fechaAnalisis": recommendation.date.isoformat(), # or common_analysis.date
                     "finca": recommendation.lot.farm.name if recommendation.lot and recommendation.lot.farm else "N/A",
                     "lote": recommendation.lot.name if recommendation.lot else "N/A",
+                    # Add other common fields if they come from a CommonAnalysis record
+                    # "proteinas": common_analysis.protein if common_analysis else None,
+                    # "descanso": common_analysis.rest if common_analysis else None,
                 },
-                "foliar": foliar_data,
-                "soil": safe_json_load(recommendation.soil_analysis_details),
+                "foliar": foliar_analysis_data,
+                "soil": soil_analysis_data,
             },
-            "optimalLevels" : optimal_levels,
-            "foliarChartData": build_foliar_chart(foliar_data, optimal_levels),
-            "historicalData" : self._get_historical_data(recommendation.lot_id, recommendation.date),
+            "optimalLevels": optimal_levels_data, # Use the processed optimal_levels_data
+            "foliarChartData": foliar_chart_data,
+            "soilChartData": soil_chart_data,
+            "historicalData": self._get_historical_data(recommendation.lot_id, recommendation.date),
+            "nutrientNames": nutrient_names,
+            "limitingNutrient": limiting_nutrient_details,
+            "recommendations": parsed_recommendations, # Use parsed recommendations
             "crop": {
                 "id": recommendation.crop.id,
                 "name": recommendation.crop.name,
@@ -144,6 +253,81 @@ class ReportView(MethodView):
 
         return jsonify(response)
 
+    def _build_chart_data(self, analysis_details, optimal_levels, is_soil=False):
+        """
+        Helper function to build chart data for either foliar or soil analysis.
+        analysis_details: dict of actual nutrient values (e.g., {"nitrogeno": 2.5, ...})
+        optimal_levels: dict of optimal nutrient levels (e.g., {"nitrogeno": {"min": 2.8, "max": 3.5}, ...})
+        is_soil: boolean, True if building for soil, False for foliar.
+        """
+        chart_data = []
+
+        # Define nutrient keys relevant for charts.
+        # These should match keys in analysis_details and optimal_levels.
+        # Normalization of keys (e.g. 'Nitrógeno' vs 'nitrogeno') should be handled
+        # before this function or by ensuring consistency in stored data.
+
+        if is_soil:
+            # Typical soil chart nutrients (adjust as needed)
+            nutrient_keys_map = {
+                "pH": "ph", # pH is a common one, often without min/max in same way
+                "M.O.": "materiaOrganica", # Materia Orgánica
+                "N": "nitrogeno",
+                "P": "fosforo",
+                "K": "potasio",
+                "Ca": "calcio",
+                "Mg": "magnesio",
+                "S": "azufre",
+                "CIC": "cic" # Capacidad de Intercambio Catiónico
+            }
+        else:
+            # Typical foliar chart nutrients
+            nutrient_keys_map = {
+                "N": "nitrogeno", "P": "fosforo", "K": "potasio",
+                "Ca": "calcio", "Mg": "magnesio", "S": "azufre",
+                "Fe": "hierro", "Mn": "manganeso", "Zn": "zinc",
+                "Cu": "cobre", "B": "boro", "Mo": "molibdeno"
+                # "Si": "silicio" # Example, if used
+            }
+
+        for chart_label, data_key in nutrient_keys_map.items():
+            actual_value = analysis_details.get(data_key)
+
+            # Try normalized key for optimal_levels if direct key fails
+            optimal_data_for_key = optimal_levels.get(data_key)
+            if not optimal_data_for_key:
+                 normalized_data_key = normalize_key(data_key)
+                 optimal_data_for_key = optimal_levels.get(normalized_data_key)
+
+
+            if actual_value is not None and optimal_data_for_key and \
+               "min" in optimal_data_for_key and "max" in optimal_data_for_key:
+                try:
+                    chart_data.append({
+                        "name": chart_label, # This is the display name like "N", "P", "pH"
+                        "data_key": data_key, # This is the internal key like "nitrogeno", "ph"
+                        "actual": float(actual_value),
+                        "min": float(optimal_data_for_key["min"]),
+                        "max": float(optimal_data_for_key["max"]),
+                        "unit": optimal_data_for_key.get("unit", "") # Add unit if available
+                    })
+                except (ValueError, TypeError) as e:
+                    current_app.logger.warning(
+                        f"Could not parse chart values for nutrient '{data_key}' (label: {chart_label}): {e}. "
+                        f"Actual: {actual_value}, Optimal: {optimal_data_for_key}"
+                    )
+            elif actual_value is not None and data_key == "ph": # Special handling for pH if it doesn't have min/max
+                 chart_data.append({
+                        "name": chart_label, # pH
+                        "data_key": data_key, # ph
+                        "actual": float(actual_value),
+                        "min": None, # Or some default/expected value if applicable
+                        "max": None,
+                        "unit": optimal_data_for_key.get("unit", "") if optimal_data_for_key else ""
+                    })
+
+
+        return chart_data
 
     def _get_common_analysis(self, analysis_id):
         """Obtiene el análisis común con relaciones optimizadas"""
@@ -179,6 +363,10 @@ class ReportView(MethodView):
 
     def _build_analysis_data(self, analysis):
         """Construye la estructura principal del reporte"""
+        # This method seems to be used by RecommendationGenerator.
+        # It might need adjustment if the source `analysis` (CommonAnalysis)
+        # stores nutrient names differently than `foliar_analysis_details` JSON.
+        # For ReportView.get, we are using foliar_analysis_details directly.
         return {
             "common": self._serialize_common(analysis),
             "foliar": self._get_foliar_data(analysis.leaf_analysis),
@@ -191,9 +379,9 @@ class ReportView(MethodView):
             "id": analysis.id,
             "fechaAnalisis": analysis.date.isoformat(),
             "finca": (
-                analysis.farm_name if analysis.lot and analysis.lot.farm else "N/A"
-            ),
-            "lote": analysis.lot_name if analysis.lot else "N/A",
+                analysis.lot.farm.name if analysis.lot and analysis.lot.farm else "N/A"
+            ), # Corrected to use navigation
+            "lote": analysis.lot.name if analysis.lot else "N/A", # Corrected
             "proteinas": analysis.protein,
             "descanso": analysis.rest,
             "diasDescanso": analysis.rest_days,
@@ -202,35 +390,55 @@ class ReportView(MethodView):
         }
 
     def _get_foliar_data(self, leaf_analysis):
-        """Obtiene y formatea datos foliares"""
+        """Obtiene y formatea datos foliares. Keys are normalized (lowercase, no spaces)."""
         if not leaf_analysis:
-            return None
+            return {} # Return empty dict instead of None
 
         foliar_data = {"id": leaf_analysis.id}
-        nutrients = (
-            db.session.query(leaf_analysis_nutrients)
-            .filter_by(leaf_analysis_id=leaf_analysis.id)
+        # Assuming leaf_analysis.nutrients is a list of NutrientAssociation objects
+        # where each object has .nutrient (Nutrient model) and .value
+        # If leaf_analysis.nutrients is a direct link to Nutrient model through leaf_analysis_nutrients table,
+        # the query to get values needs to be explicit.
+
+        # Current implementation in controller uses a direct query on leaf_analysis_nutrients
+        # Let's stick to that for consistency if this method is used by RecommendationGenerator.
+        nutrient_entries = (
+            db.session.query(Nutrient, leaf_analysis_nutrients.c.value)
+            .join(
+                leaf_analysis_nutrients,
+                Nutrient.id == leaf_analysis_nutrients.c.nutrient_id,
+            )
+            .filter(leaf_analysis_nutrients.c.leaf_analysis_id == leaf_analysis.id)
             .all()
         )
-
-        for nv in nutrients:
-            nutrient = Nutrient.query.get(nv.nutrient_id)
-            if nutrient:
-                key = nutrient.name.lower().replace(" ", "")
-                foliar_data[key] = nv.value
-
+        for nutrient, value in nutrient_entries:
+            key = normalize_key(nutrient.name) # Use normalized key
+            foliar_data[key] = float(value) if value is not None else None
         return foliar_data
 
     def _get_soil_data(self, soil_analysis):
-        """Obtiene y formatea datos de suelo"""
+        """Obtiene y formatea datos de suelo. Keys are property names from SoilAnalysis model."""
         if not soil_analysis:
-            return None
+            return {} # Return empty dict
 
-        return {
-            "id": soil_analysis.id,
-            "energia": soil_analysis.energy,
-            "pastoreo": soil_analysis.grazing,
-        }
+        # Example: extract relevant soil properties. Adjust as per SoilAnalysis model.
+        # This should ideally match the structure expected by `_build_chart_data` and the template.
+        # For instance, if soil_analysis stores "materiaOrganica", "ph", etc.
+        data = {"id": soil_analysis.id}
+        # Assuming SoilAnalysis has attributes like ph, materiaOrganica, nitrogeno, etc.
+        # These need to be explicitly listed or iterated if stored in a related table.
+
+        # For now, let's assume direct attributes for common ones needed by charts.
+        # The `soil_analysis_details` JSON in `Recommendation` model is the primary source for `ReportView.get`.
+        # This helper is more for `RecommendationGenerator` if it builds this from scratch.
+
+        attrs_to_get = ["ph", "materiaOrganica", "nitrogeno", "fosforo", "potasio", "calcio", "magnesio", "azufre", "cic", "energy", "grazing"]
+        for attr in attrs_to_get:
+            if hasattr(soil_analysis, attr):
+                value = getattr(soil_analysis, attr)
+                data[attr] = float(value) if isinstance(value, Decimal) else value
+        return data
+
 
     def _lot_crop_data(self, common_analysis):
         """Obtiene el cultivo activo del lote en la fecha del análisis"""
@@ -327,52 +535,73 @@ class ReportView(MethodView):
 
         return data
 
-    def _get_limiting_nutrient_data(self, limiting_name, analysisData, optimalLevels):
-        """Intenta reconstruir los datos del nutriente limitante."""
-        if not limiting_name or not analysisData or not optimalLevels:
+    def _get_limiting_nutrient_data(self, limiting_name, analysisData, optimalLevels_data):
+        """
+        Intenta reconstruir los datos del nutriente limitante.
+        analysisData: {"foliar": {...}, "soil": {...}}
+        optimalLevels_data: {"foliar": {"nutrient": {"min": X, "max": Y, ...}}, "soil": {"nutrient": {"min": X, "max": Y, ...}}}
+        """
+        if not limiting_name or not analysisData:
             return None
 
-        for key, value in analysisData.get("foliar", {}).items():
-            if nutrient_names_map.get(key, key).lower() == limiting_name.lower():
-                levels = optimalLevels.get("nutrientes", {}).get(key)
-                if (
-                    levels
-                    and isinstance(levels, dict)
-                    and "min" in levels
-                    and "max" in levels
-                ):
-                    optimalMid = (levels["min"] + levels["max"]) / 2
-                    percentage = (value / optimalMid * 100) if optimalMid != 0 else 0
-                    return {
-                        "name": key,
-                        "value": value,
-                        "percentage": percentage,
-                        "type": "foliar",
-                    }
+        # Normalize limiting_name once
+        normalized_limiting_name = normalize_key(limiting_name)
 
-        for key, value in analysisData.get("soil", {}).items():
-            if (
-                key != "ph"
-                and nutrient_names_map.get(key, key).lower() == limiting_name.lower()
-            ):
-                levels = optimalLevels.get("nutrientes", {}).get(key)
-                if (
-                    levels
-                    and isinstance(levels, dict)
-                    and "min" in levels
-                    and "max" in levels
-                ):
-                    optimalMid = (levels["min"] + levels["max"]) / 2
-                    percentage = (value / optimalMid * 100) if optimalMid != 0 else 0
-                    return {
-                        "name": key,
-                        "value": value,
-                        "percentage": percentage,
-                        "type": "soil",
-                    }
+        # Check foliar nutrients
+        foliar_analysis = analysisData.get("foliar", {})
+        foliar_optimal = optimalLevels_data.get("foliar", {})
+        for key, value in foliar_analysis.items():
+            # Normalize key from analysis data for comparison
+            normalized_key = normalize_key(key)
+            if normalized_key == normalized_limiting_name:
+                # Find corresponding optimal levels using original key or normalized one
+                levels = foliar_optimal.get(key) or foliar_optimal.get(normalized_key)
+                if levels and isinstance(levels, dict) and "min" in levels and "max" in levels:
+                    # Ensure values are numeric for calculation
+                    try:
+                        actual_value = float(value)
+                        min_val = float(levels["min"])
+                        max_val = float(levels["max"])
+                        optimal_mid = (min_val + max_val) / 2
+                        percentage = (actual_value / optimal_mid * 100) if optimal_mid != 0 else 0
+                        return {
+                            "name": key, # Return original key
+                            "value": actual_value,
+                            "percentage": round(percentage, 2),
+                            "type": "foliar",
+                        }
+                    except (ValueError, TypeError):
+                        current_app.logger.warning(f"Could not parse values for nutrient {key} in foliar limiting nutrient calculation.")
+                        continue # Skip if values are not numeric
 
+        # Check soil nutrients
+        soil_analysis = analysisData.get("soil", {})
+        soil_optimal = optimalLevels_data.get("soil", {})
+        for key, value in soil_analysis.items():
+            normalized_key = normalize_key(key)
+            if key.lower() != "ph" and normalized_key == normalized_limiting_name:
+                levels = soil_optimal.get(key) or soil_optimal.get(normalized_key)
+                if levels and isinstance(levels, dict) and "min" in levels and "max" in levels:
+                    try:
+                        actual_value = float(value)
+                        min_val = float(levels["min"])
+                        max_val = float(levels["max"])
+                        optimal_mid = (min_val + max_val) / 2
+                        percentage = (actual_value / optimal_mid * 100) if optimal_mid != 0 else 0
+                        return {
+                            "name": key, # Return original key
+                            "value": actual_value,
+                            "percentage": round(percentage, 2),
+                            "type": "soil",
+                        }
+                    except (ValueError, TypeError):
+                        current_app.logger.warning(f"Could not parse values for nutrient {key} in soil limiting nutrient calculation.")
+                        continue # Skip if values are not numeric
+
+        # Fallback if not found or error
         return {
-            "name": limiting_name,
+            "name": limiting_name, # Original name passed
+            "value": None,
             "percentage": None,
             "type": "unknown",
         }
