@@ -702,7 +702,7 @@ function updateCropInfo(cropId) {
                 if (ok && body.report_id) {
                     successMessage.textContent = `Reporte ${body.report_id} generado con éxito. Redirigiendo...`;
                     successMessage.classList.remove('hidden');
-                    const reportViewUrl = form.dataset.report_view_url.replace('0', body.report_id);
+                    const reportViewUrl = form.dataset.reportViewUrl.replace('0', body.report_id);
                     setTimeout(() => {
                         window.location.href = reportViewUrl;
                     }, 1500);
