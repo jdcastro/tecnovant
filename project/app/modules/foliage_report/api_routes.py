@@ -28,7 +28,8 @@ from .controller import (
     RecommendationGenerator,
     RecommendationView,
 )
-from .helpers import ReportView, determinar_coeficientes_variacion
+from .controller import ReportView
+from .helpers import determinar_coeficientes_variacion
 
 report_view = ReportView.as_view("report_view")
 api.add_url_rule("/report/<int:id>", view_func=report_view, methods=["GET"])

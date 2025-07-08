@@ -35,10 +35,338 @@ from .helpers import (
     LeafAnalysisResource,
     NutrientOptimizer,
     ObjectiveResource,
-    ReportView,
     contribuciones_de_producto,
     determinar_coeficientes_variacion,
 )
+
+
+class ReportView(MethodView):
+    """Clase para generar reportes integrados de análisis"""
+
+    decorators = [jwt_required()]
+
+    def get(self, id):
+        """Genera reporte completo de análisis con niveles óptimos"""
+        recommendation_id = id  # Asumiendo que el ID es de Recommendation
+        report = Recommendation.query.get_or_404(recommendation_id)
+        self._check_access(report)  # Pasar el objeto 'report' para verificar acceso
+
+        # --- Deserializar datos del reporte ---
+        try:
+            foliar_details_str = report.foliar_analysis_details or "{}"
+            soil_details_str = report.soil_analysis_details or "{}"
+            optimal_levels_str = report.optimal_comparison or "{}"
+            recommendations_str = (
+                report.automatic_recommendations or "[]"
+            )  # Asumir lista JSON
+
+            foliar_details = json.loads(foliar_details_str)
+            soil_details = json.loads(soil_details_str)
+            optimal_levels = json.loads(optimal_levels_str)
+            recommendations_list = json.loads(recommendations_str)
+
+            # Reconstruir analysisData (Necesita el CommonAnalysis)
+            common_analysis_id_foliar = (
+                foliar_details.get("common_analysis_id")
+                if isinstance(foliar_details, dict)
+                else None
+            )
+            common_analysis_id_soil = (
+                soil_details.get("common_analysis_id")
+                if isinstance(soil_details, dict)
+                else None
+            )
+            common_analysis = None
+            if common_analysis_id_foliar:
+                common_analysis = self._get_common_analysis(common_analysis_id_foliar)
+            elif common_analysis_id_soil:
+                common_analysis = self._get_common_analysis(common_analysis_id_soil)
+
+            if not common_analysis:
+                raise ValueError(
+                    "No se pudo determinar el CommonAnalysis asociado al reporte."
+                )
+
+            analysisData = {
+                "common": self._serialize_common(common_analysis),
+                "foliar": foliar_details,
+                "soil": soil_details,
+            }
+
+            historicalData = self._get_historical_data(report.lot_id, report.date)
+
+            limitingNutrientData = self._get_limiting_nutrient_data(
+                report.limiting_nutrient_id, analysisData, optimal_levels
+            )
+
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+            current_app.logger.error(
+                f"Error deserializando datos del reporte {recommendation_id}: {e}",
+                exc_info=True,
+            )
+            return jsonify({"error": "Error procesando datos del reporte"}), 500
+
+        report_data = {
+            "analysisData": analysisData,
+            "optimalLevels": optimal_levels,
+            "historicalData": historicalData,
+            "recommendations": recommendations_list,
+            "limitingNutrient": limitingNutrientData,
+            "nutrientNames": self._get_nutrient_name_map(),
+        }
+
+        return jsonify(report_data), 200
+
+    def _get_common_analysis(self, analysis_id):
+        """Obtiene el análisis común con relaciones optimizadas"""
+        return CommonAnalysis.query.options(
+            db.joinedload(CommonAnalysis.lot).joinedload(Lot.farm),
+            db.joinedload(CommonAnalysis.soil_analysis),
+            db.joinedload(CommonAnalysis.leaf_analysis),
+        ).get_or_404(analysis_id)
+
+    def _check_access(self, common_analysis):
+        """Valida permisos de acceso a la organización"""
+        claims = get_jwt()
+        user_role = claims.get("rol")
+
+        if user_role == RoleEnum.ADMINISTRATOR.value:
+            return
+
+        if user_role == RoleEnum.RESELLER.value:
+            org_id = (
+                common_analysis.organization.id
+                if common_analysis.organization
+                else None
+            )
+            if not org_id:
+                raise Forbidden("No se pudo determinar la organización del análisis")
+
+            reseller_package = ResellerPackage.query.filter_by(
+                reseller_id=claims.get("org_id")
+            ).first()
+
+            if not reseller_package or org_id not in reseller_package.organization_ids:
+                raise Forbidden("Acceso denegado al recurso")
+
+    def _build_analysis_data(self, analysis):
+        """Construye la estructura principal del reporte"""
+        return {
+            "common": self._serialize_common(analysis),
+            "foliar": self._get_foliar_data(analysis.leaf_analysis),
+            "soil": self._get_soil_data(analysis.soil_analysis),
+        }
+
+    def _serialize_common(self, analysis):
+        """Serializa datos del análisis común"""
+        return {
+            "id": analysis.id,
+            "fechaAnalisis": analysis.date.isoformat(),
+            "finca": (
+                analysis.farm_name if analysis.lot and analysis.lot.farm else "N/A"
+            ),
+            "lote": analysis.lot_name if analysis.lot else "N/A",
+            "proteinas": analysis.protein,
+            "descanso": analysis.rest,
+            "diasDescanso": analysis.rest_days,
+            "mes": analysis.month,
+            "aforo": analysis.yield_estimate,
+        }
+
+    def _get_foliar_data(self, leaf_analysis):
+        """Obtiene y formatea datos foliares"""
+        if not leaf_analysis:
+            return None
+
+        foliar_data = {"id": leaf_analysis.id}
+        nutrients = (
+            db.session.query(leaf_analysis_nutrients)
+            .filter_by(leaf_analysis_id=leaf_analysis.id)
+            .all()
+        )
+
+        for nv in nutrients:
+            nutrient = Nutrient.query.get(nv.nutrient_id)
+            if nutrient:
+                key = nutrient.name.lower().replace(" ", "")
+                foliar_data[key] = nv.value
+
+        return foliar_data
+
+    def _get_soil_data(self, soil_analysis):
+        """Obtiene y formatea datos de suelo"""
+        if not soil_analysis:
+            return None
+
+        return {
+            "id": soil_analysis.id,
+            "energia": soil_analysis.energy,
+            "pastoreo": soil_analysis.grazing,
+        }
+
+    def _lot_crop_data(self, common_analysis):
+        """Obtiene el cultivo activo del lote en la fecha del análisis"""
+        if not common_analysis or not common_analysis.lot_id:
+            return None
+
+        lot_crop = (
+            LotCrop.query.filter(
+                LotCrop.lot_id == common_analysis.lot_id,
+                LotCrop.start_date <= common_analysis.date,
+                db.or_(
+                    LotCrop.end_date >= common_analysis.date, LotCrop.end_date.is_(None)
+                ),
+            )
+            .options(db.joinedload(LotCrop.crop))
+            .first()
+        )
+
+        return lot_crop
+
+    def _get_optimal_levels(self, common_analysis):
+        """Obtiene niveles óptimos del cultivo actual"""
+        lot_crop = self._lot_crop_data(common_analysis)
+        if not lot_crop or not lot_crop.crop:
+            return None
+
+        objective = Objective.query.filter_by(crop_id=lot_crop.crop.id).first()
+        if not objective:
+            return None
+
+        return {
+            "info": {
+                "cultivo": lot_crop.crop.name,
+                "valor_obj": objective.target_value,
+                "proteina": objective.protein,
+                "descanso": objective.rest,
+            },
+            "nutrientes": self._get_nutrient_targets(objective),
+        }
+
+    def _get_nutrient_targets(self, objective):
+        """Obtiene y formatea los objetivos de nutrientes desde objective_nutrients"""
+        targets = {}
+        obj_nutrients = (
+            db.session.query(objective_nutrients)
+            .filter_by(objective_id=objective.id)
+            .all()
+        )
+
+        for on in obj_nutrients:
+            nutrient = Nutrient.query.get(on.nutrient_id)
+            if nutrient:
+                key = nutrient.name.lower().replace(" ", "")
+                targets[key] = (
+                    on.target_value
+                )
+
+        return targets
+
+    def _get_historical_data(self, lot_id, current_date):
+        """Obtiene datos históricos de análisis foliares para el lote (simplificado)."""
+        historical_analyses = (
+            LeafAnalysis.query.join(CommonAnalysis)
+            .filter(CommonAnalysis.lot_id == lot_id, CommonAnalysis.date < current_date)
+            .order_by(CommonAnalysis.date.desc())
+            .limit(5)
+            .all()
+        )
+
+        data = []
+        for analysis in reversed(
+            historical_analyses
+        ):
+            nutrients = (
+                db.session.query(leaf_analysis_nutrients)
+                .filter_by(leaf_analysis_id=analysis.id)
+                .all()
+            )
+            entry = {
+                "fecha": analysis.common_analysis.date.strftime("%b %Y")
+            }
+            for nv in nutrients:
+                nutrient = Nutrient.query.get(nv.nutrient_id)
+                if nutrient and nutrient.name.lower() in [
+                    "nitrogeno",
+                    "fosforo",
+                    "potasio",
+                ]:
+                    entry[nutrient.name.lower()] = nv.value
+            data.append(entry)
+        return data
+
+    def _get_limiting_nutrient_data(self, limiting_name, analysisData, optimalLevels):
+        """Intenta reconstruir los datos del nutriente limitante."""
+        if not limiting_name or not analysisData or not optimalLevels:
+            return None
+
+        for key, value in analysisData.get("foliar", {}).items():
+            if nutrient_names_map.get(key, key).lower() == limiting_name.lower():
+                levels = optimalLevels.get("nutrientes", {}).get(key)
+                if (
+                    levels
+                    and isinstance(levels, dict)
+                    and "min" in levels
+                    and "max" in levels
+                ):
+                    optimalMid = (levels["min"] + levels["max"]) / 2
+                    percentage = (value / optimalMid * 100) if optimalMid != 0 else 0
+                    return {
+                        "name": key,
+                        "value": value,
+                        "percentage": percentage,
+                        "type": "foliar",
+                    }
+
+        for key, value in analysisData.get("soil", {}).items():
+            if (
+                key != "ph"
+                and nutrient_names_map.get(key, key).lower() == limiting_name.lower()
+            ):
+                levels = optimalLevels.get("nutrientes", {}).get(key)
+                if (
+                    levels
+                    and isinstance(levels, dict)
+                    and "min" in levels
+                    and "max" in levels
+                ):
+                    optimalMid = (levels["min"] + levels["max"]) / 2
+                    percentage = (value / optimalMid * 100) if optimalMid != 0 else 0
+                    return {
+                        "name": key,
+                        "value": value,
+                        "percentage": percentage,
+                        "type": "soil",
+                    }
+
+        return {
+            "name": limiting_name,
+            "percentage": None,
+            "type": "unknown",
+        }
+
+    def _get_nutrient_name_map(self):
+        """Genera un mapa de claves internas a nombres legibles."""
+        return {
+            "nitrogeno": "Nitrógeno",
+            "fosforo": "Fósforo",
+            "potasio": "Potasio",
+            "calcio": "Calcio",
+            "magnesio": "Magnesio",
+            "azufre": "Azufre",
+            "hierro": "Hierro",
+            "manganeso": "Manganeso",
+            "zinc": "Zinc",
+            "cobre": "Cobre",
+            "boro": "Boro",
+            "ph": "pH",
+            "materiaOrganica": "Materia Orgánica",
+            "cic": "CIC",
+            # Añade mapeos para todas las claves que uses
+        }
+
+
+nutrient_names_map = ReportView()._get_nutrient_name_map()
 
 
 class RecommendationView(MethodView):
