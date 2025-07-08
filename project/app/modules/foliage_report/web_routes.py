@@ -136,7 +136,10 @@ def vista_reporte(report_id):
 
     def _parse_json(value, default):
         try:
-            return json.loads(value) if value else default
+            if not value:
+                return default
+            parsed = json.loads(value)
+            return default if parsed is None else parsed
         except json.JSONDecodeError:
             current_app.logger.error(
                 f"Error decodificando JSON para Recommendation {report_id}",
