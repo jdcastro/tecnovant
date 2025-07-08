@@ -227,7 +227,11 @@
                             <!-- Duelas del barril -->
                             <div class="absolute inset-0 flex justify-around">
                                 {% for nutrient in foliarChartData %}
+                                    {% if (nutrient.min + nutrient.max) > 0 %}
                                     {% set percentage = (nutrient.actual / ((nutrient.min + nutrient.max) / 2)) * 100 %}
+                                    {% else %}
+                                    {% set percentage = 0 %}
+                                    {% endif %}
                                     {% set isLimiting = limitingNutrient and limitingNutrient.name == nutrient.name %}
                                     <div class="relative h-full w-8 flex flex-col justify-end items-center">
                                         <div
