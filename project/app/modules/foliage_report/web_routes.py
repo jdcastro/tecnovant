@@ -132,7 +132,7 @@ def vista_reporte(report_id):
         return "óptimo"
 
     def getStatusColor(status):
-        match status:
+        match status:   
             case "deficiente":
                 return "text-red-500"
             case "excesivo":
