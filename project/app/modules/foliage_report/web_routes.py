@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from flask import current_app, render_template, request, url_for
 from flask_jwt_extended import get_jwt, jwt_required
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import Forbidden, NotFound
 
 from app.core.controller import check_resource_access, login_required
 from app.extensions import db
@@ -133,7 +133,14 @@ def vista_reporte(report_id):
     report_view = ReportView()
 
     # Obtener los datos del reporte usando la clase helper
-    result = report_view.get(report_id)
+
+    try:
+        result = report_view.get(report_id)
+    except NotFound:
+        return render_template(
+            "error.j2", e_description="Informe no encontrado"
+        ), 404
+
     if isinstance(result, tuple):
         response_obj, status_code = result
     else:
@@ -141,7 +148,13 @@ def vista_reporte(report_id):
         status_code = response_obj.status_code
 
     if status_code != 200:
-        return render_template("error.j2", e_description="No se pudo cargar el informe"), status_code
+
+        return (
+            render_template(
+                "error.j2", e_description="No se pudo cargar el informe"
+            ),
+            status_code,
+        )
 
     data = response_obj.get_json() or {}
 
