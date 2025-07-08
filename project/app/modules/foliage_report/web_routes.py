@@ -7,7 +7,14 @@ from werkzeug.exceptions import Forbidden
 
 from app.core.controller import check_resource_access, login_required
 from app.extensions import db
-from app.modules.foliage.models import CommonAnalysis, Crop, Farm, Lot, Recommendation
+from app.modules.foliage.models import (
+    CommonAnalysis,
+    Crop,
+    Farm,
+    Lot,
+    Recommendation,
+    Nutrient,
+)
 
 from . import foliage_report as web
 from .helpers import (
