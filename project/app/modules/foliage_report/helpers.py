@@ -1209,3 +1209,223 @@ class ReportView(MethodView):
             # Añade mapeos para todas las claves que uses
         }
 
+
+nutrient_names_map = ReportView()._get_nutrient_name_map()
+
+#  Título	Finca / Lote	Cultivo	Fecha	Tipo	Autor
+"""
+REPORTES: 
+Reportes, incluirán los datos completos de un análisis completo común (CommonAnalysis) 
+ahí se identificará el análisis de suelo (SoilAnalysis) y foliar (LeafAnalysis, debe incluir los nutrientes relacionados de la tabla leaf_analysis_nutrients ) relacionados con el ID del CommonAnalysis, esto deben presentarse así (Nota, los datos y listado de nutriente deben obtenerse de los registrados en el modelo Nutrient): 
+        
+        
+    analysisData = {
+        "common": {
+            "id": 3,
+            "fechaAnalisis": "2025-03-26",
+            "finca": "El nuevo rocío",
+            "lote": "Lote 1",
+            "proteinas": 6.0,
+            "descanso": 5.0,
+            "diasDescanso": 5,
+            "mes": 5,
+        },
+        "foliar": {
+            "id": 1,
+            "nitrogeno": 2.5,
+            "fosforo": 0.3,
+            "potasio": 1.8,
+            "calcio": 1.2,
+            "magnesio": 0.4,
+            "azufre": 0.2,
+            "hierro": 85,
+            "manganeso": 45,
+            "zinc": 18,
+            "cobre": 6,
+            "boro": 25,
+        },
+        "soil": {
+            "id": 1,
+            "ph": 6.5,
+            "materiaOrganica": 3.2,
+            "nitrogeno": 0.15,
+            "fosforo": 12,
+            "potasio": 180,
+            "calcio": 1200,
+            "magnesio": 180,
+            "azufre": 15,
+            "textura": "Franco-arcillosa",
+            "cic": 15.2,
+        },
+    }
+    
+optimalLevels se obtendrá a partir del tipo de cultivo, este se comparará con los tipos de cultivo registrados en Crops y sus valores de nutrientes registrados en objective_nutrients (Nota, los datos y listado de nutriente deben obtenerse de los registrados en el modelo Nutrient)
+    optimalLevels = {
+        VALOR OBJETIVO	PROTEÍNA	DESCANSO
+        "info": {
+            "cultivo": "papa", 
+            "valor_obj": "10",
+            "proteina": "8",
+            "descanso": "5",
+        
+        }
+        "nutrientes": {
+            "nitrogeno": {"min": 2.8, "max": 3.5},
+            "fosforo": {"min": 0.2, "max": 0.4},
+            "potasio": {"min": 2.0, "max": 3.0},
+            "calcio": {"min": 1.0, "max": 2.0},
+            "magnesio": {"min": 0.3, "max": 0.6},
+            "azufre": {"min": 0.2, "max": 0.4},
+            "hierro": {"min": 50, "max": 150},
+            "manganeso": {"min": 25, "max": 100},
+            "zinc": {"min": 20, "max": 50},
+            "cobre": {"min": 5, "max": 15},
+            "boro": {"min": 20, "max": 50},
+        },
+    }
+
+    foliarChartData = [
+        {"name": "N", "actual": analysisData["foliar"]["nitrogeno"], "min": optimalLevels["foliar"]["nitrogeno"]["min"], "max": optimalLevels["foliar"]["nitrogeno"]["max"]},
+        {"name": "P", "actual": analysisData["foliar"]["fosforo"], "min": optimalLevels["foliar"]["fosforo"]["min"], "max": optimalLevels["foliar"]["fosforo"]["max"]},
+        {"name": "K", "actual": analysisData["foliar"]["potasio"], "min": optimalLevels["foliar"]["potasio"]["min"], "max": optimalLevels["foliar"]["potasio"]["max"]},
+        {"name": "Ca", "actual": analysisData["foliar"]["calcio"], "min": optimalLevels["foliar"]["calcio"]["min"], "max": optimalLevels["foliar"]["calcio"]["max"]},
+        {"name": "Mg", "actual": analysisData["foliar"]["magnesio"], "min": optimalLevels["foliar"]["magnesio"]["min"], "max": optimalLevels["foliar"]["magnesio"]["max"]},
+        {"name": "S", "actual": analysisData["foliar"]["azufre"], "min": optimalLevels["foliar"]["azufre"]["min"], "max": optimalLevels["foliar"]["azufre"]["max"]},
+    ]
+
+    soilChartData = [
+        {"name": "pH", "actual": analysisData["soil"]["ph"], "min": optimalLevels["soil"]["ph"]["min"], "max": optimalLevels["soil"]["ph"]["max"], "unit": ""},
+        {"name": "M.O.", "actual": analysisData["soil"]["materiaOrganica"], "min": optimalLevels["soil"]["materiaOrganica"]["min"], "max": optimalLevels["soil"]["materiaOrganica"]["max"], "unit": "%"},
+        {"name": "N", "actual": analysisData["soil"]["nitrogeno"], "min": optimalLevels["soil"]["nitrogeno"]["min"], "max": optimalLevels["soil"]["nitrogeno"]["max"], "unit": "%"},
+        {"name": "P", "actual": analysisData["soil"]["fosforo"], "min": optimalLevels["soil"]["fosforo"]["min"], "max": optimalLevels["soil"]["fosforo"]["max"], "unit": "ppm"},
+        {"name": "K", "actual": analysisData["soil"]["potasio"], "min": optimalLevels["soil"]["potasio"]["min"], "max": optimalLevels["soil"]["potasio"]["max"], "unit": "ppm"},
+        {"name": "CIC", "actual": analysisData["soil"]["cic"], "min": optimalLevels["soil"]["cic"]["min"], "max": optimalLevels["soil"]["cic"]["max"], "unit": "meq/100g"},
+    ]
+
+    historicalData = [
+        {"fecha": "Ene 2025", "nitrogeno": 2.3, "fosforo": 0.25, "potasio": 1.5},
+        {"fecha": "Feb 2025", "nitrogeno": 2.4, "fosforo": 0.28, "potasio": 1.6},
+        {"fecha": "Mar 2025", "nitrogeno": 2.5, "fosforo": 0.3, "potasio": 1.8},
+    ]
+
+    nutrientNames = {
+        "nitrogeno": "Nitrógeno",
+        "fosforo": "Fósforo",
+        "potasio": "Potasio",
+        "calcio": "Calcio",
+        "magnesio": "Magnesio",
+        "azufre": "Azufre",
+        "hierro": "Hierro",
+        "manganeso": "Manganeso",
+        "zinc": "Zinc",
+        "cobre": "Cobre",
+        "boro": "Boro",
+        "ph": "pH",
+        "materiaOrganica": "Materia Orgánica",
+        "cic": "CIC",
+    }
+
+    def getNutrientStatus(actual, min, max):
+        if actual < min:
+            return "deficiente"
+        if actual > max:
+            return "excesivo"
+        return "óptimo"
+
+    def getStatusColor(status):
+        match status:
+            case "deficiente":
+                return "text-red-500"
+            case "excesivo":
+                return "text-yellow-500"
+            case "óptimo":
+                return "text-green-500"
+            case _:
+                return ""
+
+    def getStatusIcon(status):
+        match status:
+            case "deficiente":
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-red-500"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+            case "excesivo":
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-yellow-500"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+            case "óptimo":
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+            case _:
+                return ""
+
+    def findLimitingNutrient():
+        limitingNutrient = None
+        lowestPercentage = 100
+
+        for nutrient, value in analysisData["foliar"].items():
+            if nutrient in optimalLevels["foliar"]:
+                min_value = optimalLevels["foliar"][nutrient]["min"]
+                max_value = optimalLevels["foliar"][nutrient]["max"]
+                optimalMid = (min_value + max_value) / 2
+                percentage = (value / optimalMid) * 100
+                if percentage < lowestPercentage and percentage < 90:
+                    lowestPercentage = percentage
+                    limitingNutrient = {
+                        "name": nutrient,
+                        "value": value,
+                        "optimal": optimalMid,
+                        "percentage": percentage,
+                        "type": "foliar",
+                    }
+
+        for nutrient, value in analysisData["soil"].items():
+            if nutrient in optimalLevels["soil"] and nutrient != "ph":
+                min_value = optimalLevels["soil"][nutrient]["min"]
+                max_value = optimalLevels["soil"][nutrient]["max"]
+                optimalMid = (min_value + max_value) / 2
+                percentage = (value / optimalMid) * 100
+                if percentage < lowestPercentage and percentage < 90:
+                    lowestPercentage = percentage
+                    limitingNutrient = {
+                        "name": nutrient,
+                        "value": value,
+                        "optimal": optimalMid,
+                        "percentage": percentage,
+                        "type": "soil",
+                    }
+
+        return limitingNutrient
+
+    def generateRecommendations():
+        recommendations = []
+
+        limitingNutrient = findLimitingNutrient()
+
+        if limitingNutrient:
+            nutrientName = nutrientNames[limitingNutrient["name"]] or limitingNutrient["name"]
+            recommendations.append({
+                "title": f"Corregir deficiencia de {nutrientName}",
+                "description": f"El {nutrientName} es el nutriente limitante según la Ley de Liebig. Está al limitingNutrient['percentage']% del nivel óptimo.",
+                "priority": "alta",
+                "action": "Aplicar fertilizante foliar rico en {nutrientName}" if limitingNutrient["type"] == "foliar" else f"Incorporar {nutrientName} al suelo mediante fertilización",
+            })
+
+        phStatus = getNutrientStatus(analysisData["soil"]["ph"], optimalLevels["soil"]["ph"]["min"], optimalLevels["soil"]["ph"]["max"])
+        if phStatus != "óptimo":
+            recommendations.append({
+                "title": "Corregir acidez del suelo" if phStatus == "deficiente" else "Reducir alcalinidad del suelo",
+                "description": f"El pH actual ({analysisData['soil']['ph']}) está {'por debajo' if phStatus == 'deficiente' else 'por encima'} del rango óptimo.",
+                "priority": "media",
+                "action": "Aplicar cal agrícola para elevar el pH" if phStatus == "deficiente" else "Aplicar azufre elemental o materia orgánica para reducir el pH",
+            })
+
+        moStatus = getNutrientStatus(analysisData["soil"]["materiaOrganica"], optimalLevels["soil"]["materiaOrganica"]["min"], optimalLevels["soil"]["materiaOrganica"]["max"])
+        if moStatus == "deficiente":
+            recommendations.append({
+                "title": "Aumentar materia orgánica",
+                "description": f"El nivel de materia orgánica ({analysisData['soil']['materiaOrganica']}%) está por debajo del óptimo.",
+                "priority": "media",
+                "action": "Incorporar compost, estiércol bien descompuesto o abonos verdes",
+            })
+
+        return recommendations
+
+    limitingNutrient = findLimitingNutrient()
+    recommendations = generateRecommendations()
+"""
