@@ -91,7 +91,7 @@
         <div id="cv-info-content" class="text-sm"></div>
     </div>
     <div id="calc-info" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg shadow hidden">
-        <h2 class="text-lg font-semibold mb-2">Tabla de Cálculos</h2>
+        <h2 class="text-lg font-semibold mb-2">Tabla de Cálculos - Ley Mínimos</h2>
         <div id="calc-info-content" class="text-sm overflow-auto"></div>
     </div>
 </div>
@@ -352,7 +352,7 @@ function updateCropInfo(cropId) {
             order.forEach(n => {
                 const act = actualValues[n];
                 const targ = targetValues[n];
-                const diff = act != null && targ != null ? act - targ : NaN;
+                const diff = act != null && targ != null ? 100 - (act / targ) * 100 : NaN;
                 table += td(diff);
             });
             table += '</tr>';
