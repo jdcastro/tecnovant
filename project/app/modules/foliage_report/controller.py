@@ -55,12 +55,94 @@ class ReportView(MethodView):
         def safe_json_load(data):
             """Safely loads a JSON string, always returning a dictionary."""
             try:
+
                 result = json.loads(data) if data else {}
             except Exception:
                 result = {}
             if result is None:
+
                 return {}
             return result
+
+        def normalize_key(name: str) -> str:
+            key = unicodedata.normalize("NFD", name or "").encode("ascii", "ignore").decode("utf-8")
+            return key.replace(" ", "").lower()
+
+        foliar_raw = safe_json_load(recommendation.foliar_analysis_details)
+        soil_raw = safe_json_load(recommendation.soil_analysis_details)
+
+        foliar = {normalize_key(k): v for k, v in foliar_raw.items() if k != "id"}
+        soil = {normalize_key(k): v for k, v in soil_raw.items() if k != "id"}
+
+        analysisData = {
+            "common": {
+                "id": recommendation.id,
+                "fechaAnalisis": recommendation.date.isoformat(),
+                "finca": recommendation.lot.farm.name if recommendation.lot and recommendation.lot.farm else None,
+                "lote": recommendation.lot.name if recommendation.lot else None,
+            },
+            "foliar": foliar,
+            "soil": soil,
+        }
+
+        optimal_raw = safe_json_load(recommendation.optimal_comparison)
+        optimal_nutrients = {normalize_key(k): v for k, v in optimal_raw.items()}
+        optimalLevels = {
+            "foliar": {k: v for k, v in optimal_nutrients.items() if k in foliar},
+            "soil": {k: v for k, v in optimal_nutrients.items() if k in soil},
+        }
+
+        limitingNutrient = self._get_limiting_nutrient_data(
+            recommendation.limiting_nutrient_id, analysisData, optimalLevels
+        )
+
+        def build_foliar_chart():
+            result = []
+            for k in ["nitrogeno", "fosforo", "potasio", "calcio", "magnesio", "azufre"]:
+                if k in foliar and k in optimalLevels["foliar"]:
+                    opt = optimalLevels["foliar"][k]
+                    result.append({
+                        "name": k[0].upper(),
+                        "actual": foliar[k],
+                        "min": opt.get("min"),
+                        "max": opt.get("max"),
+                    })
+            return result
+
+        def build_soil_chart():
+            result = []
+            mapping = {
+                "ph": "pH",
+                "materiaorganica": "M.O.",
+                "nitrogeno": "N",
+                "fosforo": "P",
+                "potasio": "K",
+                "cic": "CIC",
+            }
+            for k, label in mapping.items():
+                if k in soil and k in optimalLevels["soil"]:
+                    opt = optimalLevels["soil"][k]
+                    result.append({
+                        "name": label,
+                        "actual": soil[k],
+                        "min": opt.get("min"),
+                        "max": opt.get("max"),
+                    })
+            return result
+
+        foliarChartData = build_foliar_chart()
+        soilChartData = build_soil_chart()
+
+        historicalData = self._get_historical_data(recommendation.lot_id, recommendation.date)
+
+        recommendations = []
+        if recommendation.automatic_recommendations:
+            recommendations.append({
+                "title": "Recomendación",
+                "description": recommendation.automatic_recommendations,
+                "priority": "media",
+                "action": "",
+            })
 
         def normalize_key(name: str) -> str:
             key = unicodedata.normalize("NFD", name or "").encode("ascii", "ignore").decode("utf-8")
