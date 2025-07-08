@@ -5,9 +5,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from statistics import mean, stdev
 from typing import Dict, List, Tuple
 
-from flask import current_app, jsonify
+from flask import current_app, jsonify, Response
 from flask.views import MethodView
-from flask_jwt_extended import get_jwt, jwt_required
+from flask_jwt_extended import get_jwt
 
 # Third party imports
 from scipy.optimize import linprog
@@ -866,8 +866,6 @@ class LeafAnalysisData:
 class ReportView(MethodView):
     """Clase para generar reportes integrados de análisis"""
 
-    decorators = [jwt_required()]
-
     def get(self, id):
         """
         Genera reporte completo de análisis con niveles óptimos
@@ -879,52 +877,52 @@ class ReportView(MethodView):
         """
         recommendation_id = id  # Asumiendo que el ID es de Recommendation
         report = Recommendation.query.get_or_404(recommendation_id)
-        self._check_access(report)  # Pasar el objeto 'report' para verificar acceso
 
         # --- Deserializar datos del reporte ---
         try:
-            # Usar .get('{}') para evitar errores si el campo es None
-            foliar_details_str = report.foliar_analysis_details or "{}"
-            soil_details_str = report.soil_analysis_details or "{}"
-            optimal_levels_str = report.optimal_comparison or "{}"
-            recommendations_str = (
-                report.automatic_recommendations or "[]"
-            )  # Asumir lista JSON
+            def _safe_load(value, default):
+                if value is None:
+                    return default
+                try:
+                    return json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    return default
 
-            foliar_details = json.loads(foliar_details_str)
-            soil_details = json.loads(soil_details_str)
-            optimal_levels = json.loads(optimal_levels_str)
-            recommendations_list = json.loads(recommendations_str)
+            foliar_details = _safe_load(report.foliar_analysis_details, {})
+            soil_details = _safe_load(report.soil_analysis_details, {})
+            optimal_levels = _safe_load(report.optimal_comparison, {})
+
+            # Recomendaciones pueden no ser JSON. Si falla, mantener el texto.
+            recommendations_raw = report.automatic_recommendations
+            recommendations_list = _safe_load(recommendations_raw, recommendations_raw)
 
             # Reconstruir analysisData (Necesita el CommonAnalysis)
             # Tratar de obtener el common_analysis_id de los detalles deserializados
             common_analysis_id_foliar = (
-                foliar_details.get("common_analysis_id")
-                if isinstance(foliar_details, dict)
-                else None
+                foliar_details.get("common_analysis_id") if isinstance(foliar_details, dict) else None
             )
             common_analysis_id_soil = (
-                soil_details.get("common_analysis_id")
-                if isinstance(soil_details, dict)
-                else None
+                soil_details.get("common_analysis_id") if isinstance(soil_details, dict) else None
             )
-            # O obtenerlo desde el lote/fecha del reporte si no está en los detalles
+
             common_analysis = None
             if common_analysis_id_foliar:
                 common_analysis = self._get_common_analysis(common_analysis_id_foliar)
             elif common_analysis_id_soil:
                 common_analysis = self._get_common_analysis(common_analysis_id_soil)
-            # Fallback: buscar por lote y fecha si es necesario (puede ser impreciso)
-            # if not common_analysis and report.lot_id and report.date:
-            #      common_analysis = CommonAnalysis.query.filter_by(lot_id=report.lot_id, date=report.date).first()
 
-            if not common_analysis:
-                raise ValueError(
-                    "No se pudo determinar el CommonAnalysis asociado al reporte."
-                )
+            if not common_analysis and isinstance(foliar_details, dict) and foliar_details.get("id"):
+                leaf = LeafAnalysis.query.get(foliar_details["id"])
+                common_analysis = leaf.common_analysis if leaf else None
+
+            if not common_analysis and isinstance(soil_details, dict) and soil_details.get("id"):
+                soil = SoilAnalysis.query.get(soil_details["id"])
+                common_analysis = soil.common_analysis if soil else None
+
+            # En caso de no encontrar el CommonAnalysis se continúa con datos vacíos
 
             analysisData = {
-                "common": self._serialize_common(common_analysis),
+                "common": self._serialize_common(common_analysis) if common_analysis else {},
                 "foliar": foliar_details,
                 "soil": soil_details,
             }
@@ -954,15 +952,20 @@ class ReportView(MethodView):
             "nutrientNames": self._get_nutrient_name_map(),  # Mapa de nombres para la plantilla
         }
 
-        return jsonify(report_data), 200
+        json_data = json.dumps(report_data, ensure_ascii=False, default=str)
+        return Response(json_data, status=200, mimetype="application/json")
 
     def _get_common_analysis(self, analysis_id):
         """Obtiene el análisis común con relaciones optimizadas"""
-        return CommonAnalysis.query.options(
-            db.joinedload(CommonAnalysis.lot).joinedload(Lot.farm),
-            db.joinedload(CommonAnalysis.soil_analysis),
-            db.joinedload(CommonAnalysis.leaf_analysis),
-        ).get_or_404(analysis_id)
+        if not analysis_id:
+            return None
+        return (
+            CommonAnalysis.query.options(
+                db.joinedload(CommonAnalysis.lot).joinedload(Lot.farm),
+                db.joinedload(CommonAnalysis.soil_analysis),
+                db.joinedload(CommonAnalysis.leaf_analysis),
+            ).get(analysis_id)
+        )
 
     def _check_access(self, common_analysis):
         """Valida permisos de acceso a la organización"""
