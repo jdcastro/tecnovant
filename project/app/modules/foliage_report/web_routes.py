@@ -123,10 +123,71 @@ def vista_reporte(report_id):
         "site_title": "Ver Informe",
         "data_menu": get_dashboard_menu(),
     }
+    report_view = ReportView()
+
+    # Obtener los datos del reporte usando la clase helper
+    result = report_view.get(report_id)
+    if isinstance(result, tuple):
+        response_obj, status_code = result
+    else:
+        response_obj = result
+        status_code = response_obj.status_code
+
+    if status_code != 200:
+        return render_template("error.j2", e_description="No se pudo cargar el informe"), status_code
+
+    data = response_obj.get_json() or {}
+
+    analysisData = data.get("analysisData", {})
+    optimalLevels = data.get("optimalLevels", {})
+    historicalData = data.get("historicalData", [])
+    nutrientNames = data.get("nutrientNames", {})
+    limitingNutrient = data.get("limitingNutrient")
+    recommendations = data.get("recommendations", [])
+
+    # Preparar datos para las gráficas
+    foliarChartData = []
+    soilChartData = []
+    optimal_nutrients = optimalLevels.get("nutrientes", optimalLevels)
+
+    for key, levels in optimal_nutrients.items():
+        min_val = levels.get("min") if isinstance(levels, dict) else levels
+        max_val = levels.get("max") if isinstance(levels, dict) else levels
+        unit = levels.get("unit", "") if isinstance(levels, dict) else ""
+
+        if key in analysisData.get("foliar", {}):
+            nutrient = Nutrient.query.filter(Nutrient.name.ilike(key)).first()
+            symbol = nutrient.symbol if nutrient else key[:2].upper()
+            foliarChartData.append({
+                "name": symbol,
+                "actual": analysisData["foliar"].get(key),
+                "min": min_val,
+                "max": max_val,
+            })
+
+        if key in analysisData.get("soil", {}):
+            nutrient = Nutrient.query.filter(Nutrient.name.ilike(key)).first()
+            symbol = nutrient.symbol if nutrient else key[:2].upper()
+            soilChartData.append({
+                "name": symbol,
+                "actual": analysisData["soil"].get(key),
+                "min": min_val,
+                "max": max_val,
+                "unit": unit,
+            })
 
     return render_template(
         "ver_reporte2.j2",
         **context,
+        request=request,
+        analysisData=analysisData,
+        optimalLevels=optimalLevels,
+        foliarChartData=foliarChartData,
+        soilChartData=soilChartData,
+        historicalData=historicalData,
+        nutrientNames=nutrientNames,
+        limitingNutrient=limitingNutrient,
+        recommendations=recommendations,
     )
 
 
