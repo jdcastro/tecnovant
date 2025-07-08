@@ -122,6 +122,140 @@ def vista_reporte(report_id):
         "data_menu": get_dashboard_menu(),
     }
     
+    # usar ReportView para obtener los datos necesarios. 
+    
+    def getNutrientStatus(actual, min, max):
+        if actual < min:
+            return "deficiente"
+        if actual > max:
+            return "excesivo"
+        return "óptimo"
+
+    def getStatusColor(status):
+        match status:
+            case "deficiente":
+                return "text-red-500"
+            case "excesivo":
+                return "text-yellow-500"
+            case "óptimo":
+                return "text-green-500"
+            case _:
+                return ""
+
+    def getStatusIcon(status):
+        match status:
+            case "deficiente":
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-red-500"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+            case "excesivo":
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-yellow-500"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+            case "óptimo":
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="12 2 2 7.86 12 12"></polyline><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+            case _:
+                return ""
+
+    def findLimitingNutrient():
+        limitingNutrient = None
+        lowestPercentage = 100
+
+        for nutrient, value in analysisData["foliar"].items():
+            if nutrient in optimalLevels["foliar"]:
+                min_value = optimalLevels["foliar"][nutrient]["min"]
+                max_value = optimalLevels["foliar"][nutrient]["max"]
+                optimalMid = (min_value + max_value) / 2
+                percentage = (value / optimalMid) * 100
+                if percentage < lowestPercentage and percentage < 90:
+                    lowestPercentage = percentage
+                    limitingNutrient = {
+                        "name": nutrient,
+                        "value": value,
+                        "optimal": optimalMid,
+                        "percentage": percentage,
+                        "type": "foliar",
+                    }
+
+        for nutrient, value in analysisData["soil"].items():
+            if nutrient in optimalLevels["soil"] and nutrient != "ph":
+                min_value = optimalLevels["soil"][nutrient]["min"]
+                max_value = optimalLevels["soil"][nutrient]["max"]
+                optimalMid = (min_value + max_value) / 2
+                percentage = (value / optimalMid) * 100
+                if percentage < lowestPercentage and percentage < 90:
+                    lowestPercentage = percentage
+                    limitingNutrient = {
+                        "name": nutrient,
+                        "value": value,
+                        "optimal": optimalMid,
+                        "percentage": percentage,
+                        "type": "soil",
+                    }
+
+        return limitingNutrient
+
+    def generateRecommendations():
+        recommendations = []
+
+        limitingNutrient = findLimitingNutrient()
+
+        if limitingNutrient:
+            nutrientName = (
+                nutrientNames[limitingNutrient["name"]] or limitingNutrient["name"]
+            )
+            recommendations.append(
+                {
+                    "title": f"Corregir deficiencia de {nutrientName}",
+                    "description": f"El {nutrientName} es el nutriente limitante según la Ley de Liebig. Está al limitingNutrient['percentage']% del nivel óptimo.",
+                    "priority": "alta",
+                    "action": (
+                        "Aplicar fertilizante foliar rico en {nutrientName}"
+                        if limitingNutrient["type"] == "foliar"
+                        else f"Incorporar {nutrientName} al suelo mediante fertilización"
+                    ),
+                }
+            )
+
+        phStatus = getNutrientStatus(
+            analysisData["soil"]["ph"],
+            optimalLevels["soil"]["ph"]["min"],
+            optimalLevels["soil"]["ph"]["max"],
+        )
+        if phStatus != "óptimo":
+            recommendations.append(
+                {
+                    "title": (
+                        "Corregir acidez del suelo"
+                        if phStatus == "deficiente"
+                        else "Reducir alcalinidad del suelo"
+                    ),
+                    "description": f"El pH actual ({analysisData['soil']['ph']}) está {'por debajo' if phStatus == 'deficiente' else 'por encima'} del rango óptimo.",
+                    "priority": "media",
+                    "action": (
+                        "Aplicar cal agrícola para elevar el pH"
+                        if phStatus == "deficiente"
+                        else "Aplicar azufre elemental o materia orgánica para reducir el pH"
+                    ),
+                }
+            )
+
+        moStatus = getNutrientStatus(
+            analysisData["soil"]["materiaOrganica"],
+            optimalLevels["soil"]["materiaOrganica"]["min"],
+            optimalLevels["soil"]["materiaOrganica"]["max"],
+        )
+        if moStatus == "deficiente":
+            recommendations.append(
+                {
+                    "title": "Aumentar materia orgánica",
+                    "description": f"El nivel de materia orgánica ({analysisData['soil']['materiaOrganica']}%) está por debajo del óptimo.",
+                    "priority": "media",
+                    "action": "Incorporar compost, estiércol bien descompuesto o abonos verdes",
+                }
+            )
+
+        return recommendations
+
+    limitingNutrient = findLimitingNutrient()
+    recommendations = generateRecommendations()
+    
     return render_template(
         "ver_reporte2.j2",  # Changed template
         **context,

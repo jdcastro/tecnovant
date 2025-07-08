@@ -144,7 +144,6 @@ class ReportView(MethodView):
 
         return jsonify(response)
 
-
     def _get_common_analysis(self, analysis_id):
         """Obtiene el análisis común con relaciones optimizadas"""
         return CommonAnalysis.query.options(
