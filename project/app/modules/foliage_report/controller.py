@@ -116,7 +116,7 @@ class ReportView(MethodView):
             },
             "optimalLevels" : optimal_levels,
             "foliarChartData": build_foliar_chart(foliar_data, optimal_levels),
-            "historicalData" : self._get_historical_data(recommendation.lot, recommendation.date),
+            "historicalData" : self._get_historical_data(recommendation.lot_id, recommendation.date),
             "crop": {
                 "id": recommendation.crop.id,
                 "name": recommendation.crop.name,
@@ -292,19 +292,25 @@ class ReportView(MethodView):
         return targets
 
     def _get_historical_data(self, lot_id, current_date):
-        """Obtiene datos históricos de análisis foliares para el lote (simplificado)."""
+        """Obtiene datos históricos de análisis foliares para el lote."""
+
+        # Permitir recibir un objeto Lot o simplemente su id
+        if isinstance(lot_id, Lot):
+            lot_id = lot_id.id
+
         historical_analyses = (
             LeafAnalysis.query.join(CommonAnalysis)
-            .filter(CommonAnalysis.lot_id == lot_id, CommonAnalysis.date < current_date)
+            .filter(
+                CommonAnalysis.lot_id == lot_id,
+                CommonAnalysis.date < current_date,
+            )
             .order_by(CommonAnalysis.date.desc())
             .limit(5)
             .all()
         )
 
         data = []
-        for analysis in reversed(
-            historical_analyses
-        ):
+        for analysis in reversed(historical_analyses):
             nutrients = (
                 db.session.query(leaf_analysis_nutrients)
                 .filter_by(leaf_analysis_id=analysis.id)
@@ -315,13 +321,11 @@ class ReportView(MethodView):
             }
             for nv in nutrients:
                 nutrient = Nutrient.query.get(nv.nutrient_id)
-                if nutrient and nutrient.name.lower() in [
-                    "nitrogeno",
-                    "fosforo",
-                    "potasio",
-                ]:
-                    entry[nutrient.name.lower()] = nv.value
+                if nutrient:
+                    key = nutrient.name.lower().replace(" ", "")
+                    entry[key] = nv.value
             data.append(entry)
+
         return data
 
     def _get_limiting_nutrient_data(self, limiting_name, analysisData, optimalLevels):
