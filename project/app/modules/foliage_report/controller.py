@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from functools import wraps
+import unicodedata
 
 from flask import Response, current_app, jsonify, request
 from flask.views import MethodView
@@ -54,11 +55,68 @@ class ReportView(MethodView):
             except json.JSONDecodeError:
                 return {}
 
+        foliar_data = safe_json_load(recommendation.foliar_analysis_details)
+        optimal_levels = safe_json_load(recommendation.optimal_comparison)
+        def normalize_key(s):
+            return ''.join(
+                c for c in unicodedata.normalize('NFD', s.lower())
+                if unicodedata.category(c) != 'Mn'
+            )
+        def build_foliar_chart(foliar, optimal):
+            keys = {
+                "N": "nitrógeno",
+                "P": "fósforo",
+                "K": "potasio",
+                "Ca": "calcio",
+                "Mg": "magnesio",
+                "S": "azufre",
+                "Fe": "hierro",
+                "Mn": "manganeso",
+                "Zn": "zinc",
+                "Cu": "cobre",
+                "B": "boro",
+                "Mo": "molibdeno",
+                "Si": "silicio"
+            }
+            normalized_optimal = {
+                normalize_key(k): v for k, v in optimal.items()
+            }
+            
+            chart = []
+            for name, key in keys.items():
+                actual = foliar.get(key)
+                opt_key = normalize_key(key)
+                opt = normalized_optimal.get(opt_key)
+
+                if actual is not None and opt and "min" in opt and "max" in opt:
+                    chart.append({
+                        "name": name,
+                        "actual": actual,
+                        "min": opt["min"],
+                        "max": opt["max"]
+                    })
+
+            return chart
+
+
         response = {
             "id": recommendation.id,
             "date": recommendation.date.isoformat(),
             "title": recommendation.title,
             "author": recommendation.author,
+            "analysisData" : { 
+                "common": {
+                    "id": recommendation.id,
+                    "fechaAnalisis": recommendation.date.isoformat(),
+                    "finca": recommendation.lot.farm.name if recommendation.lot and recommendation.lot.farm else "N/A",
+                    "lote": recommendation.lot.name if recommendation.lot else "N/A",
+                },
+                "foliar": foliar_data,
+                "soil": safe_json_load(recommendation.soil_analysis_details),
+            },
+            "optimalLevels" : optimal_levels,
+            "foliarChartData": build_foliar_chart(foliar_data, optimal_levels),
+            "historicalData" : self._get_historical_data(recommendation.lot, recommendation.date),
             "crop": {
                 "id": recommendation.crop.id,
                 "name": recommendation.crop.name,
@@ -74,10 +132,7 @@ class ReportView(MethodView):
             "limiting_nutrient_id": recommendation.limiting_nutrient_id,
             "automatic_recommendations": recommendation.automatic_recommendations or "",
             "text_recommendations": recommendation.text_recommendations or "",
-            "optimal_comparison": safe_json_load(recommendation.optimal_comparison),
             "minimum_law_analyses": safe_json_load(recommendation.minimum_law_analyses),
-            "soil_analysis_details": safe_json_load(recommendation.soil_analysis_details),
-            "foliar_analysis_details": safe_json_load(recommendation.foliar_analysis_details),
             "applied": recommendation.applied,
             "active": recommendation.active,
             "created_at": recommendation.created_at.isoformat(),
