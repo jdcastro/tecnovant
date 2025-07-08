@@ -46,76 +46,50 @@ class ReportView(MethodView):
     decorators = [jwt_required()]
 
     def get(self, id):
-        """Genera reporte completo de análisis con niveles óptimos"""
-        recommendation_id = id  # Asumiendo que el ID es de Recommendation
-        report = Recommendation.query.get_or_404(recommendation_id)
-        self._check_access(report)  # Pasar el objeto 'report' para verificar acceso
+        recommendation = Recommendation.query.get_or_404(id)
 
-        # --- Deserializar datos del reporte ---
-        try:
-            foliar_details_str = report.foliar_analysis_details or "{}"
-            soil_details_str = report.soil_analysis_details or "{}"
-            optimal_levels_str = report.optimal_comparison or "{}"
-            recommendations_str = (
-                report.automatic_recommendations or "[]"
-            )  # Asumir lista JSON
+        def safe_json_load(data):
+            try:
+                return json.loads(data) if data else {}
+            except json.JSONDecodeError:
+                return {}
 
-            foliar_details = json.loads(foliar_details_str)
-            soil_details = json.loads(soil_details_str)
-            optimal_levels = json.loads(optimal_levels_str)
-            recommendations_list = json.loads(recommendations_str)
-
-            # Reconstruir analysisData (Necesita el CommonAnalysis)
-            common_analysis_id_foliar = (
-                foliar_details.get("common_analysis_id")
-                if isinstance(foliar_details, dict)
-                else None
-            )
-            common_analysis_id_soil = (
-                soil_details.get("common_analysis_id")
-                if isinstance(soil_details, dict)
-                else None
-            )
-            common_analysis = None
-            if common_analysis_id_foliar:
-                common_analysis = self._get_common_analysis(common_analysis_id_foliar)
-            elif common_analysis_id_soil:
-                common_analysis = self._get_common_analysis(common_analysis_id_soil)
-
-            if not common_analysis:
-                raise ValueError(
-                    "No se pudo determinar el CommonAnalysis asociado al reporte."
-                )
-
-            analysisData = {
-                "common": self._serialize_common(common_analysis),
-                "foliar": foliar_details,
-                "soil": soil_details,
-            }
-
-            historicalData = self._get_historical_data(report.lot_id, report.date)
-
-            limitingNutrientData = self._get_limiting_nutrient_data(
-                report.limiting_nutrient_id, analysisData, optimal_levels
-            )
-
-        except (json.JSONDecodeError, ValueError, AttributeError) as e:
-            current_app.logger.error(
-                f"Error deserializando datos del reporte {recommendation_id}: {e}",
-                exc_info=True,
-            )
-            return jsonify({"error": "Error procesando datos del reporte"}), 500
-
-        report_data = {
-            "analysisData": analysisData,
-            "optimalLevels": optimal_levels,
-            "historicalData": historicalData,
-            "recommendations": recommendations_list,
-            "limitingNutrient": limitingNutrientData,
-            "nutrientNames": self._get_nutrient_name_map(),
+        response = {
+            "id": recommendation.id,
+            "date": recommendation.date.isoformat(),
+            "title": recommendation.title,
+            "author": recommendation.author,
+            "crop": {
+                "id": recommendation.crop.id,
+                "name": recommendation.crop.name,
+            } if recommendation.crop else None,
+            "lot": {
+                "id": recommendation.lot.id,
+                "name": recommendation.lot.name,
+                "farm": {
+                    "id": recommendation.lot.farm.id,
+                    "name": recommendation.lot.farm.name,
+                } if recommendation.lot.farm else None,
+            } if recommendation.lot else None,
+            "limiting_nutrient_id": recommendation.limiting_nutrient_id,
+            "automatic_recommendations": recommendation.automatic_recommendations or "",
+            "text_recommendations": recommendation.text_recommendations or "",
+            "optimal_comparison": safe_json_load(recommendation.optimal_comparison),
+            "minimum_law_analyses": safe_json_load(recommendation.minimum_law_analyses),
+            "soil_analysis_details": safe_json_load(recommendation.soil_analysis_details),
+            "foliar_analysis_details": safe_json_load(recommendation.foliar_analysis_details),
+            "applied": recommendation.applied,
+            "active": recommendation.active,
+            "created_at": recommendation.created_at.isoformat(),
+            "updated_at": recommendation.updated_at.isoformat(),
+            "organization": {
+                "id": recommendation.organization.id,
+                "name": recommendation.organization.name,
+            } if recommendation.organization else None
         }
 
-        return jsonify(report_data), 200
+        return jsonify(response)
+
 
     def _get_common_analysis(self, analysis_id):
         """Obtiene el análisis común con relaciones optimizadas"""
