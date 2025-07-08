@@ -133,6 +133,7 @@ def vista_reporte(report_id):
     report_view = ReportView()
 
     # Obtener los datos del reporte usando la clase helper
+
     try:
         result = report_view.get(report_id)
     except NotFound:
@@ -147,6 +148,7 @@ def vista_reporte(report_id):
         status_code = response_obj.status_code
 
     if status_code != 200:
+
         return (
             render_template(
                 "error.j2", e_description="No se pudo cargar el informe"
