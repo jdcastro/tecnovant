@@ -249,18 +249,17 @@
             </p>
             {# presentacion recomendaciones #}
             {% if minimum_law_analyses and not minimum_law_analyses.error %}
-                {% set limiting_nutrient = (minimum_law_analyses | dictsort(by='value'))[0][0] %}
                 <div class="mt-4">
                     <h3 class="text-lg font-semibold">Nutriente Limitante Detectado</h3>
-                    <p>El {{ limiting_nutrient }} está actuando como factor limitante según la Ley de Liebig. Su nivel actual ({{ minimum_law_analyses[limiting_nutrient].p }}%) está por debajo del óptimo.</p>
+                    <p>El <strong>{{ minimum_law_analyses.nutriente_limitante }}</strong> está actuando como factor limitante según la Ley de Liebig.</p>
                 </div>
 
                 <div class="mt-4">
                     <h3 class="text-lg font-semibold">Deficiencias</h3>
                     <ul>
-                        {% for nutrient, values in minimum_law_analyses.items() %}
-                            {% if values.p < 100 %}
-                                <li>{{ nutrient }}: {{ values.p }}% (Mínimo recomendado: 100%)</li>
+                        {% for nutrient, values in minimum_law_analyses.resultados.items() %}
+                            {% if values['%P'] is number and values['%P'] < 100 %}
+                                <li>{{ nutrient }}: {{ values['%P'] }}% (Mínimo recomendado: 100%)</li>
                             {% endif %}
                         {% endfor %}
                     </ul>
