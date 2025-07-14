@@ -270,6 +270,42 @@
             {# fin presentacion recomendaciones #}
         {# fin contenido recomendaciones #}
         </div>
+        <div class="mb-4  border p-4 rounded-lg">
+                <div class="flex items-center">
+                    <h2 class="text-lg font-bold">Recomendaciones de aplicación de fertilizante</h2>
+                </div>
+                <div class="space-y-4">
+                <pre>{{automatic_recommendations|safe}}</pre>
+            </div>
+        </div>
+         <div class="mb-4  border p-4 rounded-lg">
+                <div class="flex items-center">
+                    <h2 class="text-lg font-bold">Explicación de la Ley de Liebig</h2>
+                </div>
+                <div class="space-y-4">
+                    <p>
+                        La Ley del Mínimo de Liebig, formulada por el químico alemán Justus von Liebig en 1840, establece que el crecimiento de una planta no está determinado por la cantidad total de recursos disponibles, sino por el recurso más escaso (factor limitante).
+                    </p>
+                    <p>
+                        Esta ley se ilustra comúnmente con un barril con duelas de diferentes alturas, donde cada duela representa un nutriente. El nivel de agua en el barril (que representa el crecimiento potencial) está limitado por la duela más corta, independientemente de cuán altas sean las demás.
+                    </p>
+                    <p>En términos prácticos, esto significa que:</p>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li>
+                            Aumentar la disponibilidad de nutrientes que ya están en niveles adecuados tendrá poco o ningún efecto en el rendimiento.
+                        </li>
+                        <li>
+                            El mayor impacto se logra identificando y corrigiendo el factor limitante (el nutriente más deficiente).
+                        </li>
+                        <li>
+                            Una vez corregido un factor limitante, otro nutriente puede convertirse en el nuevo factor limitante.
+                        </li>
+                    </ul>
+                    <p>
+                        Las recomendaciones proporcionadas se basan en este principio, priorizando la corrección de los factores más limitantes para maximizar el rendimiento del cultivo.
+                    </p>
+                </div>
+            </div>
     </div>
 {# fin tab recomendaciones #}
 
@@ -284,6 +320,7 @@
             <p class="text-muted-foreground">
                 Evolución de los principales parámetros a lo largo del tiempo
             </p>
+            
         {# fin contenido historico #}
         </div>
     </div>

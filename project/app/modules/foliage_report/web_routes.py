@@ -128,6 +128,7 @@ def vista_reporte(report_id):
 
     analysis_data = data_response.get("analysisData", {})
     minimum_law_analyses = data_response.get("minimum_law_analyses", {})
+    automatic_recommendations = data_response.get("automatic_recommendations", {})
 
     nutrient_names = {
         "nitrógeno": "N",
@@ -154,6 +155,7 @@ def vista_reporte(report_id):
         analysisData=analysis_data,
         nutrient_names=nutrient_names,
         minimum_law_analyses=minimum_law_analyses,
+        automatic_recommendations=automatic_recommendations,
     )
 
 
