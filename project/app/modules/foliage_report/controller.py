@@ -38,6 +38,7 @@ from .helpers import (
     NutrientOptimizer,
     ObjectiveResource,
     contribuciones_de_producto,
+    precios_de_producto,
 )
 
 
@@ -723,6 +724,7 @@ class RecommendationGenerator(MethodView):
 
         # 3. Contribuciones de producto
         productos_contribuciones_data = contribuciones_de_producto()
+        productos_precios_data = precios_de_producto()
 
         # 4. Coeficientes de variación obtenidos desde el modelo Nutrient
         coeficientes_variacion = {
@@ -736,6 +738,7 @@ class RecommendationGenerator(MethodView):
                 nutrientes_actuales,
                 demandas_ideales,
                 productos_contribuciones_data,
+                productos_precios_data,
                 coeficientes_variacion,
             )
             recomendacion_texto = optimizer.generar_recomendacion(lot_id=lot_id)
