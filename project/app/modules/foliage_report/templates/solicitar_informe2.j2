@@ -629,8 +629,8 @@ function updateCropInfo(cropId) {
 
             // ✅ Convertir a tipos esperados por el backend
             const payload = {
-                lot_id: parseInt(data.lot_id), // <-- Aquí se convierte a entero
-                common_analysis_ids: data.selected_analyses.map(id => parseInt(id)), // <-- Convertir lista a enteros
+                lot_id: parseInt(data.lot_id),
+                common_analysis_id: parseInt(data.selected_analyses[0]),
                 objective_id: parseInt(data.objective_id),
                 title: data.report_title
             };
@@ -650,8 +650,8 @@ function updateCropInfo(cropId) {
                 generateBtn.disabled = false;
                 return;
             }
-            if (payload.common_analysis_ids.some(isNaN)) {
-                errorMessage.textContent = 'Valor inválido en uno o más Análisis seleccionados. Por favor, revise sus selecciones.';
+            if (isNaN(payload.common_analysis_id)) {
+                errorMessage.textContent = 'Valor inválido en el Análisis seleccionado. Por favor, revise su selección.';
                 errorMessage.classList.remove('hidden');
                 loadingMessage.classList.add('hidden');
                 generateBtn.disabled = false;
@@ -680,8 +680,8 @@ function updateCropInfo(cropId) {
     // 5. Validación adicional de tipos
     console.log("\nValidación de tipos:");
     console.log("lot_id (debe ser número):", typeof payload.lot_id);
-    console.log("common_analysis_ids (debe ser array de números):", 
-                payload.common_analysis_ids.map(id => typeof id));
+    console.log("common_analysis_id (debe ser número):",
+                typeof payload.common_analysis_id);
     console.log("objective_id (debe ser número):", typeof payload.objective_id);
     console.log("title (debe ser string):", typeof payload.title);
     
