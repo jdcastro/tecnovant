@@ -34,6 +34,7 @@ from app.modules.foliage.models import (
 
 from .helpers import (
     LeafAnalysisResource,
+    LeyLiebig,
     NutrientOptimizer,
     ObjectiveResource,
     contribuciones_de_producto,
@@ -614,6 +615,7 @@ class RecommendationGenerator(MethodView):
         common_analysis_id = data.get("common_analysis_id")
         objective_id = data.get("objective_id")
         report_title = data.get("title")
+        minimum_law_analyses_str = data.get("minimum_law_analyses")
 
         if not isinstance(lot_id, int):
             raise BadRequest("lot_id debe ser un entero.")
@@ -793,6 +795,34 @@ class RecommendationGenerator(MethodView):
             }
         optimal_comparison_json = json.dumps(optimal_comparison_data, default=str)
 
+        # --- Ley de Mínimos ---
+        minimum_law_analyses_json = None
+        if minimum_law_analyses_str:
+            try:
+                # 1. Parsear el JSON de la tabla
+                resultados_tabla = json.loads(minimum_law_analyses_str)
+
+                # 2. Calcular nutriente limitante
+                demanda_total = sum(demandas_ideales.values())
+                liebig = LeyLiebig(nutrientes_actuales, demanda_total)
+                nutriente_limitante = liebig.calcular_nutriente_limite(
+                    nutrientes_actuales
+                )
+
+                # 3. Formatear el JSON final
+                final_analysis = {
+                    "nutriente_limitante": nutriente_limitante,
+                    "resultados": resultados_tabla,
+                }
+                minimum_law_analyses_json = json.dumps(final_analysis, default=str)
+
+            except json.JSONDecodeError:
+                current_app.logger.warning(
+                    "Error al decodificar minimum_law_analyses_str"
+                )
+            except Exception as e:
+                current_app.logger.error(f"Error procesando Ley de Mínimos: {e}")
+
         # --- Crear y guardar la Recommendation ---
         try:
             new_recommendation = Recommendation(
@@ -807,6 +837,7 @@ class RecommendationGenerator(MethodView):
                 optimal_comparison=optimal_comparison_json,
                 soil_analysis_details=soil_details_json,
                 foliar_analysis_details=foliar_details_json,
+                minimum_law_analyses=minimum_law_analyses_json,
                 # Considerar añadir objective_id y common_analysis_ids_used si se modifica el modelo
                 applied=False,
                 active=True,
