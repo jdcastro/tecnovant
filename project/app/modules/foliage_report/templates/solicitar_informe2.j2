@@ -7,6 +7,7 @@
 </div>
 
 <form id="generateReportForm">
+    <input type="hidden" id="minimum_law_analyses" name="minimum_law_analyses">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="md:col-span-2 space-y-4">
             {# Filtro Finca/Lote/Fechas #}
@@ -360,6 +361,21 @@ function updateCropInfo(cropId) {
             table += '</tbody></table>';
             calcInfoContent.innerHTML = table;
             calcInfoDiv.classList.remove('hidden');
+
+            // --- Store results for submission ---
+            const resultsForDb = {};
+            const rows = calcInfoContent.querySelectorAll('table tbody tr');
+            rows.forEach(row => {
+                const rowHeader = row.querySelector('th').innerText.trim();
+                const cells = row.querySelectorAll('td');
+                order.forEach((nutrient, index) => {
+                    if (!resultsForDb[nutrient]) {
+                        resultsForDb[nutrient] = {};
+                    }
+                    resultsForDb[nutrient][rowHeader] = cells[index].innerText;
+                });
+            });
+            document.getElementById('minimum_law_analyses').value = JSON.stringify(resultsForDb);
         }
 
 
@@ -632,7 +648,8 @@ function updateCropInfo(cropId) {
                 lot_id: parseInt(data.lot_id),
                 common_analysis_id: parseInt(data.selected_analyses[0]),
                 objective_id: parseInt(data.objective_id),
-                title: data.report_title
+                title: data.report_title,
+                minimum_law_analyses: data.minimum_law_analyses
             };
 
             // New NaN checks:
