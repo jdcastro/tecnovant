@@ -27,6 +27,7 @@ from app.modules.foliage.models import (
     Nutrient,
     Objective,
     ProductContribution,
+    ProductPrice,
     Recommendation,
     leaf_analysis_nutrients,
     objective_nutrients,
@@ -152,6 +153,7 @@ class NutrientOptimizer:
         nutrientes_actuales: Dict[str, Decimal],
         demandas_ideales: Dict[str, Decimal],
         productos_contribuciones: Dict[str, Dict[str, Decimal]],
+        productos_precios: Dict[str, Decimal],
         coeficientes_variacion: Dict[str, Decimal],
     ):
         """
@@ -160,11 +162,13 @@ class NutrientOptimizer:
         :param nutrientes_actuales: Diccionario con los niveles actuales de nutrientes (kg/ha o g/ha).
         :param demandas_ideales: Diccionario con los niveles ideales de nutrientes (kg/ha o g/ha).
         :param productos_contribuciones: Diccionario con los productos y sus contribuciones por nutriente.
+        :param productos_precios: Diccionario con los precios de los productos.
         :param coeficientes_variacion: Diccionario con los coeficientes de variación por nutriente.
         """
         self.nutrientes_actuales = nutrientes_actuales
         self.demandas_ideales = demandas_ideales
         self.productos_contribuciones = productos_contribuciones
+        self.productos_precios = productos_precios
         self.coeficientes_variacion = coeficientes_variacion
         self.nutrientes = list(demandas_ideales.keys())
         self.productos = list(productos_contribuciones.keys())
@@ -280,10 +284,12 @@ class NutrientOptimizer:
 
             print(f"Productos útiles: {list(productos_utiles)}")
 
-            # Coeficientes de la función objetivo (minimizar la suma de productos)
+            # Coeficientes de la función objetivo (minimizar el costo total de productos)
             print("Definiendo función objetivo...")
-            c = [1] * len(self.productos)
-            print("Coeficientes de la función objetivo:", c)
+            c = [
+                float(self.productos_precios.get(prod, 0)) for prod in self.productos
+            ]  # Usar precios de productos
+            print("Coeficientes de la función objetivo (costos):", c)
 
             # Matriz de restricciones de desigualdad (A_ub * x >= b_ub)
             # Para linprog necesitamos A_ub * x <= b_ub, así que usamos -A_ub * x <= -b_ub
@@ -590,6 +596,20 @@ def contribuciones_de_producto():
             result[product_name][nutrient.name] = Decimal(
                 str(contribution.contribution)
             )
+
+    return result
+
+
+def precios_de_producto():
+    """Precios de producto"""
+    product_prices = ProductPrice.query.filter(
+        ProductPrice.start_date <= datetime.now(),
+        ProductPrice.end_date >= datetime.now(),
+    ).all()
+
+    result = {}
+    for pp in product_prices:
+        result[pp.product.name] = Decimal(str(pp.price))
 
     return result
 
