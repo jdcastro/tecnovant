@@ -247,7 +247,26 @@
             <p class="text-muted-foreground">
                 Acciones prioritarias para optimizar el rendimiento del cultivo
             </p>
-            {# texto del informe #}
+            {% if minimum_law_analyses and not minimum_law_analyses.error %}
+                {% set limiting_nutrient = (minimum_law_analyses | dictsort(by='value'))[0][0] %}
+                <div class="mt-4">
+                    <h3 class="text-lg font-semibold">Nutriente Limitante Detectado</h3>
+                    <p>El {{ limiting_nutrient }} está actuando como factor limitante según la Ley de Liebig. Su nivel actual ({{ minimum_law_analyses[limiting_nutrient].p }}%) está por debajo del óptimo.</p>
+                </div>
+
+                <div class="mt-4">
+                    <h3 class="text-lg font-semibold">Deficiencias</h3>
+                    <ul>
+                        {% for nutrient, values in minimum_law_analyses.items() %}
+                            {% if values.p < 100 %}
+                                <li>{{ nutrient }}: {{ values.p }}% (Mínimo recomendado: 100%)</li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <p class="mt-4">No se detectaron deficiencias significativas o no se pudo realizar el análisis de Liebig.</p>
+            {% endif %}
         {# fin contenido recomendaciones #}
         </div>
     </div>
