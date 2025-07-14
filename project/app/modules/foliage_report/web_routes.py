@@ -127,6 +127,7 @@ def vista_reporte(report_id):
     data_response = response.get_json()
 
     analysis_data = data_response.get("analysisData", {})
+    minimum_law_analyses = data_response.get("minimum_law_analyses", {})
 
     nutrient_names = {
         "nitrógeno": "N",
@@ -152,6 +153,7 @@ def vista_reporte(report_id):
         request=request,
         analysisData=analysis_data,
         nutrient_names=nutrient_names,
+        minimum_law_analyses=minimum_law_analyses,
     )
 
 
