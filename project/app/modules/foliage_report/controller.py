@@ -1,9 +1,9 @@
 # Python standard library imports
 import json
+import unicodedata
 from datetime import datetime
 from decimal import Decimal
 from functools import wraps
-import unicodedata
 
 from flask import Response, current_app, jsonify, request
 from flask.views import MethodView
@@ -56,11 +56,14 @@ class ReportView(MethodView):
 
         foliar_data = safe_json_load(recommendation.foliar_analysis_details)
         optimal_levels = safe_json_load(recommendation.optimal_comparison)
+
         def normalize_key(s):
-            return ''.join(
-                c for c in unicodedata.normalize('NFD', s.lower())
-                if unicodedata.category(c) != 'Mn'
+            return "".join(
+                c
+                for c in unicodedata.normalize("NFD", s.lower())
+                if unicodedata.category(c) != "Mn"
             )
+
         def build_foliar_chart(foliar, optimal):
             keys = {
                 "N": "nitrógeno",
@@ -75,12 +78,10 @@ class ReportView(MethodView):
                 "Cu": "cobre",
                 "B": "boro",
                 "Mo": "molibdeno",
-                "Si": "silicio"
+                "Si": "silicio",
             }
-            normalized_optimal = {
-                normalize_key(k): v for k, v in optimal.items()
-            }
-            
+            normalized_optimal = {normalize_key(k): v for k, v in optimal.items()}
+
             chart = []
             for name, key in keys.items():
                 actual = foliar.get(key)
@@ -88,46 +89,65 @@ class ReportView(MethodView):
                 opt = normalized_optimal.get(opt_key)
 
                 if actual is not None and opt and "min" in opt and "max" in opt:
-                    chart.append({
-                        "name": name,
-                        "actual": actual,
-                        "min": opt["min"],
-                        "max": opt["max"]
-                    })
+                    chart.append(
+                        {
+                            "name": name,
+                            "actual": actual,
+                            "min": opt["min"],
+                            "max": opt["max"],
+                        }
+                    )
 
             return chart
-
 
         response = {
             "id": recommendation.id,
             "date": recommendation.date.isoformat(),
             "title": recommendation.title,
             "author": recommendation.author,
-            "analysisData" : { 
+            "analysisData": {
                 "common": {
                     "id": recommendation.id,
                     "fechaAnalisis": recommendation.date.isoformat(),
-                    "finca": recommendation.lot.farm.name if recommendation.lot and recommendation.lot.farm else "N/A",
+                    "finca": (
+                        recommendation.lot.farm.name
+                        if recommendation.lot and recommendation.lot.farm
+                        else "N/A"
+                    ),
                     "lote": recommendation.lot.name if recommendation.lot else "N/A",
                 },
                 "foliar": foliar_data,
                 "soil": safe_json_load(recommendation.soil_analysis_details),
             },
-            "optimalLevels" : optimal_levels,
+            "optimalLevels": optimal_levels,
             "foliarChartData": build_foliar_chart(foliar_data, optimal_levels),
-            "historicalData" : self._get_historical_data(recommendation.lot_id, recommendation.date),
-            "crop": {
-                "id": recommendation.crop.id,
-                "name": recommendation.crop.name,
-            } if recommendation.crop else None,
-            "lot": {
-                "id": recommendation.lot.id,
-                "name": recommendation.lot.name,
-                "farm": {
-                    "id": recommendation.lot.farm.id,
-                    "name": recommendation.lot.farm.name,
-                } if recommendation.lot.farm else None,
-            } if recommendation.lot else None,
+            "historicalData": self._get_historical_data(
+                recommendation.lot_id, recommendation.date
+            ),
+            "crop": (
+                {
+                    "id": recommendation.crop.id,
+                    "name": recommendation.crop.name,
+                }
+                if recommendation.crop
+                else None
+            ),
+            "lot": (
+                {
+                    "id": recommendation.lot.id,
+                    "name": recommendation.lot.name,
+                    "farm": (
+                        {
+                            "id": recommendation.lot.farm.id,
+                            "name": recommendation.lot.farm.name,
+                        }
+                        if recommendation.lot.farm
+                        else None
+                    ),
+                }
+                if recommendation.lot
+                else None
+            ),
             "limiting_nutrient_id": recommendation.limiting_nutrient_id,
             "automatic_recommendations": recommendation.automatic_recommendations or "",
             "text_recommendations": recommendation.text_recommendations or "",
@@ -136,10 +156,14 @@ class ReportView(MethodView):
             "active": recommendation.active,
             "created_at": recommendation.created_at.isoformat(),
             "updated_at": recommendation.updated_at.isoformat(),
-            "organization": {
-                "id": recommendation.organization.id,
-                "name": recommendation.organization.name,
-            } if recommendation.organization else None
+            "organization": (
+                {
+                    "id": recommendation.organization.id,
+                    "name": recommendation.organization.name,
+                }
+                if recommendation.organization
+                else None
+            ),
         }
 
         return jsonify(response)
@@ -176,11 +200,13 @@ class ReportView(MethodView):
             if not reseller_package or org_id not in reseller_package.organization_ids:
                 raise Forbidden("Acceso denegado al recurso")
 
-    def _build_analysis_data(self, analysis):
+    def _build_analysis_data(self, analysis, objective_id=None):
         """Construye la estructura principal del reporte"""
         return {
             "common": self._serialize_common(analysis),
-            "foliar": self._get_foliar_data(analysis.leaf_analysis),
+            "foliar": self._get_foliar_data(
+                analysis.leaf_analysis, objective_id=objective_id
+            ),
             "soil": self._get_soil_data(analysis.soil_analysis),
         }
 
@@ -200,23 +226,45 @@ class ReportView(MethodView):
             "aforo": analysis.yield_estimate,
         }
 
-    def _get_foliar_data(self, leaf_analysis):
-        """Obtiene y formatea datos foliares"""
+    def _get_foliar_data(self, leaf_analysis, objective_id=None):
+        """Obtiene y formatea datos foliares con detalles adicionales."""
         if not leaf_analysis:
             return None
 
         foliar_data = {"id": leaf_analysis.id}
-        nutrients = (
+        leaf_nutrients = (
             db.session.query(leaf_analysis_nutrients)
             .filter_by(leaf_analysis_id=leaf_analysis.id)
             .all()
         )
 
-        for nv in nutrients:
-            nutrient = Nutrient.query.get(nv.nutrient_id)
+        # Obtener todos los nutrientes y sus valores ideales del objetivo en una sola consulta
+        ideal_values = {}
+        if objective_id:
+            obj_nutrients = (
+                db.session.query(objective_nutrients)
+                .filter_by(objective_id=objective_id)
+                .all()
+            )
+            ideal_values = {on.nutrient_id: on.target_value for on in obj_nutrients}
+
+        all_nutrients_query = Nutrient.query.all()
+        nutrients_map = {n.id: n for n in all_nutrients_query}
+
+        for ln in leaf_nutrients:
+            nutrient = nutrients_map.get(ln.nutrient_id)
             if nutrient:
                 key = nutrient.name.lower().replace(" ", "")
-                foliar_data[key] = nv.value
+                ideal_value = ideal_values.get(ln.nutrient_id)
+
+                foliar_data[key] = {
+                    "valor": ln.value,
+                    "tipo": (
+                        nutrient.category.value if nutrient.category else "desconocido"
+                    ),
+                    "unidad": nutrient.unit,
+                    "ideal": ideal_value,
+                }
 
         return foliar_data
 
@@ -283,9 +331,7 @@ class ReportView(MethodView):
             nutrient = Nutrient.query.get(on.nutrient_id)
             if nutrient:
                 key = nutrient.name.lower().replace(" ", "")
-                targets[key] = (
-                    on.target_value
-                )
+                targets[key] = on.target_value
 
         return targets
 
@@ -314,9 +360,7 @@ class ReportView(MethodView):
                 .filter_by(leaf_analysis_id=analysis.id)
                 .all()
             )
-            entry = {
-                "fecha": analysis.common_analysis.date.strftime("%b %Y")
-            }
+            entry = {"fecha": analysis.common_analysis.date.strftime("%b %Y")}
             for nv in nutrients:
                 nutrient = Nutrient.query.get(nv.nutrient_id)
                 if nutrient:
@@ -560,8 +604,7 @@ class RecommendationGenerator(MethodView):
 
         data = request.get_json()
         if not data or not all(
-            k in data
-            for k in ["lot_id", "common_analysis_id", "objective_id", "title"]
+            k in data for k in ["lot_id", "common_analysis_id", "objective_id", "title"]
         ):
             raise BadRequest(
                 "Faltan parámetros: lot_id, common_analysis_id, objective_id, title"
@@ -720,8 +763,9 @@ class RecommendationGenerator(MethodView):
         report_creator = ReportView()
 
         # Foliar details from the chosen common_analysis
-        # _build_analysis_data espera un common_analysis completo
-        analysis_data_for_report = report_creator._build_analysis_data(common_analysis)
+        analysis_data_for_report = report_creator._build_analysis_data(
+            common_analysis, objective_id=objective_id
+        )
         foliar_details_json = json.dumps(
             analysis_data_for_report.get("foliar"), default=str
         )
@@ -730,8 +774,10 @@ class RecommendationGenerator(MethodView):
         )
 
         # Optimal comparison from the objective
-        # Necesitamos un método para formatear los datos del objetivo como optimal_levels
+        # TODO: optimal_comparison es una idea incompleta, el objetivo es que eventualmente se 
+        # tenga una tabla de máx y min de cada nutriente para tener alertas e incluirlo en informes
         # Formato esperado: {'Nutriente': {'min': X, 'max': Y, 'ideal': Z, 'unit': 'unidad'}}
+
         optimal_comparison_data = {}
         for nutrient_name, ideal_value in demandas_ideales.items():
             # Encontrar el objeto Nutrient para obtener la unidad

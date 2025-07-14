@@ -107,8 +107,8 @@ def listar_reportes():
     )
 
 
+# desarrollo temporal.
 
-# desarrollo temporal. 
 
 @web.route("/vista_reporte/<int:report_id>")
 @jwt_required()
@@ -127,8 +127,7 @@ def vista_reporte(report_id):
     data_response = response.get_json()
 
     analysis_data = data_response.get("analysisData", {})
-    
-   
+
     nutrient_names = {
         "nitrógeno": "N",
         "fósforo": "P",
@@ -145,14 +144,14 @@ def vista_reporte(report_id):
         "silicio": "Si",
         "ph": "pH",
         "materiaOrganica": "MO",
-        "cic": "CIC"
+        "cic": "CIC",
     }
     return render_template(
         "view_report.j2",
         **context,
         request=request,
         analysisData=analysis_data,
-        nutrient_names=nutrient_names
+        nutrient_names=nutrient_names,
     )
 
 
@@ -558,4 +557,3 @@ def cv_nutrientes():
     limitante = optimizador.identificar_limitante()
     recomendacion = optimizador.generar_recomendacion(lot_id=1)
     return f"Nutriente limitante: {limitante}\n{recomendacion}"
-

@@ -863,7 +863,6 @@ class LeafAnalysisData:
         return str({k: str(v) for k, v in self.nutrient_data.items()})
 
 
-
 #  Título	Finca / Lote	Cultivo	Fecha	Tipo	Autor
 """
 Reportes, incluirán los datos completos de un análisis completo común (CommonAnalysis) 
