@@ -116,7 +116,7 @@ def vista_reporte(report_id):
     claims = get_jwt()
     context = {
         "dashboard": True,
-        "title": "Ver Informe de Análisis",
+        "title": "Análisis y Recomendaciones",
         "description": "Detalles del informe.",
         "author": "Johnny De Castro",
         "site_title": "Ver Informe",
