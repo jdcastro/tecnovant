@@ -553,7 +553,7 @@ class RecommendationGenerator(MethodView):
     def post(self):
         """
         Genera un reporte basado en los parámetros recibidos.
-        Expected JSON: {"lot_id": int, "common_analysis_ids": list[int], "objective_id": int, "title": str}
+        Expected JSON: {"lot_id": int, "common_analysis_id": int, "objective_id": int, "title": str}
         """
         claims = get_jwt()
         author_name = claims.get("username", "Sistema")
@@ -561,55 +561,45 @@ class RecommendationGenerator(MethodView):
         data = request.get_json()
         if not data or not all(
             k in data
-            for k in ["lot_id", "common_analysis_ids", "objective_id", "title"]
+            for k in ["lot_id", "common_analysis_id", "objective_id", "title"]
         ):
             raise BadRequest(
-                "Faltan parámetros: lot_id, common_analysis_ids, objective_id, title"
+                "Faltan parámetros: lot_id, common_analysis_id, objective_id, title"
             )
 
         lot_id = data.get("lot_id")
-        common_analysis_ids = data.get("common_analysis_ids")
+        common_analysis_id = data.get("common_analysis_id")
         objective_id = data.get("objective_id")
         report_title = data.get("title")
 
         if not isinstance(lot_id, int):
             raise BadRequest("lot_id debe ser un entero.")
-        if not isinstance(common_analysis_ids, list) or not all(
-            isinstance(id, int) for id in common_analysis_ids
-        ):
-            raise BadRequest("common_analysis_ids debe ser una lista de enteros.")
-        if not common_analysis_ids:
-            raise BadRequest("common_analysis_ids no puede estar vacía.")
+        if not isinstance(common_analysis_id, int):
+            raise BadRequest("common_analysis_id debe ser un entero.")
+        if not common_analysis_id:
+            raise BadRequest("common_analysis_id no puede estar vacío.")
         if not isinstance(objective_id, int):
             raise BadRequest("objective_id debe ser un entero.")
         if not isinstance(report_title, str) or not report_title.strip():
             raise BadRequest("El título no puede estar vacío.")
 
         # --- Procesar CommonAnalysis ---
-        # Estrategia: Procesar solo el primer common_analysis_id de la lista.
-        if len(common_analysis_ids) > 1:
-            current_app.logger.warning(
-                f"Múltiples common_analysis_ids recibidos: {common_analysis_ids}. "
-                f"Solo se procesará el primero: {common_analysis_ids[0]}."
-            )
-        selected_common_analysis_id = common_analysis_ids[0]
-
         common_analysis = CommonAnalysis.query.options(
             db.joinedload(CommonAnalysis.leaf_analysis)
             .joinedload(LeafAnalysis.nutrients)
             .joinedload(Nutrient.objectives),  # Preload Nutrient for objectives
             db.joinedload(CommonAnalysis.soil_analysis),
             db.joinedload(CommonAnalysis.lot),  # Para crop_id y farm access check
-        ).get(selected_common_analysis_id)
+        ).get(common_analysis_id)
 
         if not common_analysis:
             raise NotFound(
-                f"No se encontró CommonAnalysis con ID {selected_common_analysis_id}."
+                f"No se encontró CommonAnalysis con ID {common_analysis_id}."
             )
 
         if not common_analysis.leaf_analysis:
             raise NotFound(
-                f"CommonAnalysis ID {selected_common_analysis_id} no tiene un LeafAnalysis asociado."
+                f"CommonAnalysis ID {common_analysis_id} no tiene un LeafAnalysis asociado."
             )
 
         # Verificar acceso al lote/finca
