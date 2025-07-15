@@ -108,7 +108,45 @@ def listar_reportes():
 
 
 # desarrollo temporal.
+from datetime import datetime, timedelta
 
+def calculate_trends(historical_data):
+    trends = {}
+
+    # Convertir las fechas a objetos datetime
+    for entry in historical_data:
+        entry['fecha'] = datetime.strptime(entry['fecha'], '%b %Y')
+
+    # Ordenar los datos por fecha
+    historical_data.sort(key=lambda x: x['fecha'])
+
+    # Calcular las tendencias para cada componente
+    for nutrient in historical_data[0].keys():
+        if nutrient != 'fecha':
+            values = [entry[nutrient] for entry in historical_data]
+            dates = [entry['fecha'] for entry in historical_data]
+
+            if len(values) > 1:
+                initial_value = values[0]
+                final_value = values[-1]
+                time_diff = dates[-1] - dates[0]
+
+                if time_diff.days > 0:
+                    if initial_value != 0:
+                        percentage_change = ((final_value - initial_value) / initial_value) * 100
+                        monthly_change = percentage_change / (time_diff.days / 30)
+                    else:
+                        percentage_change = None
+                        monthly_change = None
+
+                    trends[nutrient] = {
+                        'initial_value': initial_value,
+                        'final_value': final_value,
+                        'percentage_change': percentage_change,
+                        'monthly_change': monthly_change
+                    }
+
+    return trends
 
 @web.route("/vista_reporte/<int:report_id>")
 @jwt_required()
@@ -126,17 +164,14 @@ def vista_reporte(report_id):
     response = view.get(report_id)
     data_response = response.get_json()
 
+    # Extraer los datos históricos de la respuesta
+    historical_data = data_response.get("historicalData", [])
+    trends = calculate_trends(historical_data)
+
     analysis_data = data_response.get("analysisData", {})
     minimum_law_analyses = data_response.get("minimum_law_analyses", {})
     automatic_recommendations = data_response.get("automatic_recommendations", {})
-    
-    # Extraer los datos históricos de la respuesta
-    historical_data = data_response.get("historicalData", [])
 
-    context.update({
-        "historical_data": historical_data,
-    })
-    
     nutrient_names = {
         "nitrógeno": "N",
         "fósforo": "P",
@@ -155,6 +190,13 @@ def vista_reporte(report_id):
         "materiaOrganica": "MO",
         "cic": "CIC",
     }
+
+    # Agregar los datos históricos y las tendencias al contexto
+    context.update({
+        "historical_data": historical_data,
+        "trends": trends,
+    })
+
     return render_template(
         "view_report.j2",
         **context,
@@ -164,7 +206,6 @@ def vista_reporte(report_id):
         minimum_law_analyses=minimum_law_analyses,
         automatic_recommendations=automatic_recommendations,
     )
-
 
 @web.route("/vista_report")
 @login_required

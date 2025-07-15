@@ -326,7 +326,25 @@ Se recomienda revisar y validar esta recomendación con un ingeniero agrónomo a
             <p class="text-muted-foreground">
                 Evolución de los principales parámetros a lo largo del tiempo
             </p>
-            <canvas id="historicalChart"></canvas>
+
+    <!-- Gráfica de datos históricos -->
+    <canvas id="historicalChart"></canvas>
+
+    <!-- Análisis de tendencias -->
+    <h2>Tendencias Observadas</h2>
+        <div class="card-body">
+            {% for nutrient, trend in trends.items() %}
+                <h3>{{ nutrient }}</h3>
+                {% if trend.percentage_change is none %}
+                    <p>No hay suficiente información para calcular el cambio porcentual.</p>
+                {% else %}
+                    {% set change_description = 'incremento' if trend.percentage_change >= 0 else 'decremento' %}
+                    {% set months = (trend.final_value - trend.initial_value) / trend.monthly_change if trend.monthly_change != 0 else 'desconocido' %}
+                    {% set rounded_months = months | round(2) if months != 'desconocido' else months %}
+                    <p>{{ change_description.capitalize() }} gradual del {{ trend.initial_value }}% al {{ trend.final_value }}% en los últimos {{ rounded_months }} meses.</p>
+                {% endif %}
+            {% endfor %}
+        </div>
         {# fin contenido historico #}
         </div>
     </div>
