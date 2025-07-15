@@ -779,7 +779,7 @@ class RecommendationGenerator(MethodView):
         )
 
         # Optimal comparison from the objective
-        # TODO: optimal_comparison es una idea incompleta, el objetivo es que eventualmente se 
+        # TODO: optimal_comparison es una idea incompleta, el objetivo es que eventualmente se
         # tenga una tabla de máx y min de cada nutriente para tener alertas e incluirlo en informes
         # Formato esperado: {'Nutriente': {'min': X, 'max': Y, 'ideal': Z, 'unit': 'unidad'}}
 

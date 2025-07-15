@@ -110,21 +110,22 @@ def listar_reportes():
 # desarrollo temporal.
 from datetime import datetime, timedelta
 
+
 def calculate_trends(historical_data):
     trends = {}
 
     # Convertir las fechas a objetos datetime
     for entry in historical_data:
-        entry['fecha'] = datetime.strptime(entry['fecha'], '%b %Y')
+        entry["fecha"] = datetime.strptime(entry["fecha"], "%b %Y")
 
     # Ordenar los datos por fecha
-    historical_data.sort(key=lambda x: x['fecha'])
+    historical_data.sort(key=lambda x: x["fecha"])
 
     # Calcular las tendencias para cada componente
     for nutrient in historical_data[0].keys():
-        if nutrient != 'fecha':
+        if nutrient != "fecha":
             values = [entry[nutrient] for entry in historical_data]
-            dates = [entry['fecha'] for entry in historical_data]
+            dates = [entry["fecha"] for entry in historical_data]
 
             if len(values) > 1:
                 initial_value = values[0]
@@ -133,20 +134,23 @@ def calculate_trends(historical_data):
 
                 if time_diff.days > 0:
                     if initial_value != 0:
-                        percentage_change = ((final_value - initial_value) / initial_value) * 100
+                        percentage_change = (
+                            (final_value - initial_value) / initial_value
+                        ) * 100
                         monthly_change = percentage_change / (time_diff.days / 30)
                     else:
                         percentage_change = None
                         monthly_change = None
 
                     trends[nutrient] = {
-                        'initial_value': initial_value,
-                        'final_value': final_value,
-                        'percentage_change': percentage_change,
-                        'monthly_change': monthly_change
+                        "initial_value": initial_value,
+                        "final_value": final_value,
+                        "percentage_change": percentage_change,
+                        "monthly_change": monthly_change,
                     }
 
     return trends
+
 
 @web.route("/vista_reporte/<int:report_id>")
 @jwt_required()
@@ -192,10 +196,12 @@ def vista_reporte(report_id):
     }
 
     # Agregar los datos históricos y las tendencias al contexto
-    context.update({
-        "historical_data": historical_data,
-        "trends": trends,
-    })
+    context.update(
+        {
+            "historical_data": historical_data,
+            "trends": trends,
+        }
+    )
 
     return render_template(
         "view_report.j2",
@@ -206,6 +212,7 @@ def vista_reporte(report_id):
         minimum_law_analyses=minimum_law_analyses,
         automatic_recommendations=automatic_recommendations,
     )
+
 
 @web.route("/vista_report")
 @login_required
