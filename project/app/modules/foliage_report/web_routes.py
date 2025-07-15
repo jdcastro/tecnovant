@@ -172,6 +172,11 @@ def vista_reporte(report_id):
     minimum_law_analyses = data_response.get("minimum_law_analyses", {})
     automatic_recommendations = data_response.get("automatic_recommendations", {})
 
+    if minimum_law_analyses and 'resultados' in minimum_law_analyses:
+        for nutrient, values in minimum_law_analyses['resultados'].items():
+            if '%P' in values:
+                values['%P'] = Decimal(values['%P'])
+
     nutrient_names = {
         "nitrógeno": "N",
         "fósforo": "P",

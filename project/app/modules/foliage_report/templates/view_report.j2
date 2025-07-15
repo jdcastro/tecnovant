@@ -170,7 +170,7 @@
                             </div>
                         <!-- Porcentaje del nivel óptimo -->
                             <div class="text-sm text-muted-foreground">
-                                {{ minimum_law_analyses.resultados[minimum_law_analyses.nutriente_limitante]['%P']|round }}% del nivel óptimo
+                                {{ minimum_law_analyses.resultados[minimum_law_analyses.nutriente_limitante]['%P']|float|round }}% del nivel óptimo
                             </div>
                         </div>
                     {% else %}

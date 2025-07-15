@@ -65,7 +65,7 @@ class LeyLiebig:
         """
         if self.demanda_planta == 0:
             return Decimal("0.00")
-        return (Decimal(valor_registro) / self.demanda_planta) * Decimal("100.00")
+        return (valor_registro / self.demanda_planta) * Decimal("100.00")
 
     def calcular_i(self, mineral_p: Decimal, mineral_cv: Decimal) -> Decimal:
         """
