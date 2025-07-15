@@ -223,15 +223,52 @@
 {# tab suelos #}
     <div id="soil" class="tabs-content hidden">
         <div class="mb-4 border p-4 rounded-lg">
-        {# contenido suelos #}
+        {# contenido soil #}
             <div class="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-green-500"><path d="M16 17l5-5l-5-5M2 12h6"></path><path d="M18 17v-1a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v1"></path></svg>
                 <h2 class="text-lg font-bold">Interpretación del Análisis de Suelo</h2>
             </div>
             <p class="text-muted-foreground">
-            Evaluación de los resultados según estándares para el cultivo. 
+            Evaluación de los resultados según estándares para el cultivo.
             </p>
-        {# fin contenido suelos #}
+            {% if analysisData.soil %}
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Gráfico de Análisis de Suelo -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-green-800 text-center mb-6">Análisis de Suelo</h2>
+                        <div class="relative h-96 mb-6">
+                            <canvas id="soilChart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Tabla de Datos de Suelo -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-green-800 mb-4">Valores Detallados</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full bg-white rounded-lg overflow-hidden">
+                                <thead class="bg-green-600 text-white">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left font-bold">Parámetro</th>
+                                        <th class="px-6 py-4 text-left font-bold">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    {% for key, value in analysisData.soil.items() %}
+                                        {% if key != 'id' %}
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4">{{ key|title }}</td>
+                                            <td class="px-6 py-4 font-bold text-green-800">{{ value }}</td>
+                                        </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <p class="mt-4">Sin datos de análisis.</p>
+            {% endif %}
+        {# fin contenido soil #}
         </div>
     </div>
 {# fin tab suelos #}
@@ -515,6 +552,86 @@ Se recomienda revisar y validar esta recomendación con un ingeniero agrónomo a
         } else {
             const microContainer = document.getElementById('microChart').parentElement;
             microContainer.innerHTML = '<div class="flex items-center justify-center h-96"><p class="text-gray-500 text-lg">No hay micronutrientes disponibles</p></div>';
+        }
+
+        // Datos del análisis de suelo
+        const soilData = {{ analysisData.soil | tojson }};
+
+        // Crear gráfico de suelo
+        if (soilData && Object.keys(soilData).length > 1) {
+            createSoilChart('soilChart', soilData, 'Análisis de Suelo');
+        } else {
+            const soilContainer = document.getElementById('soilChart').parentElement;
+            soilContainer.innerHTML = '<div class="flex items-center justify-center h-96"><p class="text-gray-500 text-lg">No hay datos de suelo disponibles para graficar</p></div>';
+        }
+
+        function createSoilChart(canvasId, data, title) {
+            const labels = Object.keys(data).filter(key => key !== 'id');
+            const values = labels.map(key => data[key]);
+            const colors = generateColors(labels.length);
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
+                    datasets: [{
+                        label: 'Valor',
+                        data: values,
+                        backgroundColor: colors,
+                        borderColor: colors.map(color => {
+                            if (color.startsWith('hsl')) {
+                                return color.replace('50%)', '40%)');
+                            }
+                            return color;
+                        }),
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Valor',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                color: '#1F2937'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
         }
     
 
