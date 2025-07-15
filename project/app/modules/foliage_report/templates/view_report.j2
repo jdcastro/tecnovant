@@ -558,11 +558,14 @@ Se recomienda revisar y validar esta recomendación con un ingeniero agrónomo a
         const soilData = {{ analysisData.soil | tojson }};
 
         // Crear gráfico de suelo
-        if (soilData && Object.keys(soilData).length > 1) {
-            createSoilChart('soilChart', soilData, 'Análisis de Suelo');
-        } else {
-            const soilContainer = document.getElementById('soilChart').parentElement;
-            soilContainer.innerHTML = '<div class="flex items-center justify-center h-96"><p class="text-gray-500 text-lg">No hay datos de suelo disponibles para graficar</p></div>';
+        const soilChartCanvas = document.getElementById('soilChart');
+        if (soilChartCanvas) {
+            if (soilData && Object.keys(soilData).length > 1) {
+                createSoilChart('soilChart', soilData, 'Análisis de Suelo');
+            } else {
+                const soilContainer = soilChartCanvas.parentElement;
+                soilContainer.innerHTML = '<div class="flex items-center justify-center h-96"><p class="text-gray-500 text-lg">No hay datos de suelo disponibles para graficar</p></div>';
+            }
         }
 
         function createSoilChart(canvasId, data, title) {
