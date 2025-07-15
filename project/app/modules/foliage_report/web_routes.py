@@ -175,7 +175,10 @@ def vista_reporte(report_id):
     if minimum_law_analyses and 'resultados' in minimum_law_analyses:
         for nutrient, values in minimum_law_analyses['resultados'].items():
             if '%P' in values:
-                values['%P'] = Decimal(values['%P'])
+                try:
+                    values['%P'] = Decimal(values['%P'])
+                except decimal.InvalidOperation:
+                    values['%P'] = Decimal('0.0')
 
     nutrient_names = {
         "nitrógeno": "N",
