@@ -129,7 +129,14 @@ def vista_reporte(report_id):
     analysis_data = data_response.get("analysisData", {})
     minimum_law_analyses = data_response.get("minimum_law_analyses", {})
     automatic_recommendations = data_response.get("automatic_recommendations", {})
+    
+    # Extraer los datos históricos de la respuesta
+    historical_data = data_response.get("historicalData", [])
 
+    context.update({
+        "historical_data": historical_data,
+    })
+    
     nutrient_names = {
         "nitrógeno": "N",
         "fósforo": "P",

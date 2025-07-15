@@ -326,7 +326,7 @@ Se recomienda revisar y validar esta recomendación con un ingeniero agrónomo a
             <p class="text-muted-foreground">
                 Evolución de los principales parámetros a lo largo del tiempo
             </p>
-            
+            <canvas id="historicalChart"></canvas>
         {# fin contenido historico #}
         </div>
     </div>
@@ -530,277 +530,57 @@ Se recomienda revisar y validar esta recomendación con un ingeniero agrónomo a
         });
     }
     </script>
-{% endblock %}
-
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-</head>
-<body class="bg-gray-100 font-sans">
-    <div class="max-w-7xl mx-auto p-6">
-        <div class="bg-white rounded-lg shadow-lg p-8">
-            <div class="text-center mb-8 pb-6 border-b-2 border-green-600">
-                <h1 class="text-4xl font-bold text-green-800 mb-2">{{ title }}</h1>
-                <p class="text-gray-600">{{ description }}</p>
-            </div>
-
-            <!-- Información del Informe -->
-            <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg mb-8 border-l-4 border-green-600">
-                <h2 class="text-2xl font-bold text-green-800 mb-4">Información del Informe</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="bg-white p-4 rounded-lg shadow-md">
-                        <label class="block text-sm font-bold text-green-800 uppercase tracking-wide mb-2">Fecha de Análisis:</label>
-                        <span class="text-lg text-gray-800">{{ analysisData.common.fechaAnalisis }}</span>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg shadow-md">
-                        <label class="block text-sm font-bold text-green-800 uppercase tracking-wide mb-2">Finca:</label>
-                        <span class="text-lg text-gray-800">{{ analysisData.common.finca }}</span>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg shadow-md">
-                        <label class="block text-sm font-bold text-green-800 uppercase tracking-wide mb-2">Lote:</label>
-                        <span class="text-lg text-gray-800">{{ analysisData.common.lote }}</span>
-                    </div>
-                    <div class="bg-white p-4 rounded-lg shadow-md">
-                        <label class="block text-sm font-bold text-green-800 uppercase tracking-wide mb-2">ID del Informe:</label>
-                        <span class="text-lg text-gray-800">{{ analysisData.common.id }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos de Análisis Foliar -->
-            <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Macronutrientes -->
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-xl font-bold text-green-800 text-center mb-6">Macronutrientes</h2>
-                    <div class="relative h-96 mb-6">
-                        <canvas id="macroChart"></canvas>
-                    </div>
-                </div>
-                
-                <!-- Micronutrientes -->
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-xl font-bold text-green-800 text-center mb-6">Micronutrientes</h2>
-                    <div class="relative h-96 mb-6">
-                        <canvas id="microChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabla de Datos Nutricionales -->
-            <div class="mt-8">
-                <h2 class="text-2xl font-bold text-green-800 mb-4">Valores Detallados</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full bg-white rounded-lg shadow-lg overflow-hidden">
-                        <thead class="bg-green-600 text-white">
-                            <tr>
-                                <th class="px-6 py-4 text-left font-bold">Nutriente</th>
-                                <th class="px-6 py-4 text-left font-bold">Símbolo</th>
-                                <th class="px-6 py-4 text-left font-bold">Valor Actual</th>
-                                <th class="px-6 py-4 text-left font-bold">Unidad</th>
-                                <th class="px-6 py-4 text-left font-bold">Valor Ideal</th>
-                                <th class="px-6 py-4 text-left font-bold">Tipo</th>
-                                <th class="px-6 py-4 text-left font-bold">% del Ideal</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            {% for nutrient, data in analysisData.foliar.items() %}
-                                {% if nutrient != 'id' and data is mapping %}
-                                <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-4">{{ nutrient|title }}</td>
-                                    <td class="px-6 py-4 font-bold">{{ nutrient_names.get(nutrient, nutrient|upper) }}</td>
-                                    <td class="px-6 py-4 font-bold text-green-800">{{ data.valor }}</td>
-                                    <td class="px-6 py-4">{{ data.unidad }}</td>
-                                    <td class="px-6 py-4 text-blue-600">{{ data.ideal }}</td>
-                                    <td class="px-6 py-4">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                            {% if data.tipo == 'Macronutrient' %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-                                            {{ data.tipo }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        {% set percentage = (data.valor / data.ideal * 100) | round(1) if data.ideal > 0 else 0 %}
-                                        <div class="flex items-center">
-                                            <span class="mr-2 text-sm font-medium">{{ percentage }}%</span>
-                                            <div class="w-20 bg-gray-200 rounded-full h-2">
-                                                <div class="h-2 rounded-full 
-                                                    {% if percentage >= 80 and percentage <= 120 %}bg-green-500
-                                                    {% elif percentage >= 60 and percentage <= 140 %}bg-yellow-500
-                                                    {% else %}bg-red-500{% endif %}" 
-                                                    style="width: {{ [percentage, 100] | min }}%"></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // Datos del análisis foliar
-        const foliarData = {{ analysisData.foliar | tojson }};
-        const nutrientNames = {{ nutrient_names | tojson }};
-        
-        // Función para generar colores dinámicamente
-        function generateColors(count) {
-            const baseColors = [
-                '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6',
-                '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#6366F1'
-            ];
-            
-            if (count > baseColors.length) {
-                for (let i = baseColors.length; i < count; i++) {
-                    const hue = (i * 137.5) % 360;
-                    baseColors.push(`hsl(${hue}, 70%, 50%)`);
+    // Obtén los datos históricos de la plantilla
+    var historicalData = {{ historical_data|tojson|safe }};
+
+    // Prepara los datos para la gráfica
+    var labels = [];
+    var datasets = {};
+
+    historicalData.forEach(function(entry) {
+        labels.push(entry.fecha);
+        for (var nutrient in entry) {
+            if (nutrient !== 'fecha') {
+                if (!datasets[nutrient]) {
+                    datasets[nutrient] = {
+                        label: nutrient,
+                        data: [],
+                        fill: false,
+                        borderColor: '#' + Math.floor(Math.random()*16777215).toString(16),
+                        tension: 0.1
+                    };
+                }
+                datasets[nutrient].data.push(entry[nutrient]);
+            }
+        }
+    });
+
+    // Crea la gráfica
+    var ctx = document.getElementById('historicalChart').getContext('2d');
+    var myLineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: Object.values(datasets)
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Fecha'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Valor'
+                    }
                 }
             }
-            
-            return baseColors.slice(0, count);
         }
-        
-        // Separar nutrientes por tipo
-        function separateNutrientsByType(data) {
-            const macro = {};
-            const micro = {};
-            
-            Object.keys(data).forEach(key => {
-                if (key !== 'id' && data[key] && typeof data[key] === 'object') {
-                    const nutrient = data[key];
-                    if (nutrient.tipo === 'Macronutrient') {
-                        macro[key] = nutrient;
-                    } else if (nutrient.tipo === 'Micronutrient') {
-                        micro[key] = nutrient;
-                    }
-                }
-            });
-            
-            return { macro, micro };
-        }
-        
-        // Crear gráfico horizontal de barras de progreso
-        function createProgressChart(canvasId, data, title) {
-            const nutrients = Object.keys(data);
-            if (nutrients.length === 0) return;
-            
-            const labels = nutrients.map(nutrient => nutrientNames[nutrient] || nutrient.charAt(0).toUpperCase() + nutrient.slice(1));
-            const percentages = nutrients.map(nutrient => {
-                const ideal = data[nutrient].ideal;
-                const actual = data[nutrient].valor;
-                return ideal > 0 ? (actual / ideal) * 100 : 0;
-            });
-            
-            const colors = generateColors(nutrients.length);
-            
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '% del Ideal',
-                        data: percentages,
-                        backgroundColor: colors,
-                        borderColor: colors.map(color => {
-                            if (color.startsWith('hsl')) {
-                                return color.replace('50%)', '40%)');
-                            }
-                            return color;
-                        }),
-                        borderWidth: 1,
-                        borderRadius: 4,
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const nutrientKey = nutrients[context.dataIndex];
-                                    const nutrient = data[nutrientKey];
-                                    const percentage = context.parsed.x.toFixed(1);
-                                    return [
-                                        `${percentage}% del ideal`,
-                                        `Actual: ${nutrient.valor} ${nutrient.unidad}`,
-                                        `Ideal: ${nutrient.ideal} ${nutrient.unidad}`
-                                    ];
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            max: 150, // Máximo 150% para mostrar mejor las barras
-                            title: {
-                                display: true,
-                                text: 'Porcentaje del Valor Ideal (%)',
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                },
-                                color: '#1F2937'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            }
-                        },
-                        y: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                font: {
-                                    size: 11
-                                }
-                            }
-                        }
-                    },
-                    animation: {
-                        duration: 1000,
-                        easing: 'easeInOutQuart'
-                    }
-                }
-            });
-        }
-        
-        // Separar los datos
-        const { macro, micro } = separateNutrientsByType(foliarData);
-        
-        // Crear los gráficos
-        if (Object.keys(macro).length > 0) {
-            createProgressChart('macroChart', macro, 'Macronutrientes');
-        } else {
-            const macroContainer = document.getElementById('macroChart').parentElement;
-            macroContainer.innerHTML = '<div class="flex items-center justify-center h-96"><p class="text-gray-500 text-lg">No hay macronutrientes disponibles</p></div>';
-        }
-        
-        if (Object.keys(micro).length > 0) {
-            createProgressChart('microChart', micro, 'Micronutrientes');
-        } else {
-            const microContainer = document.getElementById('microChart').parentElement;
-            microContainer.innerHTML = '<div class="flex items-center justify-center h-96"><p class="text-gray-500 text-lg">No hay micronutrientes disponibles</p></div>';
-        }
-    </script>
-</body>
-</html>
+    });
+</script>
+{% endblock %}
